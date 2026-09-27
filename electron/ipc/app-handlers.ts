@@ -43,6 +43,7 @@ import {
   setTheme,
   setAgentDirectives,
   setWorktreePrefs,
+  setContextBudget,
   setDraft,
   clearDraft,
   setDrafts,
@@ -280,6 +281,10 @@ export function registerAppHandlers(): void {
 
   handle('app:setAgentDirectives', (_event, directives, projectPath) => {
     setAgentDirectives(directives, projectPath)
+  })
+
+  handle('app:setContextBudget', (_event, value: string) => {
+    setContextBudget(value)
   })
 
   handle('app:markSessionSeen', (_event, sessionPath: string) => {

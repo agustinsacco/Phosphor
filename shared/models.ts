@@ -581,6 +581,20 @@ export interface AppPrefs {
   /** Rating/feedback state: launch count, the one-time nudge, the relay. */
   feedback: FeedbackPrefs
   /**
+   * How large an interactive session may grow before pi compacts it: one
+   * token count for every provider, Claude Code included (Settings → Agent →
+   * Context budget). It holds a session whose model window is larger than
+   * it; a smaller window keeps pi's own threshold. The rule is
+   * `sessionContextBudget` in `shared/context-budget.ts`, enforced when a
+   * turn settles by `electron/pi/context-budget.ts`. Empty string means the
+   * default (200k). Other accepted values: a budget from 100k to 1M (`400k`,
+   * `400000`, bare `400` = thousands), or `auto` / `off` for no budget, so
+   * each session compacts only near its window. Stored as the Claude-only
+   * `claudeAutocompact` until pi compacted every provider
+   * (`electron/prefs-migrations.ts`).
+   */
+  contextBudget: string
+  /**
    * Set once the one-time check for a leftover `compaction.enabled: false` in
    * pi's global settings.json has run (`electron/pi/compaction-reset.ts`).
    * Optional and not handed to the renderer: nothing there reads it.
@@ -803,6 +817,7 @@ export const DEFAULT_APP_PREFS: AppPrefs = {
   maintenance: DEFAULT_MAINTENANCE_PREFS,
   headroom: DEFAULT_HEADROOM_PREFS,
   feedback: DEFAULT_FEEDBACK_PREFS,
+  contextBudget: '',
   claudeAccounts: DEFAULT_CLAUDE_ACCOUNT_PREFS,
   drafts: {},
 }

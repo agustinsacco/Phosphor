@@ -58,13 +58,21 @@ project scope, an empty field's placeholder names what it inherits.
 - Compaction (enabled, reserveTokens, keepRecentTokens) and retry (enabled,
   maxRetries, baseDelayMs). Compaction applies to every provider, including
   Claude Code; switching models does not override the user's choice.
+- **Context budget**: a shared target for interactive sessions on every
+  provider, Claude Code included (default 200k; 400k; model maximum; or
+  custom, 100k–1M). Bare numbers are thousands: `500` means 500k, previewed
+  beside the field. This unscoped Phosphor pref stays editable even when pi's
+  settings file is broken. Sessions use it after settlement, including live
+  sessions. Smaller windows retain pi's native limit. See
+  [One context budget](cli-providers.md#one-context-budget).
 - **Directives**: what Phosphor appends to every lane's system prompt, global
   or per project, shown composed before it is sent. A prompt you cannot read is
   one you cannot debug.
 - If the target file is not valid JSON, editing is **disabled** rather than
   best-effort, and the banner routes to Advanced to repair it by hand. Main
   never overwrites a config it could not parse.
-- Changes apply to **new** sessions. pi reads config at spawn.
+- pi settings apply to **new** sessions. The context budget is the live-session
+  exception described above.
 
 ## Accounts
 
@@ -121,7 +129,8 @@ Three packages contribute a nested tab, shown only while installed:
 Routes model calls through the Claude Code CLI, billing your Claude Pro/Max
 plan; its models appear in the picker under the `pi-claude-cli` provider. In
 order: **Health** (package present, CLI binary found, both versions, update
-rows), **Accounts**, pi context ownership guidance, **Prove it end to end** (one tiny
+rows), **Accounts**, pi context ownership guidance (Claude sessions follow
+the Agent tab's compaction settings and context budget), **Prove it end to end** (one tiny
 print-mode prompt through the CLI, the login and the extension at once, because
 "installed" and "working" are different claims), and **When it fails**. See
 [cli-providers.md](cli-providers.md).

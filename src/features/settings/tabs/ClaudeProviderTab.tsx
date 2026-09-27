@@ -763,12 +763,17 @@ function UpdateRow({
   )
 }
 
-/** The provider follows pi's context policy; there is no second budget. */
+/**
+ * The provider follows pi's context policy; there is no second budget. Claude
+ * sessions compact at the one every provider shares (Settings → Agent →
+ * Context budget, `ContextBudgetSection`).
+ */
 function ContextWindowSection(): React.JSX.Element {
   return (
     <p className="text-text-secondary mt-6 text-base">
-      pi manages the system prompt, tools, conversation and compaction for Claude too. Use the Agent
-      tab and the session menu for compaction settings.
+      pi manages the system prompt, tools, conversation and compaction for Claude too, and holds
+      Claude sessions to the same context budget as every other provider. Use the Agent tab and the
+      session menu for compaction settings.
     </p>
   )
 }

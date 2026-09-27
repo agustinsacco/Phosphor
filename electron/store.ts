@@ -27,6 +27,8 @@ import {
   type WorkspaceInfo,
 } from '@shared/models'
 import { type FeedbackPrefs, normalizeFeedbackPrefs } from '@shared/feedback'
+import { isValidContextBudgetValue } from '@shared/context-budget'
+import { migrateRenamedPrefs, type RawPrefs } from './prefs-migrations'
 
 /**
  * True for a path inside a repo's internal worktree folder
@@ -76,7 +78,10 @@ function resolvedOrSame(path: string | undefined): string | undefined {
 let store: Store<AppPrefs> | null = null
 
 function prefs(): Store<AppPrefs> {
-  store ??= new Store<AppPrefs>({ defaults: DEFAULT_APP_PREFS })
+  if (!store) {
+    store = new Store<AppPrefs>({ defaults: DEFAULT_APP_PREFS })
+    migrateRenamedPrefs(store as unknown as RawPrefs)
+  }
   return store
 }
 
@@ -148,6 +153,10 @@ export function getPrefs(): AppPrefs {
     worktrees: { ...DEFAULT_APP_PREFS.worktrees, ...s.get('worktrees') },
     headroom: { ...DEFAULT_APP_PREFS.headroom, ...s.get('headroom') },
     feedback: normalizeFeedbackPrefs(s.get('feedback')),
+    // User-editable JSON: a non-string here would throw in every reader's
+    // `.trim()`, the settings tab and the context meter included. '' is the
+    // default budget, the same as unset.
+    contextBudget: stringOrEmpty(s.get('contextBudget')),
     drafts: s.get('drafts') ?? {},
   }
 }
@@ -220,6 +229,23 @@ export function isCompactionResetChecked(): boolean {
 
 export function markCompactionResetChecked(): void {
   prefs().set('compactionResetChecked', true)
+}
+
+function stringOrEmpty(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+/**
+ * See AppPrefs.contextBudget — stored trimmed; '' means the default budget.
+ * The settings field validates as the user types; this is the same check at
+ * the process boundary, so nothing it would reject reaches the prefs file.
+ */
+export function setContextBudget(value: string): void {
+  const trimmed = typeof value === 'string' ? value.trim() : null
+  if (trimmed === null || (trimmed !== '' && !isValidContextBudgetValue(trimmed))) {
+    throw new Error('Invalid context budget.')
+  }
+  prefs().set('contextBudget', trimmed)
 }
 
 /** Record that the user has viewed a session's current state. */

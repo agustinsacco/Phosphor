@@ -93,6 +93,12 @@ const HOME_PROMPT = 'Describe a task or ask a question'
 const TURN_TIMEOUT = 600_000
 
 async function main() {
+  // Said out loud: a REDACT that never reached the process is otherwise
+  // invisible until someone reads the published PNGs.
+  console.log(
+    `redacting: emails${redactions.map(([from]) => `, "${from}"`).join('')}` +
+      (redactions.length ? '' : ' only (set REDACT to mask more)'),
+  )
   await mkdir(outDir, { recursive: true })
 
   const env = { ...process.env, NODE_ENV: 'production' }
@@ -141,17 +147,39 @@ async function main() {
     await page.waitForTimeout(200)
     await nudge(1)
     await page.waitForTimeout(400)
-    // Last thing before the capture, so a re-render has no time to undo it.
+    // One pass over the page, then an observer that keeps redacting: live
+    // surfaces (the context meter's MCP chips) re-render from status pushes,
+    // and a one-off pass lost that race between the pass and the capture.
+    // Observer callbacks run as microtasks, so they land before the next paint.
     await page.evaluate((pairs) => {
       // Runs in the renderer; globalThis keeps node's lint config honest.
-      const { document, NodeFilter } = globalThis
+      const { document, NodeFilter, MutationObserver } = globalThis
       const email = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        let text = node.nodeValue.replace(email, 'you@example.com')
-        for (const [from, to] of pairs) text = text.split(from).join(to)
+      const scrub = (node) => {
+        const text = pairs.reduce(
+          (acc, [from, to]) => acc.split(from).join(to),
+          node.nodeValue.replace(email, 'you@example.com'),
+        )
         if (text !== node.nodeValue) node.nodeValue = text
       }
+      const scrubTree = (root) => {
+        if (root.nodeType === 3) return scrub(root)
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) scrub(node)
+      }
+      scrubTree(document.body)
+      if (globalThis.__shotRedactor) return
+      globalThis.__shotRedactor = new MutationObserver((records) => {
+        for (const record of records) {
+          if (record.type === 'characterData') scrub(record.target)
+          else record.addedNodes.forEach(scrubTree)
+        }
+      })
+      globalThis.__shotRedactor.observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      })
     }, redactions)
     const dataUrl = await app.evaluate(async ({ BrowserWindow }) => {
       const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed())

@@ -38,7 +38,10 @@ export function ArtifactDetail({
   // only honest progress indicator we have.
   if (running || !details?.id) {
     return (
-      <div className="text-text-secondary flex items-center gap-2 px-3 py-2.5 text-base">
+      <div
+        data-find-skip
+        className="text-text-secondary flex items-center gap-2 px-3 py-2.5 text-base"
+      >
         <span className="bg-accent tool-running-dot h-1.5 w-1.5 shrink-0 rounded-full" />
         <span className="tool-running-label">Writing artifact content</span>
         {tool.argsText && (
@@ -71,16 +74,24 @@ export function ArtifactDetail({
       onClick={open}
       className="hover:bg-bg-secondary/60 flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors"
     >
-      <span className="text-xl leading-none">{artifactGlyph(type)}</span>
+      <span data-find-skip className="text-xl leading-none">
+        {artifactGlyph(type)}
+      </span>
       <span className="min-w-0 flex-1">
-        <span className="text-text block truncate text-lg font-medium">{title}</span>
-        <span className="text-text-tertiary block text-sm">
+        {/* Skipped by find: the step's own row already names the artifact. */}
+        <span data-find-skip className="text-text block truncate text-lg font-medium">
+          {title}
+        </span>
+        <span data-find-skip className="text-text-tertiary block text-sm">
           {type}
           {version != null && ` · v${version}`}
           {size && ` · ${size}`}
         </span>
       </span>
-      <span className="border-border text-text-secondary shrink-0 rounded-md border px-2 py-1 text-sm font-medium">
+      <span
+        data-find-skip
+        className="border-border text-text-secondary shrink-0 rounded-md border px-2 py-1 text-sm font-medium"
+      >
         Open in panel
       </span>
     </button>

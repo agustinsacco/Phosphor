@@ -1,11 +1,15 @@
 import { execFile } from 'node:child_process'
 import { lstat, mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
-import { isTextPreview, previewKindForPath } from '@shared/file-kinds'
+import {
+  isTextPreview,
+  looksBinary,
+  MAX_TEXT_FILE_BYTES,
+  previewKindForPath,
+} from '@shared/file-kinds'
 import type { DirEntry, FileContent } from '@shared/models'
 
 const ALWAYS_HIDDEN = new Set(['.git'])
-const MAX_FILE_BYTES = 4 * 1024 * 1024
 
 /** Read directory mtimes for the explorer's polling fallback. */
 export async function statDirectories(
@@ -107,13 +111,11 @@ export async function readTextFile(path: string): Promise<FileContent> {
   if (previewKindForPath(path) && !isTextPreview(path)) {
     return { path, content: '', binary: true, size: info.size, mtimeMs: info.mtimeMs }
   }
-  if (info.size > MAX_FILE_BYTES) {
+  if (info.size > MAX_TEXT_FILE_BYTES) {
     return { path, content: '', tooLarge: true, size: info.size, mtimeMs: info.mtimeMs }
   }
   const buffer = await readFile(path)
-  // Cheap binary sniff: NUL byte in the first 8k.
-  const probe = buffer.subarray(0, 8192)
-  if (probe.includes(0)) {
+  if (looksBinary(buffer)) {
     return { path, content: '', binary: true, size: info.size, mtimeMs: info.mtimeMs }
   }
   return { path, content: buffer.toString('utf8'), size: info.size, mtimeMs: info.mtimeMs }

@@ -93,3 +93,11 @@ export function isTextPreview(path: string): boolean {
   const ext = extensionOf(path)
   return ext === 'svg' || ext === 'html' || ext === 'htm'
 }
+
+/** The largest file the editor opens as text, and the workspace search reads. */
+export const MAX_TEXT_FILE_BYTES = 4 * 1024 * 1024
+
+/** Whether a file's leading bytes are binary: a NUL in the first 8 KB, as editors sniff. */
+export function looksBinary(bytes: Uint8Array): boolean {
+  return bytes.subarray(0, 8192).includes(0)
+}

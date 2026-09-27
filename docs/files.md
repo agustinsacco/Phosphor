@@ -43,6 +43,47 @@ ordinary copied text is never read as a file. Outbound file paste into OS file
 managers is not implemented (Phosphor-to-Phosphor copy/cut works). Cross-device
 moves fail safely: copy, then delete.
 
+## Search in files
+
+Cmd/Ctrl+Shift+F, or the magnifier in the explorer toolbar, swaps the explorer
+for a search panel (`features/files/WorkspaceSearch.tsx`). A one-line
+selection, on the page or in the editor, seeds the query, escaped when Regex is
+on. Results arrive as you type, 250 ms after the last
+key, grouped by file. Each line keeps its match in view however narrow the
+pane: the text after the match gives way first, then the text before it. The
+Match case / Whole word / Regex toggles and their ⌥C, ⌥W, ⌥R keys are the same
+ones find uses. The ⋯ header toggle shows **Files to include** and **Files to
+exclude**: comma-separated globs (`shared/glob.ts`). `*.ts` matches at any
+depth, a folder name covers everything under it, and a leading `/` anchors a
+pattern at the workspace root. Matching ignores case.
+
+- **Open a match:** a click opens the file with the match selected and leaves
+  focus in the list, so you can keep stepping. Double-click or Enter moves
+  focus into the editor, and Space opens without moving focus. HTML and SVG
+  open on their Source view, where the match is.
+- **Navigate:** Down from the field enters the list. Up/Down and Home/End move,
+  and Left/Right fold a file or move between it and its matches. Esc in the
+  list, or Up from its first row, returns to the field; Esc in the field
+  returns to the explorer, which takes focus.
+- **State:** the query, options, globs and results are per workspace. They
+  survive closing the panel or the pane, and the header's refresh re-runs the
+  search.
+
+The search runs in main, in a worker thread
+(`electron/fs/workspace-search-service.ts`). Each keystroke's search replaces
+the window's last one, and a regex that backtracks without end is terminated
+with its worker instead of freezing the app. The query and globs are compiled
+once, by the same code in the panel and in main (`shared/workspace-search.ts`),
+so a bad regex or glob says so as you type. It reads the files the fuzzy finder
+lists: git's tracked and untracked files without the ignored ones, or a bounded
+walk outside a repository. It never follows a symlink, to a file or through a
+folder out of the workspace. Binary files (a NUL in the first 8 KB), images,
+video, audio, PDFs and files over 4 MB are skipped and counted. Lines end where
+the editor ends them, at LF, CRLF or a lone CR, so a result's line and column
+land on the match. A search stops at 2,000 results, after 20 seconds (the
+listing included), or at the 20,000th listed file, and the panel says which
+limit it hit and keeps what it found.
+
 ## Editor
 
 Monaco gives you syntax highlighting, its bundled basic language services,
@@ -50,7 +91,9 @@ open-file tabs, dirty indicators and Cmd/Ctrl+S. Clean buffers reload on
 external change; dirty ones show a conflict bar so an outside edit never
 silently eats your work. Clicking a file leaves keyboard focus in the explorer
 for file shortcuts; click the editor to type. Open-at-line navigation focuses
-the editor.
+the editor; a single click on a search result is the exception. Asking again
+for a line already open reveals it again, and switching back to a tab never
+jumps it to an old target.
 
 Binary files and files over 4 MB can be managed but not edited as text. Not
 included: a debugger, external language servers, split editors, bulk delete,

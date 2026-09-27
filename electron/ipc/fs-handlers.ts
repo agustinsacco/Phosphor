@@ -5,6 +5,7 @@ import { openInDefaultApp } from '../fs/open-file'
 import { handle } from './handle'
 import { listWorkspaceFiles } from '../fs/list-files'
 import { watchWorkspace } from '../fs/workspace-watcher'
+import { cancelWorkspaceSearch, searchWorkspace } from '../fs/workspace-search-service'
 import {
   createDir,
   createFile,
@@ -65,4 +66,10 @@ export function registerFsHandlers(): void {
   })
 
   handle('fs:statDirs', (_event, paths) => statDirectories(paths))
+
+  handle('fs:searchWorkspace', (event, request) => searchWorkspace(event.sender, request))
+
+  handle('fs:cancelWorkspaceSearch', (event, searchId) => {
+    if (typeof searchId === 'string') cancelWorkspaceSearch(event.sender, searchId)
+  })
 }

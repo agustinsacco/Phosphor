@@ -1,7 +1,28 @@
 import { create } from 'zustand'
 import type { DirEntry } from '@shared/models'
+import { isTextPreview } from '@shared/file-kinds'
 import { languageForPath } from '@/lib/monaco'
 import { keyedSlice } from './keyedSlice'
+
+/**
+ * Where to put the cursor in a file being opened: a line, or an exact range
+ * (1-based, end exclusive, as Monaco counts).
+ */
+export interface RevealTarget {
+  line: number
+  column?: number
+  endLine?: number
+  endColumn?: number
+  /** False leaves keyboard focus where it is — a results list keeps its arrow keys. */
+  focus?: boolean
+}
+
+/** A reveal waiting for the editor. `seq` makes asking twice for the same place a new request. */
+export interface PendingReveal extends RevealTarget {
+  seq: number
+}
+
+let revealSeq = 0
 
 export interface OpenFile {
   path: string
@@ -19,8 +40,8 @@ export interface OpenFile {
   tooLarge?: boolean
   /** Set when the file changed on disk while dirty (conflict bar). */
   diskConflict?: boolean
-  /** Line to reveal when the editor mounts / re-focuses. */
-  pendingRevealLine?: number
+  /** The latest place asked for; the editor applies each `seq` once. */
+  pendingReveal?: PendingReveal
   /**
    * For files that are both text and previewable (HTML, SVG): which of the
    * two is showing. Absent means the preview — opening one is usually to
@@ -73,7 +94,8 @@ interface FilesState {
   setShowHidden: (workspacePath: string, value: boolean) => void
   setRespectGitignore: (workspacePath: string, value: boolean) => void
 
-  openFile: (workspacePath: string, path: string, line?: number) => Promise<void>
+  /** Open (or switch to) a file; a target line or range is revealed in the editor. */
+  openFile: (workspacePath: string, path: string, target?: number | RevealTarget) => Promise<void>
   closeFile: (workspacePath: string, path: string) => void
   /** Retarget open buffers after a move, or close descendants after trash. */
   reconcilePath: (workspacePath: string, from: string, to?: string) => void
@@ -83,7 +105,6 @@ interface FilesState {
   setView: (workspacePath: string, path: string, view: 'preview' | 'source') => void
   updateBuffer: (workspacePath: string, path: string, content: string) => void
   saveFile: (workspacePath: string, path: string) => Promise<void>
-  consumeReveal: (workspacePath: string, path: string) => number | undefined
   /** Called on chokidar changes: reload clean buffers, flag dirty ones. */
   handleExternalChanges: (workspacePath: string, paths: string[]) => Promise<void>
   reloadFromDisk: (workspacePath: string, path: string) => Promise<void>
@@ -250,37 +271,51 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     void get().refreshDir(workspacePath, workspacePath)
   },
 
-  openFile: async (workspacePath, path, line) => {
+  openFile: async (workspacePath, path, target) => {
+    const reveal: Partial<OpenFile> = {}
+    if (target !== undefined) {
+      reveal.pendingReveal = {
+        ...(typeof target === 'number' ? { line: target } : target),
+        seq: ++revealSeq,
+      }
+      // A place in HTML or SVG is a place in its source.
+      if (isTextPreview(path)) reveal.view = 'source'
+    }
     const existing = workspaceFiles(get(), workspacePath).openFiles.find((f) => f.path === path)
     if (existing) {
       set((s) =>
         patchWorkspace(s, workspacePath, (w) => ({
-          ...patchFile(w, path, { pendingRevealLine: line ?? existing.pendingRevealLine }),
+          ...patchFile(w, path, reveal),
           activePath: path,
         })),
       )
       return
     }
     const file = await window.phosphor.invoke('fs:readFile', path)
-    const openFile: OpenFile = {
-      path,
-      relativePath: relativeTo(workspacePath, path),
-      language: languageForPath(path),
-      savedContent: file.content,
-      content: file.content,
-      mtimeMs: file.mtimeMs,
-      size: file.size,
-      dirty: false,
-      binary: file.binary,
-      tooLarge: file.tooLarge,
-      pendingRevealLine: line,
-    }
     set((s) =>
-      patchWorkspace(s, workspacePath, (w) => ({
-        ...w,
-        openFiles: [...w.openFiles, openFile],
-        activePath: path,
-      })),
+      patchWorkspace(s, workspacePath, (w) => {
+        // Another open of this file can finish during the read (two results in
+        // one file, clicked quickly): one tab, at the place asked for last.
+        const opened = w.openFiles.find((f) => f.path === path)
+        if (opened) {
+          const newer = (reveal.pendingReveal?.seq ?? 0) > (opened.pendingReveal?.seq ?? 0)
+          return { ...(newer ? patchFile(w, path, reveal) : w), activePath: path }
+        }
+        const openFile: OpenFile = {
+          path,
+          relativePath: relativeTo(workspacePath, path),
+          language: languageForPath(path),
+          savedContent: file.content,
+          content: file.content,
+          mtimeMs: file.mtimeMs,
+          size: file.size,
+          dirty: false,
+          binary: file.binary,
+          tooLarge: file.tooLarge,
+          ...reveal,
+        }
+        return { ...w, openFiles: [...w.openFiles, openFile], activePath: path }
+      }),
     )
   },
 
@@ -320,6 +355,9 @@ export const useFilesStore = create<FilesState>((set, get) => ({
               path,
               relativePath: relativeTo(workspacePath, path),
               language: languageForPath(path),
+              // A place asked for in the old file is not one to jump to again
+              // when the editor attaches the moved one.
+              pendingReveal: undefined,
             },
           ]
         })
@@ -414,19 +452,6 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         ),
       })),
     )
-  },
-
-  consumeReveal: (workspacePath, path) => {
-    const file = workspaceFiles(get(), workspacePath).openFiles.find((f) => f.path === path)
-    const line = file?.pendingRevealLine
-    if (line !== undefined) {
-      set((s) =>
-        patchWorkspace(s, workspacePath, (w) =>
-          patchFile(w, path, { pendingRevealLine: undefined }),
-        ),
-      )
-    }
-    return line
   },
 
   handleExternalChanges: async (workspacePath, paths) => {

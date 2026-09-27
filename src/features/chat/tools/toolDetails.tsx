@@ -32,7 +32,7 @@ export function DiffStatBadges({
 }): React.JSX.Element | null {
   if (stats.additions === 0 && stats.deletions === 0) return null
   return (
-    <span className={clsx('shrink-0 font-mono', className)}>
+    <span data-find-skip className={clsx('shrink-0 font-mono', className)}>
       {stats.additions > 0 && <span className="text-success">+{stats.additions}</span>}
       {stats.additions > 0 && stats.deletions > 0 && ' '}
       {stats.deletions > 0 && <span className="text-danger">−{stats.deletions}</span>}
@@ -54,7 +54,7 @@ export function BashDetail({ tool }: { tool: ToolState }): React.JSX.Element {
     <div>
       <div className="border-border flex items-center justify-between gap-2 border-b px-3 py-2">
         <code className="text-text flex-1 truncate font-mono text-base">$ {command}</code>
-        <div className="flex shrink-0 items-center gap-2">
+        <div data-find-skip className="flex shrink-0 items-center gap-2">
           {durationMs !== null && (
             <span className="text-text-tertiary text-sm">{formatDuration(durationMs)}</span>
           )}
@@ -74,10 +74,13 @@ export function BashDetail({ tool }: { tool: ToolState }): React.JSX.Element {
         </div>
       </div>
       <pre className="terminal-output max-h-80 overflow-auto px-3 py-2.5 font-mono text-base leading-relaxed break-words whitespace-pre-wrap">
-        {output || (running ? '…' : '(no output)')}
+        {output || <Placeholder text={running ? '…' : '(no output)'} />}
       </pre>
       {details?.fullOutputPath && (
-        <div className="border-border text-text-tertiary border-t px-3 py-1.5 text-sm">
+        <div
+          data-find-skip
+          className="border-border text-text-tertiary border-t px-3 py-1.5 text-sm"
+        >
           Output truncated — full log at <code className="font-mono">{details.fullOutputPath}</code>
         </div>
       )}
@@ -101,7 +104,9 @@ export function EditDetail({ tool }: { tool: ToolState }): React.JSX.Element {
       ) : tool.isError ? (
         <ErrorText text={toolText(tool)} />
       ) : (
-        <div className="text-text-tertiary px-3 py-2 text-base">Waiting for diff…</div>
+        <div data-find-skip className="text-text-tertiary px-3 py-2 text-base">
+          Waiting for diff…
+        </div>
       )}
     </div>
   )
@@ -140,7 +145,7 @@ export function ReadDetail({ tool }: { tool: ToolState }): React.JSX.Element {
         <span className="flex min-w-0 items-baseline gap-0.5">
           <PathLink path={path} line={offset} />
           {offset != null && (
-            <span className="text-text-tertiary font-mono text-base">
+            <span data-find-skip className="text-text-tertiary font-mono text-base">
               :{offset}
               {limit != null ? `–${offset + limit}` : ''}
             </span>
@@ -180,10 +185,13 @@ export function ListDetail({ tool }: { tool: ToolState }): React.JSX.Element {
   return (
     <div>
       <pre className="max-h-80 overflow-auto px-3 py-2.5 font-mono text-base leading-relaxed break-words whitespace-pre-wrap">
-        {text || '(no results)'}
+        {text || <Placeholder text="(no results)" />}
       </pre>
       {limit != null && (
-        <div className="border-border text-text-tertiary border-t px-3 py-1.5 text-sm">
+        <div
+          data-find-skip
+          className="border-border text-text-tertiary border-t px-3 py-1.5 text-sm"
+        >
           Result limit reached ({limit}) — output truncated
         </div>
       )}
@@ -204,7 +212,8 @@ export function GenericDetail({ tool }: { tool: ToolState }): React.JSX.Element 
 
   return (
     <div>
-      <div className="border-border border-b px-3 py-2">
+      {/* The arguments are the step's input, not its output; find reads the output. */}
+      <div data-find-skip className="border-border border-b px-3 py-2">
         <button
           onClick={() => setArgsExpanded((e) => !e)}
           className="text-text-tertiary hover:text-text flex items-center gap-1 text-sm transition-colors"
@@ -236,7 +245,7 @@ export function GenericDetail({ tool }: { tool: ToolState }): React.JSX.Element 
             </div>
           )}
           <pre className="max-h-80 overflow-auto px-3 py-2.5 font-mono text-base leading-relaxed break-words whitespace-pre-wrap">
-            {text || (running ? 'Running…' : '(no output)')}
+            {text || <Placeholder text={running ? 'Running…' : '(no output)'} />}
           </pre>
         </>
       )}
@@ -246,10 +255,15 @@ export function GenericDetail({ tool }: { tool: ToolState }): React.JSX.Element 
 
 // ---------- shared bits ----------
 
+/** Stand-in text for an empty output, which find does not count as output. */
+function Placeholder({ text }: { text: string }): React.JSX.Element {
+  return <span data-find-skip>{text}</span>
+}
+
 export function ErrorText({ text }: { text: string }): React.JSX.Element {
   return (
     <pre className="text-danger max-h-80 overflow-auto px-3 py-2.5 font-mono text-base leading-relaxed break-words whitespace-pre-wrap">
-      {text || 'Tool failed'}
+      {text || <Placeholder text="Tool failed" />}
     </pre>
   )
 }

@@ -91,6 +91,9 @@
      itself (brand: the terminal is the page, not a card). Must stay in sync
      with xtermTheme.ts backgrounds. */
   --px-terminal-bg: #ffffff;
+  /* A search match's wash: find-in-page highlights and workspace search
+     previews. Derived here, on the root, so it follows .dark's --px-warning. */
+  --px-find-match: color-mix(in srgb, var(--px-warning) 32%, transparent);
 
   --px-font-sans:
     'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
@@ -718,8 +721,49 @@ select:focus:not(:focus-visible) {
  * covered the match count sitting next to it.
  */
 .lane-search-field:focus,
-.lane-search-field:focus-visible {
+.lane-search-field:focus-visible,
+.find-field:focus,
+.find-field:focus-visible {
   outline: none;
+}
+
+/*
+ * Find-in-page matches (components/search/domFind.ts). Painted with the CSS
+ * Custom Highlight API, so no markup is touched. Every match gets a quiet
+ * amber wash; the current one takes the full accent pair, the same ink-on-
+ * amber the rest of the app uses for "this one".
+ */
+::highlight(phosphor-find) {
+  background-color: var(--px-find-match);
+}
+::highlight(phosphor-find-active) {
+  background-color: var(--px-accent);
+  color: var(--px-accent-text);
+}
+
+/* A match inside a workspace search result's line preview (files/WorkspaceSearch.tsx). */
+.search-hit {
+  background-color: var(--px-find-match);
+  color: inherit;
+  border-radius: 2px;
+}
+
+/*
+ * A find hit whose text is not on screen as text (a tool row summarised to a
+ * label, an image caption) flashes its container instead, so the jump still
+ * lands somewhere visible.
+ */
+@keyframes find-flash {
+  from {
+    box-shadow: 0 0 0 2px var(--px-accent);
+  }
+  to {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+.find-flash {
+  border-radius: var(--px-radius-sm);
+  animation: find-flash 1.2s ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

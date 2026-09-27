@@ -30,6 +30,7 @@ import type {
   McpWriteScope,
 } from './mcp'
 import type { SkillImportPreview, SkillScope, SkillsListResult } from './skills'
+import type { WorkspaceSearchRequest, WorkspaceSearchResult } from './workspace-search'
 import type { FeedbackDraft, FeedbackState, FeedbackSubmitResult } from './feedback'
 import type {
   AddWorktreeBranch,
@@ -858,6 +859,17 @@ export interface IpcInvokeMap {
     args: [paths: string[]]
     result: Array<{ path: string; mtimeMs: number | null }>
   }
+  /**
+   * Full-text search over the workspace's files, in a worker thread that main
+   * can stop mid-regex. A newer search from the same window replaces the one
+   * running. See electron/fs/workspace-search-service.ts.
+   */
+  'fs:searchWorkspace': { args: [request: WorkspaceSearchRequest]; result: WorkspaceSearchResult }
+  /**
+   * Stop this window's running search, if it is `searchId`; it resolves with
+   * what it found, `stopped: 'cancelled'`.
+   */
+  'fs:cancelWorkspaceSearch': { args: [searchId: string]; result: void }
 
   'pty:create': {
     /**

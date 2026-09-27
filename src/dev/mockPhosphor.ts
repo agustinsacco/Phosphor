@@ -9,6 +9,15 @@ import { mockRoutineCall, onMockRoutinesChanged } from './mockRoutines'
 import type { ConnectorAuthPush, ConnectorAuthState, SessionPush } from '@shared/models'
 import type { ConnectorCheckResult } from '@shared/connectors'
 import { DEFAULT_APP_PREFS, MIN_PI_VERSION } from '@shared/models'
+import {
+  compileSearch,
+  EMPTY_SEARCH_RESULT,
+  findLineMatches,
+  MAX_SEARCH_RESULTS,
+  type FileSearchResult,
+  type WorkspaceSearchRequest,
+  type WorkspaceSearchResult,
+} from '@shared/workspace-search'
 import type { PiEvent, RpcCommand, RpcResponse } from '@shared/rpc'
 import fixtureRaw from '../features/chat/__fixtures__/real-session-events.jsonl?raw'
 
@@ -496,6 +505,44 @@ function mockDir(dir: string): Array<Record<string, unknown>> {
       relativePath: path.replace('/Users/dev/projects/phosphor/', ''),
     }))
     .sort((a, b) => Number(b.isDirectory) - Number(a.isDirectory) || a.name.localeCompare(b.name))
+}
+
+function mockFileContent(path: string): string {
+  return `// ${path}\nexport function hello(): string {\n  return 'from mock'\n}\n`
+}
+
+/** The real matcher over the mock files' contents, with main's cap, so a result opens where it says. */
+function mockSearch(request: WorkspaceSearchRequest): WorkspaceSearchResult {
+  const compiled = compileSearch(request)
+  if (compiled.status === 'invalid') return { ...EMPTY_SEARCH_RESULT, error: compiled.error }
+  if (compiled.status === 'empty') return EMPTY_SEARCH_RESULT
+  const root = request.workspacePath.replace(/\/$/, '') + '/'
+  const paths = [...mockFs]
+    .filter(([path, isDirectory]) => !isDirectory && path.startsWith(root))
+    .map(([path]) => path.slice(root.length))
+    .filter(compiled.wants)
+    .sort()
+  const files: FileSearchResult[] = []
+  let matchCount = 0
+  let more = false
+  for (const path of paths) {
+    const room = MAX_SEARCH_RESULTS - matchCount
+    const matches = findLineMatches(mockFileContent(root + path), compiled.regex, room + 1)
+    if (matches.length > room) {
+      more = true
+      matches.length = room
+    }
+    if (matches.length > 0) files.push({ path, matches })
+    matchCount += matches.length
+    if (more) break
+  }
+  return {
+    files,
+    matchCount,
+    searchedFiles: paths.length,
+    skippedFiles: 0,
+    ...(more ? { stopped: 'results' as const } : {}),
+  }
 }
 
 function mockTree(): Record<string, unknown> {
@@ -1802,11 +1849,15 @@ export function installMockPhosphor(): void {
           const path = args[0] as string
           return Promise.resolve({
             path,
-            content: `// ${path}\nexport function hello(): string {\n  return 'from mock'\n}\n`,
+            content: mockFileContent(path),
             size: 64,
             mtimeMs: Date.now(),
           })
         }
+        case 'fs:searchWorkspace':
+          return Promise.resolve(mockSearch(args[0] as WorkspaceSearchRequest))
+        case 'fs:cancelWorkspaceSearch':
+          return Promise.resolve(undefined)
         // There is no phosphor-file:// server in a plain browser, so viewers
         // fall back to their "open externally" card here.
         case 'fs:previewUrl':

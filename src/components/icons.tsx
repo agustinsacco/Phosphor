@@ -331,6 +331,29 @@ export function RefreshIcon({ size = 12, className }: IconProps): React.JSX.Elem
   )
 }
 
+/** Two arrows chasing each other round, for "look at it all again". */
+export function ReloadIcon({ size = 12, className }: IconProps): React.JSX.Element {
+  return (
+    <svg {...strokeProps(size)} className={className}>
+      <path d="M20 6v5h-5M4 18v-5h5" />
+      <path d="M18.5 9a7 7 0 0 0-12-2L4 11m16 2-2.5 4a7 7 0 0 1-12-2" />
+    </svg>
+  )
+}
+
+/** Chevrons meeting in the middle, for "fold every group"; parting when `expand`. */
+export function CollapseAllIcon({
+  expand = false,
+  size = 12,
+  className,
+}: IconProps & { expand?: boolean }): React.JSX.Element {
+  return (
+    <svg {...strokeProps(size)} strokeLinecap="round" className={className}>
+      <path d={expand ? 'm7 15 5 5 5-5M7 9l5-5 5 5' : 'm7 20 5-5 5 5M7 4l5 5 5-5'} />
+    </svg>
+  )
+}
+
 /**
  * Indeterminate activity spinner. Colour comes from `className` so callers can
  * tint it (accent for tools, warning for retries) or inherit from an ancestor.

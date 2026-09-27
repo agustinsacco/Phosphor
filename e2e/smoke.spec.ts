@@ -764,6 +764,95 @@ test('explorer creates entries from empty space and keeps renamed editor buffers
   }
 })
 
+test('⌘F finds in the transcript, ⌘⇧F searches workspace files and opens the match', async () => {
+  const workspace = await scratchDir('phosphor-e2e-search-')
+  await mkdir(join(workspace, 'src'))
+  await writeFile(join(workspace, 'src', 'deep.ts'), 'const a = 1\n\nexport const needle = a\n')
+  await writeFile(join(workspace, 'notes.md'), '# A needle in the notes\n')
+  await writeFile(join(workspace, 'blob.bin'), Buffer.from('needle\0\u0001'))
+  const harness = await launch({ workspace })
+  const { page } = harness
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+  try {
+    await openWorkspace(page)
+    await page.getByPlaceholder('Describe a task or ask a question').fill('Update hello.ts')
+    await page.getByRole('button', { name: /Start session/i }).click()
+    await expect(page.getByText(/Done:\s*hello\.ts\s*updated\./)).toBeVisible({ timeout: 30_000 })
+
+    // ⌘F from the composer opens the transcript's find bar.
+    await page.getByPlaceholder(/Describe a task…/i).focus()
+    await page.keyboard.press(`${mod}+f`)
+    const find = page.getByTestId('transcript-find')
+    await expect(find).toBeVisible()
+    await page.keyboard.type('updated')
+    await expect(find.getByTestId('find-status')).toHaveText(/^1 of \d+/)
+    await page.keyboard.press('Escape')
+    await expect(find).not.toBeVisible()
+
+    // ⌘⇧F opens the Files pane on the workspace search, field focused.
+    await page.keyboard.press(`${mod}+Shift+f`)
+    const search = page.getByTestId('workspace-search')
+    await expect(search).toBeVisible()
+    await expect(search.getByTestId('workspace-search-input')).toBeFocused()
+    await page.keyboard.type('needle')
+    const status = search.getByTestId('workspace-search-status')
+    await expect(status).toContainText('2 results in 2 files')
+    await expect(status).toContainText('1 file skipped')
+
+    // Globs narrow it; a folder name includes everything under it.
+    await search.getByRole('button', { name: 'Files to include or exclude' }).click()
+    await search.getByPlaceholder(/e\.g\. src/).fill('src')
+    await expect(status).toContainText('1 result in 1 file')
+    const results = search.getByTestId('workspace-search-results')
+    await expect(results.locator('[data-search-file="src/deep.ts"]')).toBeVisible()
+
+    // Choosing a match opens the file with the match selected, focus left in the list.
+    await results.locator('[data-search-line="3"]').click()
+    await expect(page.locator('.monaco-editor .view-lines')).toContainText('export const needle')
+    await expect(page.locator('.monaco-editor .selected-text').first()).toBeAttached()
+    await expect(results).toBeFocused()
+    // Enter goes on into the editor.
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.monaco-editor [role="textbox"]').first()).toBeFocused()
+
+    // Escape from the field goes back to the tree, which takes focus; the
+    // search keeps its answer.
+    await search.getByTestId('workspace-search-input').focus()
+    await page.keyboard.press('Escape')
+    const explorer = page.getByTestId('file-explorer')
+    await expect(explorer).toBeFocused()
+    await explorer.getByRole('button', { name: /^Search in files/ }).click()
+    await expect(status).toContainText('1 result in 1 file')
+
+    // The same walk by keyboard: ↓ into the list at the file, ↓ to its match,
+    // Space opens it and leaves focus in the list.
+    await expect(search.getByTestId('workspace-search-input')).toBeFocused()
+    await page.keyboard.press('ArrowDown')
+    await expect(results).toBeFocused()
+    await expect(results.locator('[data-search-file="src/deep.ts"]')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await page.keyboard.press('ArrowDown')
+    const match = results.locator('[data-search-line="3"]')
+    await expect(match).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Space')
+    await expect(results).toBeFocused()
+    // Escape steps back out: the list to the field, the field to the tree.
+    await page.keyboard.press('Escape')
+    await expect(search.getByTestId('workspace-search-input')).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(explorer).toBeFocused()
+
+    // ✕ closes it the same way.
+    await explorer.getByRole('button', { name: /^Search in files/ }).click()
+    await search.getByRole('button', { name: 'Back to the explorer (Esc)' }).click()
+    await expect(explorer).toBeFocused()
+  } finally {
+    await shutdown(harness)
+  }
+})
+
 test('explorer follows external create, move and delete changes on disk', async () => {
   const workspace = await scratchDir('phosphor-e2e-files-watch-')
   await writeFile(join(workspace, 'clip.mp4'), Buffer.from([0, 1, 2, 3]))

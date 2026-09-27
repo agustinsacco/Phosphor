@@ -363,7 +363,7 @@ electron/            main process — owns every side effect
   optimization/      the Advisor rules engine (pure functions, advice only)
   pty/               node-pty manager + spawn-helper repair
   fs/                file service, git layer (git-exec/info/sync/worktrees),
-                     workspace watcher
+                     workspace watcher, workspace search (worker thread)
   artifacts/         the `phosphor-artifact://` protocol — model HTML on its
                      own origin, so it runs JS without weakening the app CSP
   maintenance/       worktree reclaim: a pure policy that judges, a sweep that
@@ -381,7 +381,8 @@ src/                 renderer (React) — pure UI over typed IPC
                      workspaces, palette, updates, connectors, extension-ui,
                      skills, routines
   components/        cross-feature primitives (Modal, PopupMenu, form, icons,
-                     markdown renderers)
+                     markdown renderers; search/: the find bar, its toggles,
+                     finding and painting text in rendered DOM)
   stores/            zustand stores — projections of main-process state
   lib/               framework-free helpers (format, path, rpc, fuzzy, time…)
   styles/            the Phosphor design tokens

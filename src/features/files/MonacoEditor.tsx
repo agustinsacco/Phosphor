@@ -3,11 +3,18 @@ import type * as MonacoTypes from 'monaco-editor'
 import { getMonaco, monacoThemeFor } from '@/lib/monaco'
 import { useSettingsStore } from '@/stores/settings'
 import { editorFontOptions } from '@/lib/fonts'
+import type { PendingReveal } from '@/stores/files'
 
 type Monaco = typeof MonacoTypes
 type Editor = MonacoTypes.editor.IStandaloneCodeEditor
 
 const viewStates = new Map<string, MonacoTypes.editor.ICodeEditorViewState | null>()
+/**
+ * The last reveal applied per path. A file keeps its latest reveal in the
+ * store, so without this a tab switch or remount would jump back to it and
+ * undo wherever the user had scrolled since.
+ */
+const appliedReveals = new Map<string, number>()
 
 /**
  * Release the Monaco model and saved view state for a path.
@@ -23,6 +30,7 @@ const viewStates = new Map<string, MonacoTypes.editor.ICodeEditorViewState | nul
  */
 export function releaseFileModel(path: string): void {
   viewStates.delete(path)
+  appliedReveals.delete(path)
   // Lazy: if Monaco was never loaded there is nothing to release, and we must
   // not pull the (large) editor bundle in just to clean up.
   void import('@/lib/monaco').then(({ peekMonaco }) => {
@@ -37,7 +45,7 @@ interface MonacoEditorProps {
   language: string
   value: string
   readOnly?: boolean
-  revealLine?: number
+  reveal?: PendingReveal
   onChange?: (value: string) => void
   onSave?: () => void
 }
@@ -48,7 +56,7 @@ export const MonacoEditor = memo(function MonacoEditor({
   language,
   value,
   readOnly = false,
-  revealLine,
+  reveal,
   onChange,
   onSave,
 }: MonacoEditorProps): React.JSX.Element {
@@ -64,6 +72,10 @@ export const MonacoEditor = memo(function MonacoEditor({
   onChangeRef.current = onChange
   const onSaveRef = useRef(onSave)
   onSaveRef.current = onSave
+  // What to show once Monaco has loaded. The first load can take a while, and
+  // the props may have moved on by then (another tab, another result clicked).
+  const latestRef = useRef({ path, language, value, readOnly, reveal })
+  latestRef.current = { path, language, value, readOnly, reveal }
 
   // Mount once.
   useEffect(() => {
@@ -73,6 +85,7 @@ export const MonacoEditor = memo(function MonacoEditor({
     void getMonaco().then((monaco) => {
       if (disposed || !containerRef.current) return
       monacoRef.current = monaco
+      const { path, language, value, readOnly, reveal } = latestRef.current
       const fonts = useSettingsStore.getState().fonts
       editor = monaco.editor.create(containerRef.current, {
         theme: monacoThemeFor(useSettingsStore.getState().resolvedTheme),
@@ -96,7 +109,8 @@ export const MonacoEditor = memo(function MonacoEditor({
         onChangeRef.current?.(editor!.getValue())
       })
 
-      attachModel(monaco, editor, path, language, value, revealLine)
+      currentPathRef.current = path
+      attachModel(monaco, editor, path, language, value, reveal)
     })
 
     return () => {
@@ -116,7 +130,7 @@ export const MonacoEditor = memo(function MonacoEditor({
     if (!monaco || !editor) return
     if (currentPathRef.current !== path) {
       viewStates.set(currentPathRef.current, editor.saveViewState())
-      attachModel(monaco, editor, path, language, value, revealLine)
+      attachModel(monaco, editor, path, language, value, reveal)
       currentPathRef.current = path
     }
   })
@@ -136,15 +150,11 @@ export const MonacoEditor = memo(function MonacoEditor({
     }
   }, [value, path])
 
-  // Reveal line requests.
+  // Reveal requests for the open model; a new file's is applied as it attaches.
   useEffect(() => {
     const editor = editorRef.current
-    if (editor && revealLine !== undefined) {
-      editor.revealLineInCenter(revealLine)
-      editor.setPosition({ lineNumber: revealLine, column: 1 })
-      editor.focus()
-    }
-  }, [revealLine, path])
+    if (editor && currentPathRef.current === path) applyReveal(editor, path, reveal)
+  }, [reveal?.seq, path])
 
   // Theme switching.
   useEffect(() => {
@@ -162,7 +172,7 @@ export const MonacoEditor = memo(function MonacoEditor({
     modelPath: string,
     modelLanguage: string,
     modelValue: string,
-    reveal?: number,
+    modelReveal?: PendingReveal,
   ): void {
     const uri = monaco.Uri.file(modelPath)
     let model = monaco.editor.getModel(uri)
@@ -176,17 +186,37 @@ export const MonacoEditor = memo(function MonacoEditor({
     editor.setModel(model)
     const saved = viewStates.get(modelPath)
     if (saved) editor.restoreViewState(saved)
-    if (reveal !== undefined) {
-      editor.revealLineInCenter(reveal)
-      editor.setPosition({ lineNumber: reveal, column: 1 })
-    }
-    // A normal explorer click keeps keyboard focus in the tree for copy/cut.
-    // Explicit line navigation still focuses the editor.
-    if (reveal !== undefined) editor.focus()
+    applyReveal(editor, modelPath, modelReveal)
   }
 
   return <div ref={containerRef} className="h-full w-full" />
 })
+
+/**
+ * Put the cursor where a reveal asks, once per request. A line lands at its
+ * start; a range is selected, and scrolled to only when it is out of view.
+ * A normal explorer click reveals nothing and so keeps keyboard focus in the
+ * tree for copy/cut; a reveal takes focus unless it says not to.
+ */
+function applyReveal(editor: Editor, path: string, reveal: PendingReveal | undefined): void {
+  if (!reveal || appliedReveals.get(path) === reveal.seq) return
+  appliedReveals.set(path, reveal.seq)
+  const { line, column } = reveal
+  if (column === undefined) {
+    editor.revealLineInCenter(line)
+    editor.setPosition({ lineNumber: line, column: 1 })
+  } else {
+    const range = {
+      startLineNumber: line,
+      startColumn: column,
+      endLineNumber: reveal.endLine ?? line,
+      endColumn: reveal.endColumn ?? column,
+    }
+    editor.setSelection(range)
+    editor.revealRangeInCenterIfOutsideViewport(range)
+  }
+  if (reveal.focus !== false) editor.focus()
+}
 
 interface MonacoDiffProps {
   originalText: string

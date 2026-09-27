@@ -21,6 +21,8 @@ import { formatDuration, formatTokens } from '@/lib/format'
 import { useChatUiStore } from '../uiState'
 import { useExtensionUiStore } from '@/stores/extensionUi'
 import { findLiveSubagent, SUBAGENTS_STATUS_KEY } from '../subagentStatus'
+import { SEGMENT, segmentPart, stepFindKey, TRAILING_THOUGHT } from '../transcriptFind'
+import { DetailRevealContext, useOpenOnReveal, type FindReveal } from '../useTranscriptFind'
 
 /**
  * One run of agent activity — thinking and tool calls, merged across pi's
@@ -95,6 +97,7 @@ export const ActivityGroup = memo(function ActivityGroup({
   hideThinking,
   sessionId,
   active,
+  reveal,
 }: {
   steps: ActivityStep[]
   tools: Record<string, ToolState>
@@ -102,6 +105,8 @@ export const ActivityGroup = memo(function ActivityGroup({
   sessionId: string
   /** The agent is still in this activity run, including gaps between tools. */
   active: boolean
+  /** The current find hit is in this run: open it, and the step holding it. */
+  reveal?: FindReveal
 }): React.JSX.Element | null {
   /** null = follow the live/settled default; true/false = explicit user choice. */
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
@@ -125,6 +130,12 @@ export const ActivityGroup = memo(function ActivityGroup({
   useEffect(() => {
     setUserOpen(null)
   }, [verbose])
+
+  // Find stepping onto a hit inside the run opens it as a click would. After
+  // the reset above, which also runs on mount — the row a jump scrolls to
+  // mounts with the hit already set.
+  useOpenOnReveal(reveal, setUserOpen)
+  const revealKey = reveal ? segmentPart(reveal.segment)?.key : undefined
 
   const visible = hideThinking ? steps.filter((s) => s.block.type !== 'thinking') : steps
   if (visible.length === 0) return null
@@ -232,15 +243,32 @@ export const ActivityGroup = memo(function ActivityGroup({
            * too round for a 26px row — hence the explicit 7.
            */}
           <div className="border-border divide-border/50 mt-1 divide-y overflow-hidden rounded-[7px] border">
-            {rows.map(({ step, thought }) => (
-              <div
-                className="activity-step-enter"
-                key={step.block.type === 'tool' ? step.block.toolCallId : `th-${step.block.index}`}
-              >
-                <ActivityRow step={step} thought={thought} tools={tools} sessionId={sessionId} />
-              </div>
-            ))}
-            {trailingThought && <ThoughtOnlyRow text={trailingThought} />}
+            {rows.map(({ step, thought }) => {
+              const findKey = stepFindKey(step)
+              return (
+                <div
+                  className="activity-step-enter"
+                  key={
+                    step.block.type === 'tool' ? step.block.toolCallId : `th-${step.block.index}`
+                  }
+                >
+                  <ActivityRow
+                    step={step}
+                    thought={thought}
+                    tools={tools}
+                    sessionId={sessionId}
+                    findKey={findKey}
+                    reveal={revealKey === findKey ? reveal : undefined}
+                  />
+                </div>
+              )
+            })}
+            {trailingThought && (
+              <ThoughtOnlyRow
+                text={trailingThought}
+                reveal={revealKey === TRAILING_THOUGHT ? reveal : undefined}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -254,21 +282,31 @@ function ActivityRow({
   thought,
   tools,
   sessionId,
+  findKey,
+  reveal,
 }: {
   step: ActivityStep
   thought?: string
   tools: Record<string, ToolState>
   sessionId: string
+  /** `stepFindKey(step)`, naming this row's find segments. */
+  findKey: string
+  /** The current find hit is in this step. */
+  reveal?: FindReveal
 }): React.JSX.Element | null {
   const [pinned, setPinned] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  useOpenOnReveal(reveal, setExpanded, 'detail')
+  useOpenOnReveal(reveal, setPinned, 'thought')
 
   // Tools Claude Code ran inside its own process while acting as the model
   // provider. There is no pi tool result to show — only what was invoked —
   // so this is a compact, always-settled row rather than a ToolCard.
   if (step.block.type === 'subagent') {
-    return <SubagentRow agent={step.block} sessionId={sessionId} />
+    return (
+      <SubagentRow agent={step.block} sessionId={sessionId} findKey={findKey} reveal={reveal} />
+    )
   }
 
   if (step.block.type === 'externalTool') {
@@ -285,6 +323,8 @@ function ActivityRow({
         // settled turn is a CLI that never reported, not work in flight.
         pending={!!toolUseId && !result && step.streaming}
         sessionId={sessionId}
+        findKey={findKey}
+        reveal={reveal}
       />
     )
   }
@@ -300,7 +340,7 @@ function ActivityRow({
       {/* The mark floats in the row's own inset rather than reserving a column
           in front of every row. Reserving it pushed all four row types 20px
           right of the card edge for the sake of the few that have reasoning. */}
-      <div className={clsx('relative', ROW_INSET)}>
+      <div data-find-segment={SEGMENT.step(findKey)} className={clsx('relative', ROW_INSET)}>
         {thought && (
           <button
             onClick={() => setPinned((p) => !p)}
@@ -315,6 +355,7 @@ function ActivityRow({
             className={clsx(GUTTER_MARK, 'group/mark')}
           >
             <span
+              aria-hidden
               className={clsx(
                 GUTTER_MARK_FILL,
                 'transition-colors',
@@ -338,13 +379,19 @@ function ActivityRow({
         // Not a second card: the detail is a full-width section of the
         // group's card, divided from the row above. A nested bordered box
         // here read as box-in-a-box.
-        <div className="border-border expand-enter border-t">
-          <ToolDetail tool={tool} sessionId={sessionId} />
+        <div
+          data-find-segment={SEGMENT.detail(findKey)}
+          className="border-border expand-enter border-t"
+        >
+          <DetailRevealContext value={reveal}>
+            <ToolDetail tool={tool} sessionId={sessionId} />
+          </DetailRevealContext>
         </div>
       )}
       {showThought && (
         <div
           data-testid="thought-body"
+          data-find-segment={SEGMENT.thought(findKey)}
           className="border-border text-text-secondary mb-1.5 ml-5 mr-2 border-l-2 pl-2.5 text-base italic opacity-90 [&_.md-content]:text-base"
         >
           <Markdown text={thought} />
@@ -382,6 +429,8 @@ function ExternalToolRow({
   result,
   pending,
   sessionId,
+  findKey,
+  reveal,
 }: {
   name: string
   args?: string
@@ -390,6 +439,8 @@ function ExternalToolRow({
   /** Tagged for a result that has not landed yet: the tool is running. */
   pending: boolean
   sessionId: string
+  findKey: string
+  reveal?: FindReveal
 }): React.JSX.Element {
   const [expanded, setExpanded] = useState(false)
   const workspacePath = useSessionsStore((s) => s.live[sessionId]?.workspacePath ?? undefined)
@@ -399,6 +450,8 @@ function ExternalToolRow({
   const expandable = !!result && (!!result.preview || !!result.error)
   const title = args ? `Claude Code · ${name} ${args}` : `Claude Code · ${name}`
 
+  useOpenOnReveal(expandable ? reveal : undefined, setExpanded, 'detail')
+
   const body = (
     <>
       {/* Provenance belongs in the gutter, not in front of the label. It used
@@ -406,7 +459,12 @@ function ExternalToolRow({
           pi's own rows — and a Claude turn interleaves the two in one card, so
           the column broke on the first WebSearch. Same slot as the ✳ mark, same
           quiet styling: this row's label now starts at the x a pi row's does. */}
-      <span aria-label="Ran by Claude Code" title="Ran by Claude Code" className={GUTTER_MARK}>
+      <span
+        aria-label="Ran by Claude Code"
+        title="Ran by Claude Code"
+        data-find-skip
+        className={GUTTER_MARK}
+      >
         {/* Same chip the pinned ✳ gets; no `tracking-wide` — the two glyphs
             already fill the slot the fill allows them. */}
         <span
@@ -427,43 +485,57 @@ function ExternalToolRow({
       >
         {summary.label}
       </span>
+      {/* The spaces between the parts are for find, which reads this line as
+          "Ran npm test"; the flex row does not render them. */}
       {summary.object && (
-        <span
-          className={clsx(
-            'min-w-0 truncate font-medium',
-            failed ? 'text-danger' : 'text-text',
-            summary.mono && 'font-mono text-base',
-          )}
-        >
-          {summary.object}
-        </span>
+        <>
+          {' '}
+          <span
+            className={clsx(
+              'min-w-0 truncate font-medium',
+              failed ? 'text-danger' : 'text-text',
+              summary.mono && 'font-mono text-base',
+            )}
+          >
+            {summary.object}
+          </span>
+        </>
       )}
       {summary.hint && (
-        <span className="text-text-tertiary min-w-0 shrink truncate font-mono text-sm">
-          {summary.hint}
-        </span>
+        <>
+          {' '}
+          <span className="text-text-tertiary min-w-0 shrink truncate font-mono text-sm">
+            {summary.hint}
+          </span>
+        </>
       )}
       {/* The outcome, in the provider's own words. Right-aligned so a column
           of rows reads as "what ran … what came of it" rather than burying
           the result inside the label. */}
       {result?.summary && (
-        <span
-          data-testid="external-tool-outcome"
-          className={clsx(
-            // Capped, not `shrink-0`: a summary runs to 160 characters (a
-            // failure quotes the CLI's message), and the command is what the
-            // row is about.
-            'ml-auto max-w-[45%] min-w-0 truncate font-mono text-sm',
-            failed ? 'text-danger' : 'text-text-tertiary',
-          )}
-        >
-          {result.summary}
-        </span>
+        <>
+          {' '}
+          <span
+            data-testid="external-tool-outcome"
+            className={clsx(
+              // Capped, not `shrink-0`: a summary runs to 160 characters (a
+              // failure quotes the CLI's message), and the command is what the
+              // row is about.
+              'ml-auto max-w-[45%] min-w-0 truncate font-mono text-sm',
+              failed ? 'text-danger' : 'text-text-tertiary',
+            )}
+          >
+            {result.summary}
+          </span>
+        </>
       )}
       {failed && (
-        <span className="bg-danger-soft text-danger shrink-0 rounded px-1.5 py-px text-xs font-medium">
-          failed
-        </span>
+        <>
+          {' '}
+          <span className="bg-danger-soft text-danger shrink-0 rounded px-1.5 py-px text-xs font-medium">
+            failed
+          </span>
+        </>
       )}
       {pending && (
         <span
@@ -488,6 +560,7 @@ function ExternalToolRow({
             !failed && 'hover:text-text',
           )}
           data-testid="external-tool-row"
+          data-find-segment={SEGMENT.step(findKey)}
           title={title}
         >
           {body}
@@ -496,6 +569,7 @@ function ExternalToolRow({
         <div
           className={clsx('relative flex items-center gap-1.5 py-1 text-lg', ROW_INSET)}
           data-testid="external-tool-row"
+          data-find-segment={SEGMENT.step(findKey)}
           // The full marker, for the case the label had to drop something.
           title={title}
         >
@@ -506,7 +580,7 @@ function ExternalToolRow({
         // Same full-width section a pi tool's detail gets — not a nested
         // card, which read as box-in-a-box.
         <div className="border-border expand-enter border-t">
-          <ExternalToolDetail name={name} result={result} />
+          <ExternalToolDetail name={name} result={result} findSegment={SEGMENT.detail(findKey)} />
         </div>
       )}
     </div>
@@ -524,9 +598,12 @@ function ExternalToolRow({
 function ExternalToolDetail({
   name,
   result,
+  findSegment,
 }: {
   name: string
   result: ExternalToolResult
+  /** Names the preview for find; the header restates the row. */
+  findSegment: string
 }): React.JSX.Element {
   const text = result.preview ?? result.error ?? ''
   const failed = result.status === 'error'
@@ -552,12 +629,13 @@ function ExternalToolDetail({
       </div>
       <pre
         data-testid="external-tool-preview"
+        data-find-segment={findSegment}
         className={clsx(
           'max-h-80 overflow-auto px-3 py-2.5 font-mono text-base leading-relaxed break-words whitespace-pre-wrap',
           failed ? 'text-danger' : 'terminal-output',
         )}
       >
-        {text || '(no output)'}
+        {text || <span data-find-skip>(no output)</span>}
       </pre>
       {result.truncated && (
         <div className="border-border text-text-tertiary border-t px-3 py-1.5 text-sm">
@@ -598,13 +676,19 @@ function ExternalToolDetail({
 function SubagentRow({
   agent,
   sessionId,
+  findKey,
+  reveal,
 }: {
   agent: SubagentBlock
   sessionId: string
+  findKey: string
+  reveal?: FindReveal
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const expandable = Boolean(agent.prompt)
   const done = isTerminalAgentStatus(agent.status)
+
+  useOpenOnReveal(expandable ? reveal : undefined, setOpen, 'detail')
 
   // The raw string, not a derived object: a selector that parsed here would
   // return a fresh identity on every store tick and re-render every row.
@@ -654,6 +738,7 @@ function SubagentRow({
           agent
         </span>
         <span
+          data-find-segment={SEGMENT.step(findKey)}
           className={clsx(
             'min-w-0 truncate font-medium',
             done ? 'text-text-secondary' : 'text-text',
@@ -702,6 +787,7 @@ function SubagentRow({
       {open && agent.prompt && (
         <div
           data-testid="subagent-prompt"
+          data-find-segment={SEGMENT.detail(findKey)}
           className="border-accent/30 text-text-secondary mb-1.5 ml-5 mr-2 whitespace-pre-wrap break-words border-l-2 pl-2.5 text-sm"
         >
           {agent.prompt}
@@ -712,8 +798,15 @@ function SubagentRow({
 }
 
 /** Reasoning with no tool call after it (e.g. the turn ended on a thought). */
-function ThoughtOnlyRow({ text }: { text: string }): React.JSX.Element {
+function ThoughtOnlyRow({
+  text,
+  reveal,
+}: {
+  text: string
+  reveal?: FindReveal
+}): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  useOpenOnReveal(reveal, setOpen)
   return (
     <div>
       <button
@@ -735,6 +828,7 @@ function ThoughtOnlyRow({ text }: { text: string }): React.JSX.Element {
       {open && (
         <div
           data-testid="thought-body"
+          data-find-segment={SEGMENT.thought(TRAILING_THOUGHT)}
           className="border-border text-text-secondary mb-1.5 ml-5 mr-2 border-l-2 pl-2.5 text-base italic opacity-90 [&_.md-content]:text-base"
         >
           <Markdown text={text} />

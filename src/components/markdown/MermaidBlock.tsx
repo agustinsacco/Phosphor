@@ -1,7 +1,7 @@
 import { memo, useEffect, useId, useState } from 'react'
 import { useSettingsStore } from '@/stores/settings'
 import { CodeBlock } from './CodeBlock'
-import { Lightbox } from '../Lightbox'
+import { MermaidViewer } from './MermaidViewer'
 import { errorText } from '@shared/errors'
 
 let mermaidCounter = 0
@@ -78,17 +78,20 @@ export const MermaidBlock = memo(function MermaidBlock({
     <>
       <div
         className="mermaid-svg border-border bg-surface my-3 cursor-zoom-in overflow-x-auto rounded-lg border p-4 [&_svg]:mx-auto [&_svg]:max-w-full"
+        role="button"
+        tabIndex={0}
+        aria-label="Expand Mermaid diagram"
+        title="Expand diagram"
         onClick={() => setZoomed(true)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            setZoomed(true)
+          }
+        }}
         dangerouslySetInnerHTML={{ __html: svg }}
       />
-      {zoomed && (
-        <Lightbox onClose={() => setZoomed(false)}>
-          <div
-            className="max-h-[90vh] max-w-[90vw] overflow-auto rounded-lg bg-white p-6 [&_svg]:h-auto [&_svg]:w-full"
-            dangerouslySetInnerHTML={{ __html: svg }}
-          />
-        </Lightbox>
-      )}
+      {zoomed && <MermaidViewer svg={svg} code={code} onClose={() => setZoomed(false)} />}
     </>
   )
 })

@@ -603,7 +603,13 @@ function handle(cmd) {
             'ExtensionUiHosts.tsx',
         })
       }
-      if (message.includes('speclink')) runSpecLinkTurn()
+      if (message.includes('mermaidviewer')) {
+        runTextTurn(
+          '```mermaid\nflowchart LR\n' +
+            Array.from({ length: 12 }, (_, i) => `N${i}[Stage ${i}] --> N${i + 1}`).join('\n') +
+            '\n```',
+        )
+      } else if (message.includes('speclink')) runTextTurn()
       else if (message.includes('artifactlink')) runArtifactLinkTurn()
       else if (message.includes('longartifact')) runLongArtifactTurn()
       else if (message.includes('manyitems')) runManyItemsTurn()
@@ -880,10 +886,10 @@ function play(steps, gapMs = 40) {
  * A reply that announces a spec it wrote: one repo-relative link and one web
  * URL, the exact shape a real session produces after writing a doc.
  */
-function runSpecLinkTurn() {
-  const text =
-    'Spec written: [docs/plan.md](docs/plan.md), line ' +
-    '[42](docs/plan.md#L42). PR: [#214](https://github.com/agustinsacco/Phosphor/pull/214).'
+function runTextTurn(
+  text = 'Spec written: [docs/plan.md](docs/plan.md), line ' +
+    '[42](docs/plan.md#L42). PR: [#214](https://github.com/agustinsacco/Phosphor/pull/214).',
+) {
   play([
     () => out({ type: 'agent_start' }),
     () => out({ type: 'turn_start' }),

@@ -149,6 +149,87 @@ function scrollPosition(el: HTMLElement): { top: number; max: number } {
   return { top, max }
 }
 
+test('Mermaid viewer fits, zooms, pans, exports and restores focus', async () => {
+  const h = await launch()
+  const { page } = h
+  try {
+    await openWorkspace(page)
+    await page.getByPlaceholder('Describe a task or ask a question').fill('mermaidviewer')
+    await page.getByRole('button', { name: /Start session/i }).click()
+    const expand = page.getByRole('button', { name: 'Expand Mermaid diagram' })
+    await expand.focus()
+    await expand.press('Enter')
+    const dialog = page.getByRole('dialog', { name: 'Mermaid diagram' })
+    const canvas = dialog.getByLabel('Diagram canvas')
+    const image = canvas.locator('svg').first()
+    const level = dialog.getByLabel('Zoom level')
+    await expect(canvas).toBeFocused()
+    await expect
+      .poll(async () => {
+        const width = (await image.boundingBox())?.width
+        const viewport = await canvas.boundingBox()
+        return width && viewport ? Math.abs(width - (viewport.width - 64)) : Infinity
+      })
+      .toBeLessThan(1)
+    const fitWidth = (await image.boundingBox())!.width
+    expect(fitWidth).toBeGreaterThan((await canvas.boundingBox())!.width * 0.85)
+    await dialog.getByRole('button', { name: 'Zoom in', exact: true }).click()
+    await expect.poll(async () => (await image.boundingBox())!.width).toBeGreaterThan(fitWidth)
+    await dialog.getByRole('button', { name: '100%', exact: true }).click()
+    await expect(level).toHaveText('100%')
+    await canvas.focus()
+    await canvas.press('-')
+    await expect(level).toHaveText('80%')
+    const before = (await image.boundingBox())!
+    const bounds = (await canvas.boundingBox())!
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(bounds.x + bounds.width / 2 + 80, bounds.y + bounds.height / 2 + 40)
+    await page.mouse.up()
+    await expect.poll(async () => Math.round((await image.boundingBox())!.x - before.x)).toBe(80)
+    await page.mouse.wheel(0, -200)
+    await expect(level).not.toHaveText('80%')
+    await canvas.press('f')
+    await expect
+      .poll(async () => Math.round((await image.boundingBox())!.width))
+      .toBe(Math.round(fitWidth))
+    await dialog.getByRole('button', { name: 'Copy source' }).click()
+    await expect
+      .poll(() => h.app.evaluate(({ clipboard }) => clipboard.readText()))
+      .toContain('flowchart LR')
+    const output = join(h.workspace, 'diagram.svg')
+    await h.app.evaluate(({ dialog }, filePath) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath })
+    }, output)
+    await dialog.getByRole('button', { name: 'Save SVG' }).click()
+    await expect.poll(() => readFile(output, 'utf8').catch(() => '')).toContain('<svg')
+    expect(await readFile(output, 'utf8')).toContain('Stage 11')
+    await page.screenshot({ path: test.info().outputPath('mermaid-viewer.png') })
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(expand).toBeFocused()
+    await expand.press('Space')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Close diagram' }).click()
+    await expect(dialog).toBeHidden()
+    await page.getByRole('button', { name: 'Settings' }).click()
+    await page.getByRole('button', { name: 'Light', exact: true }).click()
+    await page.keyboard.press('Escape')
+    await expand.click()
+    await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(900, 700))
+    await expect
+      .poll(async () => Math.round((await image.boundingBox())?.width ?? Infinity))
+      .toBeLessThan(Math.round(fitWidth))
+    expect((await image.boundingBox())!.width).toBeGreaterThan(
+      (await canvas.boundingBox())!.width * 0.85,
+    )
+    await expect(canvas).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+    await page.screenshot({ path: test.info().outputPath('mermaid-viewer-light.png') })
+  } finally {
+    await shutdown(h)
+  }
+})
+
 test('cancelling quit preserves active sessions and coalesces repeated quit requests', async () => {
   const h = await launch()
   try {

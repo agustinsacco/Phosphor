@@ -224,9 +224,15 @@ renders as a plain named step.
   switch re-paints from CSS variables and never re-highlights. Unknown
   languages load on demand and fall back to plain text.
 - ` ```mermaid ` → diagram in the Phosphor palette, re-rendered on theme
-  change. Click opens a full-width scrollable lightbox (click or Escape to
-  close). No pan/zoom, no export. A parse error falls back to the code block
-  with the error under it.
+  change. Click (or focus and press Enter/Space) opens a near-full-window
+  viewer, initially fit to its canvas. Zoom buttons and scroll/pinch zoom up
+  to 400%; drag pans, Fit recenters, and 100% restores intrinsic size. With
+  the canvas focused, +/− zoom, arrow keys pan, F fits, and 0 restores 100%.
+  Resizing the window refits the diagram. Copy source copies Mermaid text;
+  Save SVG exports the diagram at intrinsic size in the current palette.
+  Close, Escape, or the backdrop dismisses the viewer and restores focus.
+  The same viewer serves artifact diagrams. A parse error falls back to the
+  code block with the error under it.
 - ` ```chart ` (a Chart.js config) and ` ```vega-lite ` → theme-aware chart;
   invalid specs fall back to the code block with the error.
 - ` ```html ` → Code/Preview toggle. The preview is

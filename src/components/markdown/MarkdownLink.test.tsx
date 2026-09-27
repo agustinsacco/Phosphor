@@ -89,7 +89,7 @@ describe('MarkdownLink', () => {
     render(<MarkdownLink href="src/lib/rpc.ts#L42">rpc</MarkdownLink>)
     await click(link())
     const files = workspaceFiles(useFilesStore.getState(), '/repo')
-    expect(files.openFiles[0]?.pendingRevealLine).toBe(42)
+    expect(files.openFiles[0]?.pendingReveal?.line).toBe(42)
   })
 
   it('toasts instead of swapping the pane when the file is gone', async () => {

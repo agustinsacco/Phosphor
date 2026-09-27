@@ -81,7 +81,10 @@ function MarkdownTable(props: React.TableHTMLAttributes<HTMLTableElement>): Reac
   }
   return (
     <div className="md-table-wrap group/table relative my-3">
-      <div className="absolute -top-3 right-1 z-10 hidden gap-1 group-hover/table:flex">
+      <div
+        data-find-skip
+        className="absolute -top-3 right-1 z-10 hidden gap-1 group-hover/table:flex"
+      >
         <button
           onClick={(e) => copy(e, 'markdown')}
           className="border-border bg-surface text-text-tertiary hover:text-text rounded-md border px-2 py-0.5 text-xs shadow-sm"

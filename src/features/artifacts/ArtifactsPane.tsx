@@ -14,6 +14,10 @@ import { MonacoDiff } from '@/features/files/MonacoEditor'
 import { CopyButton } from '@/components/CopyButton'
 import { SandboxedHtml } from '@/components/SandboxedHtml'
 import { DownloadIcon, FileIcon, PdfExportIcon } from '@/components/icons'
+import { FindBar } from '@/components/search/FindBar'
+import { useFind } from '@/components/search/useFind'
+import { useDomFind } from '@/components/search/useDomFind'
+import { useFindTarget } from '@/components/search/findTargets'
 import { relativeTimeShort } from '@/lib/time'
 import { useSettingsStore } from '@/stores/settings'
 import { useExtensionUiStore } from '@/stores/extensionUi'
@@ -28,6 +32,17 @@ import {
 } from './previewHtml'
 
 type ViewMode = 'preview' | 'code' | 'diff'
+
+/**
+ * Whether a view's text is in this document, where find can reach it. HTML and
+ * SVG previews are sandboxed iframes (no script, no shared origin), a chart is
+ * pixels on a canvas, and the diff is Monaco with its own ⌘F, so find reads the
+ * source view instead.
+ */
+function findableView(mode: ViewMode, type: Artifact['type']): boolean {
+  if (mode === 'diff') return false
+  return mode === 'code' || (type !== 'html' && type !== 'svg' && type !== 'chart')
+}
 
 /** Right-pane Artifacts region: gallery + versioned viewer. */
 export const ArtifactsPane = memo(function ArtifactsPane({
@@ -116,6 +131,16 @@ function ArtifactWorkspace({
   // same way the preview iframe does.
   const previewRef = useRef<HTMLDivElement>(null)
   const theme = useSettingsStore((s) => s.resolvedTheme)
+  const paneRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const find = useFind()
+  const searchable = findableView(mode, artifact.type)
+  const matches = useDomFind({ find, rootRef: scrollRef, enabled: searchable })
+  const { show } = find
+  useFindTarget(paneRef, (seed) => {
+    if (!findableView(mode, artifact.type)) setMode('code')
+    show(seed)
+  })
   const [versionIndex, setVersionIndex] = useState<number>(() => {
     const requested = artifact.versions.findIndex((v) => v.version === requestedVersion)
     return requested >= 0 ? requested : artifact.versions.length - 1
@@ -199,6 +224,7 @@ function ArtifactWorkspace({
 
   return (
     <PaneShell
+      rootRef={paneRef}
       title={<ArtifactSwitcher list={list} selected={artifact} onSelect={onSelect} />}
       actions={
         /*
@@ -262,31 +288,61 @@ function ArtifactWorkspace({
         </div>
       }
     >
-      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="artifact-scroll">
-        {mode === 'preview' && (
-          // `display:contents`: the export needs a node to read the rendered
-          // preview from, and this one must not become a box — the HTML
-          // preview's iframe sizes against the scroll container, so a real
-          // wrapper here would change what every artifact looks like.
-          <div ref={previewRef} className="contents">
-            <ArtifactPreview artifact={artifact} content={shown.content} />
-          </div>
-        )}
-        {mode === 'code' && (
-          <div className="[&_.code-block]:my-0 [&_.code-block]:rounded-none [&_.code-block]:border-0">
-            <CodeBlock code={shown.content} language={artifactLanguage(artifact)} />
-          </div>
-        )}
-        {mode === 'diff' && (
-          <div className="h-full">
-            <MonacoDiff
-              originalText={previous?.content ?? ''}
-              modifiedText={shown.content}
-              language={artifactLanguage(artifact)}
-              renderSideBySide={false}
-            />
-          </div>
-        )}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <FindBar
+          find={find}
+          total={matches.total}
+          active={matches.active}
+          capped={matches.capped}
+          onStep={matches.step}
+          placeholder="Find in artifact"
+          unavailable={
+            searchable
+              ? undefined
+              : {
+                  reason: `The ${mode === 'diff' ? 'diff' : 'preview'} cannot be searched here — its source can`,
+                  action: 'Switch to Code',
+                  onAction: () => {
+                    setMode('code')
+                    // The button unmounts with the switch; the field takes focus back.
+                    show()
+                  },
+                }
+          }
+          testId="artifact-find"
+        />
+        {/* Focusable (not tabbable) so a click inside puts ⌘F here, not in the transcript. */}
+        <div
+          ref={scrollRef}
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-y-auto outline-none"
+          data-testid="artifact-scroll"
+        >
+          {mode === 'preview' && (
+            // `display:contents`: the export needs a node to read the rendered
+            // preview from, and this one must not become a box — the HTML
+            // preview's iframe sizes against the scroll container, so a real
+            // wrapper here would change what every artifact looks like.
+            <div ref={previewRef} className="contents">
+              <ArtifactPreview artifact={artifact} content={shown.content} />
+            </div>
+          )}
+          {mode === 'code' && (
+            <div className="[&_.code-block]:my-0 [&_.code-block]:rounded-none [&_.code-block]:border-0">
+              <CodeBlock code={shown.content} language={artifactLanguage(artifact)} />
+            </div>
+          )}
+          {mode === 'diff' && (
+            <div className="h-full">
+              <MonacoDiff
+                originalText={previous?.content ?? ''}
+                modifiedText={shown.content}
+                language={artifactLanguage(artifact)}
+                renderSideBySide={false}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </PaneShell>
   )

@@ -1,12 +1,17 @@
-import { memo, useEffect } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { FileExplorer } from './FileExplorer'
 import { EditorPane } from './EditorPane'
+import { WorkspaceSearch } from './WorkspaceSearch'
+import { useWorkspaceSearchStore, workspaceSearch } from './workspaceSearchStore'
 import { useFilesStore } from '@/stores/files'
 
 const FALLBACK_POLL_MS = 2_000
 
-/** Files region: explorer tree + Monaco editor tabs, with live fs updates. */
+/**
+ * Files region: explorer tree (or, while open, the workspace search in its
+ * place) + Monaco editor tabs, with live fs updates.
+ */
 export const FilesPane = memo(function FilesPane({
   workspacePath,
 }: {
@@ -37,10 +42,34 @@ export const FilesPane = memo(function FilesPane({
     }
   }, [workspacePath])
 
+  const searchOpen = useWorkspaceSearchStore((s) => workspaceSearch(s, workspacePath).open)
+  const explorerFocusRequest = useWorkspaceSearchStore(
+    (s) => workspaceSearch(s, workspacePath).explorerFocusRequest,
+  )
+  const explorerRef = useRef<HTMLDivElement>(null)
+  // Closing the search hands focus to the tree that replaces it: the field or
+  // button that had it is gone. What was asked before this pane (or this
+  // workspace) showed is not asked of it.
+  const honouredExplorerFocus = useRef({ workspacePath, request: explorerFocusRequest })
+  useLayoutEffect(() => {
+    const honoured = honouredExplorerFocus.current
+    honouredExplorerFocus.current = { workspacePath, request: explorerFocusRequest }
+    if (searchOpen || honoured.workspacePath !== workspacePath) return
+    if (honoured.request === explorerFocusRequest) return
+    const explorer = explorerRef.current?.firstElementChild
+    if (explorer instanceof HTMLElement) explorer.focus()
+  }, [workspacePath, searchOpen, explorerFocusRequest])
+
   return (
     <PanelGroup direction="horizontal" autoSaveId={`phosphor-files-${workspacePath}`}>
       <Panel defaultSize={32} minSize={16} className="bg-bg-secondary/40">
-        <FileExplorer workspacePath={workspacePath} />
+        {searchOpen ? (
+          <WorkspaceSearch workspacePath={workspacePath} />
+        ) : (
+          <div ref={explorerRef} className="contents">
+            <FileExplorer workspacePath={workspacePath} />
+          </div>
+        )}
       </Panel>
       <PanelResizeHandle className="pane-handle" />
       <Panel minSize={30}>

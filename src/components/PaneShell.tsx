@@ -15,17 +15,20 @@ import { CloseIcon } from '@/components/icons'
 export const PaneShell = memo(function PaneShell({
   title,
   actions,
+  rootRef,
   children,
 }: {
   title: React.ReactNode
   /** Pane-specific controls, rendered between the title and ↗ / ✕. */
   actions?: React.ReactNode
+  /** The whole pane, header included — what a pane registers as its ⌘F surface. */
+  rootRef?: React.Ref<HTMLDivElement>
   children: React.ReactNode
 }): React.JSX.Element {
   const { expanded, side } = useActivePanes()
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col">
       <div className="border-border flex min-h-10 shrink-0 flex-wrap items-center gap-1.5 border-b px-2 py-1">
         <div className="flex min-w-0 flex-auto items-center gap-1.5">{title}</div>
         <div className="ml-auto flex shrink-0 items-center gap-1.5">

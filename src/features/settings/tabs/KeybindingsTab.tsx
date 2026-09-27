@@ -17,6 +17,8 @@ const APP: Binding[] = [
   [['mod', 'N'], 'New session'],
   [['mod', 'K'], 'Command palette'],
   [['mod', 'P'], 'Go to file'],
+  [['mod', 'F'], 'Find in session or artifact'],
+  [['mod', 'shift', 'F'], 'Search in workspace files'],
   [['mod', 'B'], 'Toggle sidebar'],
   [['mod', '`'], 'Toggle terminal pane'],
   [['mod', 'shift', 'E'], 'Toggle files pane'],
@@ -46,7 +48,7 @@ const CHAT: Binding[] = [
 
 const EDITOR: Binding[] = [
   [['mod', 'S'], 'Save file in editor'],
-  [['mod', 'F'], 'Search in terminal'],
+  [['mod', 'F'], 'Find in editor / terminal'],
 ]
 
 /*

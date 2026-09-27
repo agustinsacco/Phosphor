@@ -28,8 +28,8 @@ Start with [overview.md](overview.md) for what Phosphor is, or
 | File                         | Covers                                                              |
 | ---------------------------- | ------------------------------------------------------------------- |
 | [ui-shell.md](ui-shell.md)   | Window chrome, top bar, sidebar, the pane system, theming           |
-| [chat.md](chat.md)           | Transcript rendering, composer, tool cards, context meter           |
-| [files.md](files.md)         | Explorer file management, transfers, clipboard, the editor          |
+| [chat.md](chat.md)           | Transcript rendering, composer, tool cards, find, context meter     |
+| [files.md](files.md)         | File management, transfers, clipboard, search in files, the editor  |
 | [terminal.md](terminal.md)   | PTY panes, clipboard, scrollback, per-session ownership             |
 | [routines.md](routines.md)   | Local scheduled lanes, run history, catch-up, and unattended access |
 | [lanes.md](lanes.md)         | The lane row, PR status, naming, search, delete, reclaim            |

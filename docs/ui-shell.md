@@ -12,7 +12,8 @@
   deliberately absent: the OS title names the folder, and the session already
   owns the top bar and the sidebar row.
 - Global shortcuts: Cmd/Ctrl+N home screen (clears the active session; folder
-  and first prompt are chosen there), Cmd/Ctrl+P fuzzy file finder, Cmd/Ctrl+,
+  and first prompt are chosen there), Cmd/Ctrl+P fuzzy file finder, Cmd/Ctrl+F
+  find and Cmd/Ctrl+Shift+F search in files ([Find](#pane-system)), Cmd/Ctrl+,
   settings, Cmd/Ctrl+backtick terminal pane, Cmd/Ctrl+Shift+E files pane,
   Cmd/Ctrl+Shift+G changes pane, Cmd/Ctrl+B sidebar, Cmd/Ctrl+/ the shortcut
   list, Cmd/Ctrl+plus / minus / 0 UI scale. Punctuation bindings match on
@@ -20,7 +21,8 @@
   including the chords inherited from Claude Code (Esc Esc rewind, ↑/↓ prompt
   history, Tab/Shift+Tab, Ctrl+O verbose output), is Settings → Keybindings.
 
-**Shortcut scope:** New, Go to file, Files and Changes work from the composer.
+**Shortcut scope:** New, Go to file, Find, Files and Changes work from the
+composer; Search in files works from any focus, the editor included.
 F6 moves between the composer and pane controls; in a fullscreen pane it
 focuses Exit fullscreen. Dialogs block app navigation (not zoom). IME/AltGr and
 editor-owned letter chords are never read as app commands. Bindings belong to
@@ -208,6 +210,27 @@ they no longer share a glyph: a tray saves the _source_ through a dialog, a page
 prints the _preview_ to a PDF in Downloads. The PDF prints what the preview
 renders, so it returns to the Preview tab and waits for an async render first,
 and it toasts either way — a silent success reads as a dead button.
+
+**Find** has one bar and one set of toggles, and each surface points it at its
+own text:
+
+- **Cmd/Ctrl+F** opens find in the innermost surface around focus, or around
+  the last click when that click landed on something that does not take focus,
+  such as most of a rendered artifact (`components/search/findTargets.ts`).
+  Anywhere else it opens the transcript's bar
+  ([chat.md](chat.md#find-in-a-session)). Monaco and the terminal keep their
+  own find.
+- **In an artifact**, find searches the rendered preview of markdown, code and
+  Mermaid diagrams. HTML and SVG previews are sandboxed iframes it cannot
+  reach, and a chart is a canvas, so for those it switches to the Code view.
+  The diff is Monaco, which has its own find. Moving to one of those views
+  with the bar open says it cannot search there, next to a Switch to Code
+  button. A model rewriting the artifact while the bar is open re-counts and
+  keeps your place in the count (the third match stays the third), without
+  scrolling.
+- **Cmd/Ctrl+Shift+F** searches the workspace's files from any focus,
+  including the editor and composer. It opens the Files pane on its search
+  panel ([files.md](files.md#search-in-files)).
 
 Rules:
 

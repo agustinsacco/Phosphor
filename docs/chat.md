@@ -153,6 +153,24 @@ The composer is one small field with several ways in.
   both sides of it again. The marker is its own row, never folded into an
   activity group.
 
+## Find in a session
+
+Cmd/Ctrl+F from the composer or anywhere in the chat opens a find bar over the
+transcript. It counts every match in the session, not only the rows on screen.
+The transcript is virtualized, so `features/chat/transcriptFind.ts` reduces
+each row to the text it renders as and counts that. Tool output, reasoning and
+the steps of a collapsed run count too, and stepping to a match inside one
+opens it. Reasoning hidden by the thinking setting is not searched. Enter,
+F3 or Cmd/Ctrl+G steps forward, and Shift reverses. The current match scrolls
+into view, and every match on screen is painted. ⌥C, ⌥W and ⌥R toggle match
+case, whole word and regex. A one-line selection seeds the query, Esc closes
+the bar, and the count stops at 10,000.
+
+The bar (`components/search/FindBar.tsx`) is shared with find in an artifact.
+Its toggles and the matching (`shared/text-search.ts`) are shared with the
+Files pane's search too ([files.md](files.md#search-in-files)), which has its
+own panel. Each surface reaches its own text, and has its own limits.
+
 ## Tool renderers
 
 | Tool               | Treatment                                                                                                                                                                                                  |

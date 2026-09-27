@@ -4,9 +4,11 @@ import type { DirEntry } from '@shared/models'
 import { useFilesStore, workspaceFiles } from '@/stores/files'
 import { showContextMenu } from '@/components/ContextMenu'
 import { revealLabel } from '@/lib/reveal'
-import { BranchIcon, ChevronIcon } from '@/components/icons'
+import { BranchIcon, ChevronIcon, SearchIcon } from '@/components/icons'
+import { formatShortcut } from '@/lib/shortcuts'
 import { createIn, renameEntry, trashEntry, runFileAction } from './fileActions'
 import { useExplorer } from './useExplorer'
+import { useWorkspaceSearchStore } from './workspaceSearchStore'
 
 export const FileExplorer = memo(function FileExplorer({
   workspacePath,
@@ -56,6 +58,13 @@ export const FileExplorer = memo(function FileExplorer({
           Explorer
         </span>
         <div className="flex items-center gap-0.5">
+          <IconToggle
+            title={`Search in files (${formatShortcut('mod', 'shift', 'F')})`}
+            active={false}
+            onClick={() => useWorkspaceSearchStore.getState().openSearch(workspacePath)}
+          >
+            <SearchIcon size={12} />
+          </IconToggle>
           {(['file', 'folder'] as const).map((kind) => (
             <IconToggle
               key={kind}
@@ -291,7 +300,7 @@ function ExplorerRow({
   )
 }
 
-function IconToggle({
+export function IconToggle({
   title,
   active,
   onClick,
@@ -339,7 +348,7 @@ function FolderGlyph({ open }: { open: boolean }): React.JSX.Element {
   )
 }
 
-function RefreshIcon(): React.JSX.Element {
+export function RefreshIcon(): React.JSX.Element {
   return (
     <svg
       width="12"

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { drop, keyedSlice } from './keyedSlice'
 import { useSessionsStore } from './sessions'
+import type { RevealTarget } from './files'
 
 export type RightPane = 'files' | 'changes' | 'terminal' | 'artifacts' | null
 export type PaneSide = 'left' | 'right'
@@ -202,17 +203,17 @@ export function useActivePanes(): SessionPanes {
   return useLayoutStore((s) => sessionPanes(s, activeSessionId))
 }
 
-/** Open a file from anywhere (chat chips, diffs, finder) into the Files pane. */
+/** Open a file from anywhere (chat chips, diffs, finder, search) into the Files pane. */
 export async function openFileInWorkspace(
   workspacePath: string,
   path: string,
-  line?: number,
+  target?: number | RevealTarget,
 ): Promise<void> {
   const { useFilesStore } = await import('./files')
   const absolute = path.startsWith('/') ? path : `${workspacePath}/${path}`
   // Read first, switch second: a markdown link can name a path that does not
   // exist, and swapping the pane before the read means a failed open still
   // hides whatever the user was looking at.
-  await useFilesStore.getState().openFile(workspacePath, absolute, line)
+  await useFilesStore.getState().openFile(workspacePath, absolute, target)
   useLayoutStore.getState().setRightPane('files')
 }

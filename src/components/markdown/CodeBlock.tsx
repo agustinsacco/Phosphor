@@ -76,7 +76,10 @@ export const CodeBlock = memo(function CodeBlock({
 
   return (
     <div className="code-block border-border bg-code-bg group/code relative my-3 overflow-hidden rounded-lg border">
-      <div className="border-border text-text-tertiary flex h-8 items-center justify-between border-b px-3">
+      <div
+        data-find-skip
+        className="border-border text-text-tertiary flex h-8 items-center justify-between border-b px-3"
+      >
         <span className="font-mono text-sm font-mono uppercase tracking-wide">
           {language || 'text'}
         </span>

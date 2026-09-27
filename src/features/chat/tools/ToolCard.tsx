@@ -49,25 +49,36 @@ export const ToolCard = memo(function ToolCard({
         )}
       >
         <span className={clsx('shrink-0', running && 'tool-running-label')}>{summary.label}</span>
+        {/* The spaces between the parts are for find, which reads this line as
+            "Ran npm test"; the flex row does not render them. */}
         {summary.object && (
-          <span
-            className={clsx(
-              'truncate font-medium',
-              failed ? 'text-danger' : 'text-text',
-              summary.mono && 'font-mono text-base',
-            )}
-          >
-            {summary.object}
-          </span>
+          <>
+            {' '}
+            <span
+              className={clsx(
+                'truncate font-medium',
+                failed ? 'text-danger' : 'text-text',
+                summary.mono && 'font-mono text-base',
+              )}
+            >
+              {summary.object}
+            </span>
+          </>
         )}
         {summary.stats && <DiffStatBadges stats={summary.stats} className="text-base" />}
         {summary.hint && (
-          <span className="text-text-tertiary shrink-0 font-mono text-sm">{summary.hint}</span>
+          <>
+            {' '}
+            <span className="text-text-tertiary shrink-0 font-mono text-sm">{summary.hint}</span>
+          </>
         )}
         {failed && (
-          <span className="bg-danger-soft text-danger shrink-0 rounded px-1.5 py-px text-xs font-medium">
-            failed
-          </span>
+          <>
+            {' '}
+            <span className="bg-danger-soft text-danger shrink-0 rounded px-1.5 py-px text-xs font-medium">
+              failed
+            </span>
+          </>
         )}
         {/*
          * The in-flight dot TRAILS the label. Leading it made every row jump

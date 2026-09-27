@@ -2,12 +2,16 @@ import { useEffect } from 'react'
 import { clampUiScale } from '@shared/models'
 import { sessionPanes, useLayoutStore } from '@/stores/layout'
 import { ignoreShortcut, isComposerInput, shortcutOverlayOpen } from '@/lib/shortcutContext'
+import { hostPlatform } from '@/lib/shortcuts'
 import { useSettingsStore } from '@/stores/settings'
 import { useSessionsStore } from '@/stores/sessions'
 import { getActiveWorkspace } from '@/stores/workspaces'
 import { useFinderStore } from '@/features/files/FuzzyFinder'
 import { useSettingsUiStore } from '@/features/settings/settingsUiStore'
 import { useChatUiStore } from '@/features/chat/uiState'
+import { openFindForFocus } from '@/components/search/findTargets'
+import { selectionSeed } from '@/components/search/useFind'
+import { useWorkspaceSearchStore } from '@/features/files/workspaceSearchStore'
 
 /**
  * True when the event target is a text-entry surface (composer, Monaco,
@@ -147,6 +151,20 @@ export function useGlobalShortcuts(enabled = true): void {
         return
       }
 
+      // ⌘⇧F — search the workspace's files, in the Files pane. Above the
+      // editable guard: it is pressed from the editor and the composer as much
+      // as anywhere, and neither binds it.
+      if (event.shiftKey && event.code === 'KeyF') {
+        event.preventDefault()
+        const workspacePath = getActiveWorkspace()
+        if (workspacePath && canToggleRightPane()) {
+          useLayoutStore.getState().setPage(null)
+          useLayoutStore.getState().setRightPane('files')
+          useWorkspaceSearchStore.getState().openSearch(workspacePath, selectionSeed())
+        }
+        return
+      }
+
       // Explicit app navigation works from the composer; Monaco, terminals and
       // other text fields keep their own letter chords. Bold is owned by the field.
       const composer = isComposerInput(event.target)
@@ -169,6 +187,15 @@ export function useGlobalShortcuts(enabled = true): void {
           if (getActiveWorkspace()) {
             useFinderStore.getState().setOpen(true)
           }
+          break
+        // ⌘F — find in whatever surface the reader is in: the artifact they
+        // clicked into, else the session transcript. From the composer too,
+        // which is where focus sits while reading. Monaco and the terminal
+        // never get here (editable targets) and run their own find.
+        case 'KeyF':
+          // ⌃F on macOS is a text field's "forward one character".
+          if (hostPlatform() === 'darwin' && !event.metaKey) return
+          if (openFindForFocus()) event.preventDefault()
           break
         // ⌘K is owned by CommandPalette's own listener (it must also work
         // while the palette input has focus), so it is deliberately absent.

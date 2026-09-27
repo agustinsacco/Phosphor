@@ -75,6 +75,7 @@ interactive sessions remain independent and are not reclaimed by it.
 
 - Single source of truth for session state lives in main (`SessionRegistry`: live sessions ↔ pi children); renderer stores are projections.
 - All long/streaming output is incrementally reduced — never rebuild whole message arrays per delta.
+- Work whose cost the user's input decides runs off main's thread. The workspace search runs each query in its own worker thread (`electron/fs/workspace-search-service.ts`): a regex can backtrack for minutes on one line, and a worker can be terminated mid-match where main's thread would freeze every window.
 - Every feature works on macOS, Linux, Windows (path handling via `node:path`, PTY shells per-OS: `$SHELL` / PowerShell).
 - App prefs in electron-store — `AppPrefs` in [`shared/models.ts`](../shared/models.ts): theme, recent/last workspace, last + pinned sessions, model picks, lane markers and `lanes`, `fonts` (UI scale and the three font sizes), agent directives (global and per-project), worktrees, maintenance, headroom. **Pane layout is not among them**: it is per-session and lives in `localStorage` under `phosphor-pane-layout` (`src/stores/layout.ts`), because it is view state that should not survive a prefs migration or cost an IPC round-trip per drag.
 - Prefs are never written into pi's config files. pi config editing is explicit and user-initiated ([settings.md](settings.md)).

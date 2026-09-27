@@ -1,6 +1,7 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useContext, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { parseDisplayDiff, type DiffLine } from '../diff'
+import { DetailRevealContext, useOpenOnReveal } from '../useTranscriptFind'
 
 const COLLAPSE_THRESHOLD = 40
 
@@ -8,6 +9,8 @@ const COLLAPSE_THRESHOLD = 40
 export const DiffView = memo(function DiffView({ diff }: { diff: string }): React.JSX.Element {
   const lines = useMemo(() => parseDisplayDiff(diff), [diff])
   const [expanded, setExpanded] = useState(false)
+  // Find counts every line, so a hit in the diff unfolds all of it.
+  useOpenOnReveal(useContext(DetailRevealContext), setExpanded, 'detail')
 
   const visible = expanded ? lines : lines.slice(0, COLLAPSE_THRESHOLD)
   const hidden = lines.length - visible.length
@@ -23,6 +26,7 @@ export const DiffView = memo(function DiffView({ diff }: { diff: string }): Reac
       </table>
       {hidden > 0 && (
         <button
+          data-find-skip
           onClick={() => setExpanded(true)}
           className="text-text-tertiary hover:text-text block w-full py-1.5 text-center text-sm transition-colors"
         >
@@ -42,6 +46,7 @@ function DiffRow({ line }: { line: DiffLine }): React.JSX.Element {
       )}
     >
       <td
+        data-find-skip
         className={clsx(
           'w-10 select-none pr-2 text-right align-top text-sm tabular-nums',
           line.kind === 'add' && 'text-success',
@@ -52,6 +57,7 @@ function DiffRow({ line }: { line: DiffLine }): React.JSX.Element {
         {line.lineNo ?? ''}
       </td>
       <td
+        data-find-skip
         className={clsx(
           'w-4 select-none text-center align-top',
           line.kind === 'add' && 'text-success',

@@ -16,6 +16,10 @@ import {
 } from './items/autoscroll'
 import { spacingFor } from './items/spacing'
 import { activeActivityId, buildTranscriptRows } from './items/transcriptRows'
+import { FindBar } from '@/components/search/FindBar'
+import { useFind } from '@/components/search/useFind'
+import { useFindTarget } from '@/components/search/findTargets'
+import { useTranscriptFind } from './useTranscriptFind'
 
 export const MessageList = memo(function MessageList({
   sessionId,
@@ -33,7 +37,11 @@ export const MessageList = memo(function MessageList({
     return diskPath ? s.suspendedPaths.includes(diskPath) : false
   })
   const hideThinking = useSettingsStore((s) => s.hideThinkingBlock)
+  // Tool summaries strip the session's own cwd from paths; find counts the
+  // text they actually show.
+  const workspacePath = useSessionsStore((s) => s.live[sessionId]?.workspacePath ?? undefined)
 
+  const containerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   /**
    * `pinnedRef` is the source of truth and is written *synchronously*; `pinned`
@@ -75,6 +83,26 @@ export const MessageList = memo(function MessageList({
     pinnedRef.current = next
     setPinned((current) => (current === next ? current : next))
   }, [])
+
+  /**
+   * Stop following the tail. Unpinning a transcript that doesn't overflow
+   * strands the view: no scroll events can ever fire to re-pin it, so the next
+   * long answer streams below the fold unfollowed.
+   */
+  const releaseFollow = useCallback(
+    (el: HTMLElement): void => {
+      if (el.scrollHeight <= el.clientHeight) return
+      // Sampled at the instant intent is expressed: this is the highest the
+      // floor will sit for this read-back, and every later scroll can only
+      // lower it.
+      if (pinnedRef.current) {
+        tailFloorRef.current = el.scrollTop + el.clientHeight
+        readerTopRef.current = el.scrollTop
+      }
+      setPinnedNow(false)
+    },
+    [setPinnedNow],
+  )
 
   const scrollToBottom = useCallback((el: HTMLElement): void => {
     selfScrollRef.current = true
@@ -130,20 +158,7 @@ export const MessageList = memo(function MessageList({
       scrollRef.current = el
       if (!el) return
 
-      // Unpinning a transcript that doesn't overflow strands the view: no
-      // scroll events can ever fire to re-pin it, so the next long answer
-      // streams below the fold unfollowed.
-      const unpin = (): void => {
-        if (el.scrollHeight <= el.clientHeight) return
-        // Sampled at the instant intent is expressed: this is the highest the
-        // floor will sit for this read-back, and every later scroll can only
-        // lower it.
-        if (pinnedRef.current) {
-          tailFloorRef.current = el.scrollTop + el.clientHeight
-          readerTopRef.current = el.scrollTop
-        }
-        setPinnedNow(false)
-      }
+      const unpin = (): void => releaseFollow(el)
       // A flick toward the tail lands well after its last wheel event, so the
       // wheel alone cannot see that it arrived. The direction is remembered
       // here and settled at `scrollend`. It is a gesture gate, not geometry:
@@ -211,7 +226,7 @@ export const MessageList = memo(function MessageList({
         el.removeEventListener('scrollend', onScrollEnd)
       }
     },
-    [setPinnedNow],
+    [releaseFollow, setPinnedNow],
   )
 
   const handleScroll = useCallback((): void => {
@@ -259,6 +274,26 @@ export const MessageList = memo(function MessageList({
     if (last.kind === 'user' && last.optimistic) jumpToBottom()
   }, [items, jumpToBottom])
 
+  // ⌘F. The fallback surface: focus in the composer, the top bar or nowhere
+  // at all still means "find in this session".
+  const find = useFind()
+  const { show: showFind } = find
+  useFindTarget(containerRef, showFind, true)
+  const releaseFollowForFind = useCallback((): void => {
+    if (scrollRef.current) releaseFollow(scrollRef.current)
+  }, [releaseFollow])
+  const matches = useTranscriptFind({
+    find,
+    rows,
+    tools,
+    hideThinking,
+    workspacePath,
+    scrollRef,
+    virtualizer,
+    releaseFollow: releaseFollowForFind,
+  })
+  const { reveal } = matches
+
   // Resuming a session with history: skeleton, not the empty state.
   if (items.length === 0 && !error && resuming) {
     return (
@@ -293,7 +328,16 @@ export const MessageList = memo(function MessageList({
   return (
     // `transcript-enter` plays once per mount: on a lane switch (ChatView is
     // keyed by session) and when history replaces the skeleton.
-    <div className="transcript-enter relative flex-1 overflow-hidden">
+    <div ref={containerRef} className="transcript-enter relative flex-1 overflow-hidden">
+      <FindBar
+        find={find}
+        total={matches.total}
+        active={matches.active}
+        capped={matches.capped}
+        onStep={matches.step}
+        placeholder="Find in session"
+        testId="transcript-find"
+      />
       {/* tabIndex makes the scroller focusable so PageUp/ArrowUp/Home actually
           reach the keydown unpin listener (a plain div never receives keys).
 
@@ -343,6 +387,7 @@ export const MessageList = memo(function MessageList({
               <div
                 key={virtualItem.key}
                 data-index={virtualItem.index}
+                data-find-row={row.id}
                 ref={virtualizer.measureElement}
                 className="absolute left-6 right-6 top-0"
                 style={{ transform: `translateY(${virtualItem.start}px)` }}
@@ -365,6 +410,9 @@ export const MessageList = memo(function MessageList({
                     hideThinking={hideThinking}
                     sessionId={sessionId}
                     activityActive={row.kind === 'activity' && row.id === activeActivity}
+                    // Only the row holding the current hit sees it, so a step
+                    // re-renders one row rather than the whole window.
+                    reveal={reveal?.rowId === row.id ? reveal : undefined}
                   />
                 </div>
               </div>

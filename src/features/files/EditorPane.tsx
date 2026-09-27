@@ -94,13 +94,12 @@ function ActiveEditor({
   file: OpenFile
   workspacePath: string
 }): React.JSX.Element {
-  const revealLine = file.pendingRevealLine
   return (
     <MonacoEditor
       path={file.path}
       language={file.language}
       value={file.content}
-      revealLine={revealLine}
+      reveal={file.pendingReveal}
       onChange={(value) => useFilesStore.getState().updateBuffer(workspacePath, file.path, value)}
       onSave={() => void useFilesStore.getState().saveFile(workspacePath, file.path)}
     />

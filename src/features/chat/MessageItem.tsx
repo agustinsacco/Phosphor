@@ -21,6 +21,8 @@ import { useActiveWorkspace } from '@/stores/workspaces'
 import { BranchIcon, RewindIcon } from '@/components/icons'
 import { BashExecution } from './items/BashExecution'
 import { Divider } from './items/Divider'
+import type { FindReveal } from './useTranscriptFind'
+import { SEGMENT } from './transcriptFind'
 
 interface MessageItemProps {
   row: TranscriptRow
@@ -28,6 +30,8 @@ interface MessageItemProps {
   hideThinking: boolean
   sessionId: string
   activityActive?: boolean
+  /** Set on the row holding the current find hit: what to open to show it. */
+  reveal?: FindReveal
 }
 
 /**
@@ -41,6 +45,7 @@ export const MessageItemView = memo(function MessageItemView({
   hideThinking,
   sessionId,
   activityActive = false,
+  reveal,
 }: MessageItemProps): React.JSX.Element | null {
   switch (row.kind) {
     case 'activity':
@@ -51,6 +56,7 @@ export const MessageItemView = memo(function MessageItemView({
           hideThinking={hideThinking}
           sessionId={sessionId}
           active={activityActive}
+          reveal={reveal}
         />
       )
     case 'text':
@@ -135,7 +141,11 @@ function CustomMessageItem({ item }: { item: CustomItem }): React.JSX.Element {
           ))}
         </div>
       )}
-      {item.text && <Markdown text={item.text} />}
+      {item.text && (
+        <div data-find-segment={SEGMENT.body}>
+          <Markdown text={item.text} />
+        </div>
+      )}
     </div>
   )
 }
@@ -189,6 +199,7 @@ function UserMessage({
          */
         <div
           data-testid="user-message"
+          data-find-segment={SEGMENT.body}
           className="bg-user-bubble max-w-[85%] break-words rounded-xl px-4 py-2.5 text-lg"
         >
           <UserText text={item.text} />
@@ -261,7 +272,7 @@ function AssistantText({
 
   return (
     <div className="group/msg relative">
-      <div className={clsx(streamingTail && 'streaming-tail')}>
+      <div data-find-segment={SEGMENT.body} className={clsx(streamingTail && 'streaming-tail')}>
         <Markdown text={shownText} streaming={item.streaming && !block.closed} />
       </div>
 
@@ -354,7 +365,10 @@ export function ErrorBlock({
   return (
     <div className="bg-danger-soft border-danger/25 mt-2 rounded-lg border px-3.5 py-2.5 text-lg">
       <span className="text-danger font-medium">Error</span>
-      <span className="text-text-secondary"> — {parsed.text}</span>
+      <span className="text-text-secondary">
+        {' — '}
+        <span data-find-segment={SEGMENT.body}>{parsed.text}</span>
+      </span>
       {parsed.unwrapped && <RawErrorDetails raw={message!} parsed={parsed} />}
       {remedy && (
         <>

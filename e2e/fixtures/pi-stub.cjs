@@ -232,14 +232,36 @@ if (SESSION_WRITE_DELAY_MS > 0) {
   writeSessionFile()
 }
 
+/**
+ * Context size knobs, for the context budget (electron/pi/context-budget.ts).
+ * PHOSPHOR_E2E_CONTEXT_WINDOW sizes the model's window and
+ * PHOSPHOR_E2E_CONTEXT_TOKENS what the context holds once a turn has run, so a
+ * test can put a large-window session over the budget. Defaults keep every
+ * other test at the stub's usual 150 of 200k. PHOSPHOR_E2E_MODEL_PROVIDER
+ * names the provider the session reports running on, so the same session can
+ * be a Claude Code one (`pi-claude-cli`) — the budget must not care.
+ *
+ * `compact` behaves like real pi's manual compaction in the two ways Phosphor
+ * depends on: it emits compaction_start/end around a delay
+ * (PHOSPHOR_E2E_COMPACT_MS), and a prompt sent while it runs is REJECTED
+ * rather than queued. Afterwards the size is unknown (`tokens: null`) until
+ * the next turn, as in pi.
+ */
+const CONTEXT_WINDOW = Number(process.env.PHOSPHOR_E2E_CONTEXT_WINDOW || 200000)
+const CONTEXT_TOKENS = Number(process.env.PHOSPHOR_E2E_CONTEXT_TOKENS || 150)
+const COMPACT_MS = Number(process.env.PHOSPHOR_E2E_COMPACT_MS || 40)
+const MODEL_PROVIDER = process.env.PHOSPHOR_E2E_MODEL_PROVIDER || 'stub'
+let contextTokens = 150
+let compacting = false
+
 const MODEL = {
   id: 'stub-model',
   name: 'Stub Model',
   api: 'stub',
-  provider: 'stub',
+  provider: MODEL_PROVIDER,
   reasoning: false,
   input: ['text'],
-  contextWindow: 200000,
+  contextWindow: CONTEXT_WINDOW,
   maxTokens: 8192,
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 }
@@ -310,7 +332,7 @@ function handle(cmd) {
           model: MODEL,
           thinkingLevel: 'off',
           isStreaming: agentStreaming,
-          isCompacting: false,
+          isCompacting: compacting,
           steeringMode: 'all',
           followUpMode: 'one-at-a-time',
           sessionId: 'stub-session',
@@ -477,10 +499,32 @@ function handle(cmd) {
           totalMessages: 4,
           tokens: { input: 100, output: 50, cacheRead: 0, cacheWrite: 0, total: 150 },
           cost: 0,
-          contextUsage: { tokens: 150, contextWindow: 200000, percent: 1 },
+          contextUsage: {
+            tokens: contextTokens,
+            contextWindow: CONTEXT_WINDOW,
+            percent: contextTokens === null ? null : (contextTokens / CONTEXT_WINDOW) * 100,
+          },
         },
       })
       break
+
+    case 'compact': {
+      compacting = true
+      const tokensBefore = contextTokens ?? 0
+      out({ type: 'compaction_start', reason: 'manual' })
+      setTimeout(() => {
+        compacting = false
+        contextTokens = null
+        const result = {
+          summary: 'Stub summary of the earlier conversation.',
+          firstKeptEntryId: 'aaaa0001',
+          tokensBefore,
+        }
+        out({ type: 'compaction_end', reason: 'manual', result, aborted: false, willRetry: false })
+        out({ id: cmd.id, type: 'response', command: 'compact', success: true, data: result })
+      }, COMPACT_MS)
+      break
+    }
 
     case 'get_messages':
       out({
@@ -493,7 +537,18 @@ function handle(cmd) {
       break
 
     case 'prompt': {
+      if (compacting) {
+        out({
+          id: cmd.id,
+          type: 'response',
+          command: 'prompt',
+          success: false,
+          error: 'Cannot submit a prompt while compaction is in progress',
+        })
+        break
+      }
       out({ id: cmd.id, type: 'response', command: 'prompt', success: true })
+      contextTokens = CONTEXT_TOKENS
       // Scenario switch, keyed off the prompt text: the default turn is what
       // most tests assert on, so extra scenarios must not change it.
       const message = typeof cmd.message === 'string' ? cmd.message : ''

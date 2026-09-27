@@ -6,6 +6,7 @@ import { ContextMeter } from './ContextMeter'
 import { useChatStore } from '@/stores/chat'
 import { useSessionsStore } from '@/stores/sessions'
 import { useExtensionUiStore } from '@/stores/extensionUi'
+import { useContextBudgetStore } from '@/stores/contextBudgetPref'
 import type { SessionStats } from '@shared/rpc'
 
 beforeAll(() => {
@@ -76,13 +77,18 @@ const stats = (contextUsage: SessionStats['contextUsage']): SessionStats => ({
   contextUsage,
 })
 
-function seed(contextUsage: SessionStats['contextUsage'], provider = 'pi-claude-cli'): void {
+function seed(
+  contextUsage: SessionStats['contextUsage'],
+  provider = 'pi-claude-cli',
+  autoCompactionEnabled?: boolean,
+): void {
   useChatStore.setState({
     sessions: {
       [SESSION]: {
         ...useChatStore.getState().sessions[SESSION],
         stats: stats(contextUsage),
         meta: {
+          ...(autoCompactionEnabled === undefined ? {} : { autoCompactionEnabled }),
           model: {
             id: 'claude-fable-5',
             name: 'Claude Fable 5',
@@ -123,6 +129,7 @@ beforeEach(() => {
   ;(globalThis as unknown as { window: { phosphor: unknown } }).window.phosphor = { invoke }
   useChatStore.setState({ sessions: {} })
   useExtensionUiStore.setState({ statuses: {} })
+  useContextBudgetStore.setState({ contextBudget: '' })
 })
 
 afterEach(() => {
@@ -154,11 +161,52 @@ describe('ContextMeter', () => {
     expect(document.body.textContent).toContain('25%')
   })
 
-  // pi compacts every provider, so a Claude session has no budget of its own.
+  // A 200k window is no larger than the default budget: pi's own threshold
+  // (window - reserveTokens) comes first, for Claude Code like any provider.
   it.each(['pi-claude-cli', 'openai-codex'])("uses pi's window and cap for %s", (provider) => {
     seed({ tokens: 325_000, contextWindow: 200_000, percent: 162.5 }, provider)
     render()
     expect(document.body.textContent).toContain('100%')
+    expect(document.querySelector('button')?.title).not.toContain('budget')
+  })
+
+  describe.each(['pi-claude-cli', 'openai-codex'])('a large-window %s session', (provider) => {
+    it('is measured against the budget it compacts at', () => {
+      // 150k of a 1M window is 15% — but this session compacts at 200k, so it
+      // is three quarters of the way there.
+      seed({ tokens: 150_000, contextWindow: 1_000_000, percent: 15 }, provider)
+      render()
+      expect(document.body.textContent).toContain('75%')
+      expect(document.querySelector('button')?.title).toMatch(/^Context: 75% of .* budget$/)
+    })
+
+    it('reads the configured budget', () => {
+      // "500" is shorthand for 500k.
+      useContextBudgetStore.setState({ contextBudget: '500' })
+      seed({ tokens: 325_000, contextWindow: 1_000_000, percent: 32.5 }, provider)
+      render()
+      expect(document.body.textContent).toContain('65%')
+    })
+
+    it('is capped over its budget, since pi compacts once the turn settles', () => {
+      seed({ tokens: 260_000, contextWindow: 1_000_000, percent: 26 }, provider)
+      render()
+      expect(document.body.textContent).toContain('100%')
+      expect(document.body.textContent).not.toContain('130%')
+    })
+
+    it("falls back to pi's window when the session's auto-compaction is off", () => {
+      seed({ tokens: 150_000, contextWindow: 1_000_000, percent: 15 }, provider, false)
+      render()
+      expect(document.body.textContent).toContain('15%')
+    })
+
+    it("falls back to pi's window when there is no budget", () => {
+      useContextBudgetStore.setState({ contextBudget: 'auto' })
+      seed({ tokens: 150_000, contextWindow: 1_000_000, percent: 15 }, provider)
+      render()
+      expect(document.body.textContent).toContain('15%')
+    })
   })
 
   it('fetches and shows both plan windows for a Claude Code session', async () => {

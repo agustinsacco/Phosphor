@@ -142,6 +142,22 @@ you want to watch.
   keeping `pi -p` alive after its answer. Existing Claude marker transcripts
   remain supported. See [cli-providers.md](docs/cli-providers.md).
 
+- **Interactive sessions share an absolute context budget (default 200k),
+  Claude included.** `shared/context-budget.ts` (`sessionContextBudget`) is
+  the rule, and it never looks at the provider; the pref is
+  `AppPrefs.contextBudget` (Settings → Agent → Context budget). pi's catalogue
+  gives most Claude models a 1M window, so pi's own threshold
+  (`contextWindow - reserveTokens`) alone lets such a session reach ~984k
+  before it compacts. pi has no RPC knob for that threshold, so
+  `electron/pi/context-budget.ts` checks after each `agent_settled` and sends
+  `compact` when a session whose window is larger than the budget is over it.
+  An RPC `compact` aborts a running turn, and pi REJECTS a prompt sent during
+  one, so `pi:command` serializes checks and state-changing commands through
+  `withBudgetCompaction`. The check is paused while a routine owns the
+  session (its runner prompts pi directly, past that gate); a lane kept open
+  for review is held like any other once released. See
+  [cli-providers.md](docs/cli-providers.md#one-context-budget).
+
 - **Phosphor ships six extensions that run inside pi's process** (`pi-ext/`,
   loaded with `-e` into every session; listed in `bundledExtensions()` in
   `electron/pi/session-runtime.ts`). They are the only Phosphor code with a

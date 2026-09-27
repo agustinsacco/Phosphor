@@ -52,9 +52,12 @@ upgrades nothing implicitly. Claude Code 2.1.263+ is required.
 ### Compaction has one owner
 
 pi owns compaction for every provider. Phosphor does not force a different
-setting at spawn or model switch. The Agent settings and session toggle apply
-to Claude too, and the context meter uses pi's model window. The old Claude-only
-context-window preference is gone.
+setting at spawn or model switch. The Agent settings, the context budget and
+the session toggle apply to Claude like any other provider
+([One context budget](#one-context-budget)), and the context meter measures a
+Claude session the same way. The old Claude-only context-window preference
+became that budget (`electron/prefs-migrations.ts` carries a stored value
+over).
 
 Older Phosphor sent `set_auto_compaction` at every spawn and model switch, off
 for Claude, and pi saves that command to its global `settings.json`. An install
@@ -73,6 +76,41 @@ is needed. Old Claude transcripts are retained as archives, never resumed.
 Historical native-tool markers may contain only previews; missing historical
 results cannot be recovered from those pi records. New tool calls/results are
 normal pi messages. Legacy markers and rebuild UI remain readable for old records.
+
+### One context budget
+
+Interactive sessions share a **context budget** (Settings → Agent → Context
+budget, `AppPrefs.contextBudget`, default 200k): the size at which pi compacts
+a session whose model window is larger than the budget, whatever its provider.
+The rule is `sessionContextBudget` in `shared/context-budget.ts`.
+
+It matters most on Claude Code. pi's catalogue gives most Claude models a 1M
+window, so pi's own threshold (`contextWindow - reserveTokens`) would let a
+Claude session grow to ~984k before compacting, every request re-reading all
+of it. Held to the budget, it compacts where the CLI's own auto-compact used
+to cut it.
+
+- **Checked after `agent_settled`** by `electron/pi/context-budget.ts`. When
+  the session is idle and over budget, it receives `compact`. A change applies
+  at the next check, running sessions included. Long turns can overshoot; pi's
+  native threshold stays armed and may fire sooner, mid-turn.
+- **Smaller windows keep pi's native limit**: on a 200k model (Claude Haiku
+  4.5, for one) pi fires at `contextWindow - reserveTokens`, ~183k with the
+  default reserve, before the default budget would.
+- The session's ⋮ auto-compaction toggle opts it out. `auto`/`off` remove the
+  budget, not pi's native compaction.
+
+RPC `compact` aborts a running turn, and pi rejects prompts during requested
+compaction. `withBudgetCompaction` serializes checks and state-changing
+commands through completion, including slow compactions. Reads and interrupts
+remain available; an interrupt cancels queued commands and pending checks.
+The check is paused while a routine owns the session, because its runner
+prompts pi directly; a routine lane kept open for review is held like any other
+session once the routine releases it.
+
+The value grammar is the old Claude setting's, so a carried-over value keeps
+its meaning: `k`/`M` suffixes, 100k–1M, and bare numbers below 100k are
+thousands (`500` = 500k).
 
 ## Why a bridge for Claude, and not for Codex
 

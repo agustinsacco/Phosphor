@@ -42,10 +42,16 @@ import type {
 } from '@shared/models'
 import { useSessionClaudeAccount } from './useSessionAccount'
 import { useSessionsStore } from '@/stores/sessions'
+import { useContextBudgetStore } from '@/stores/contextBudgetPref'
+import { sessionContextBudget } from '@shared/context-budget'
 
 export function ContextMeter({ sessionId }: { sessionId: string }): React.JSX.Element | null {
   const stats = useChatStore((s) => s.sessions[sessionId]?.stats)
   const model = useChatStore((s) => s.sessions[sessionId]?.meta?.model)
+  const autoCompactionEnabled = useChatStore(
+    (s) => s.sessions[sessionId]?.meta?.autoCompactionEnabled ?? true,
+  )
+  const budgetPref = useContextBudgetStore((s) => s.contextBudget)
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   // Pushed by the bundled context-breakdown extension, so it is present for
@@ -69,9 +75,22 @@ export function ContextMeter({ sessionId }: { sessionId: string }): React.JSX.El
   // whenever the session has stats and show the ring unfilled instead.
   if (!stats) return null
 
-  // Every provider follows pi's context window and compaction policy.
-  const window = usage?.contextWindow ?? 0
-  const percent = usage?.percent == null ? null : Math.min(100, Math.round(usage.percent))
+  // The denominator is the context BUDGET wherever one applies
+  // (shared/context-budget.ts), not the model window: "how full is the line
+  // this session compacts at" is the honest question. Against a 1M window a
+  // session held to 200k read 20% the turn before it compacted. The same rule
+  // for every provider, Claude Code included — pi compacts them all. Capped at
+  // 100: pi compacts once the turn settles, so anything over is transient.
+  const budget = sessionContextBudget({
+    raw: budgetPref,
+    contextWindow: usage?.contextWindow,
+    autoCompactionEnabled,
+  })
+  const window = budget ?? usage?.contextWindow ?? 0
+  const rawPercent =
+    budget !== null && usage?.tokens != null ? (usage.tokens / budget) * 100 : usage?.percent
+  const percent = rawPercent == null ? null : Math.min(100, Math.round(rawPercent))
+  const of = budget !== null ? ' budget' : ''
   const ringPercent = Math.min(100, percent ?? 0)
   const warn = percent !== null && percent >= 75
   const critical = percent !== null && percent >= 90
@@ -88,7 +107,7 @@ export function ContextMeter({ sessionId }: { sessionId: string }): React.JSX.El
         title={
           percent === null
             ? 'Context: measuring — session usage'
-            : `Context: ${percent}% of ${formatTokens(window)}`
+            : `Context: ${percent}% of ${formatTokens(window)}${of}`
         }
         className="hover:bg-bg-secondary flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors"
       >
@@ -151,9 +170,9 @@ export function ContextMeter({ sessionId }: { sessionId: string }): React.JSX.El
               <span className="text-text-secondary font-mono text-sm tabular-nums">
                 {percent === null
                   ? window
-                    ? `measuring · ${formatTokens(window)}`
+                    ? `measuring · ${formatTokens(window)}${of}`
                     : 'measuring'
-                  : `${formatTokens(usage?.tokens ?? 0)} / ${formatTokens(window)} · ${percent}%`}
+                  : `${formatTokens(usage?.tokens ?? 0)} / ${formatTokens(window)}${of} · ${percent}%`}
               </span>
             </div>
             {burning && (

@@ -17,6 +17,8 @@ import {
 import { readAgentSettings } from './agent-settings'
 import { healMissingSessionCwd } from './session-cwd'
 import { ensureCompactionReset } from './compaction-reset'
+import { watchContextBudget } from './context-budget'
+import { isRoutineSession } from '../routines/ownership'
 import { listPackages } from './packages'
 import { headroomSupervisor } from '../headroom/proxy'
 import { sessionEventChannel } from '@shared/ipc'
@@ -215,6 +217,19 @@ export async function spawnSession(
   // Trimmed, not forwarded whole: two of pi's events restate the entire run
   // after it has already streamed, and the renderer reads neither.
   session.client.on('event', (ev) => push({ kind: 'event', event: trimForRenderer(ev) }))
+  // Hold every interactive session to the context budget, Claude Code ones
+  // included (electron/pi/context-budget.ts). Paused while a routine owns the
+  // session: its runner prompts pi directly, past the `pi:command` gate that
+  // keeps a prompt out of a compaction in progress, and a check after its one
+  // turn would only compact a finished run. A lane kept open for review is an
+  // ordinary session once the routine releases it, and is held like one.
+  // Registered for the stub too, which is how the e2e suite exercises it.
+  watchContextBudget(
+    session.sessionId,
+    session.client,
+    () => getPrefs().contextBudget,
+    () => isRoutineSession(session.sessionId),
+  )
   session.client.on('extension-ui', (request) => {
     // The Claude provider reports its account's rate-limit state here, once
     // per change, for free. Routing listens because this is the only signal

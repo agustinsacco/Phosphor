@@ -309,10 +309,14 @@ test('deleting a routine removes its history and trashes the lanes it still owns
   expect(
     Object.keys(await page.evaluate(() => window.phosphor.invoke('routines:laneIndex'))),
   ).not.toContain(lane)
-  expect(
-    await app.evaluate(
-      (_electron, path) => (process.getBuiltinModule('node:fs') as typeof NodeFs).existsSync(path),
-      lane,
-    ),
-  ).toBe(false)
+  // A scheduler refresh can remove the row before the async trash operation finishes.
+  await expect
+    .poll(() =>
+      app.evaluate(
+        (_electron, path) =>
+          (process.getBuiltinModule('node:fs') as typeof NodeFs).existsSync(path),
+        lane,
+      ),
+    )
+    .toBe(false)
 })

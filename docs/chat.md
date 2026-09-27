@@ -145,7 +145,9 @@ The composer is one small field with several ways in.
 - Auto-retry: an inline strip "Retrying (2/3) in 4s — <error>" with cancel.
 - Compaction: a system divider "Context compacted — N tokens summarized" with
   an expandable summary, drawn from pi's `compaction_end` on every provider,
-  Claude Code included ([cli-providers.md](cli-providers.md#compaction-has-one-owner)).
+  Claude Code included ([cli-providers.md](cli-providers.md#compaction-has-one-owner)),
+  whether pi compacted at its own threshold or at the
+  [context budget](cli-providers.md#one-context-budget).
   Sessions recorded on provider 0.8.3–0.8.x also carry its
   `[Claude Code · compact {…}]` marker, emitted when the CLI compacted its own
   session mid-turn, and draw the same divider there. It records that old cut
@@ -269,8 +271,16 @@ in the **top bar** (`app/TopBar.tsx` → `SessionMenu`).
   that only a non-pi provider gets named.
 - **Context meter**: % of window from `get_session_stats` (polled after each
   `agent_end` and on demand), warn state near the compaction threshold, and
-  the popover below. Every provider uses pi's context window and percentage,
-  capped at 100%.
+  the popover below. The denominator is pi's context window, or the
+  **context budget** where one applies (Settings → Agent → Context budget,
+  200k unless set; `sessionContextBudget` in `shared/context-budget.ts`): a
+  session whose model window is larger than the budget, on any provider —
+  most Claude models have a 1M window
+  ([cli-providers.md](cli-providers.md#one-context-budget)). "How full is the
+  line this session compacts at" is the honest question: against a 1M window
+  a session held to 200k read 20% the turn before it compacted. Capped at
+  100% either way, since pi compacts once the turn settles. The budget shown
+  is the current setting, the same one the next check enforces.
 - **Stop** (`abort`) is the send button while a turn runs. Everything else is
   in the ⋮ menu: Export HTML…, Compact now… (optional custom instructions),
   auto-compaction, auto-retry, and the two queue-mode rows (Steering /

@@ -161,9 +161,16 @@ test('Mermaid viewer fits, zooms, pans, exports and restores focus', async () =>
     await expand.press('Enter')
     const dialog = page.getByRole('dialog', { name: 'Mermaid diagram' })
     const canvas = dialog.getByLabel('Diagram canvas')
-    const image = dialog.locator('svg').last()
+    const image = canvas.locator('svg').first()
     const level = dialog.getByLabel('Zoom level')
     await expect(canvas).toBeFocused()
+    await expect
+      .poll(async () => {
+        const width = (await image.boundingBox())?.width
+        const viewport = await canvas.boundingBox()
+        return width && viewport ? Math.abs(width - (viewport.width - 64)) : Infinity
+      })
+      .toBeLessThan(1)
     const fitWidth = (await image.boundingBox())!.width
     expect(fitWidth).toBeGreaterThan((await canvas.boundingBox())!.width * 0.85)
     await dialog.getByRole('button', { name: 'Zoom in', exact: true }).click()

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ModalOverlay } from '../Modal'
 import { Button } from '../form'
 import { CopyButton } from '../CopyButton'
@@ -28,7 +28,7 @@ export function MermaidViewer({
     return () => previous?.focus()
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const viewport = canvas.current!
     const container = drawing.current!
     const image = container.querySelector('svg')!
@@ -41,8 +41,13 @@ export function MermaidViewer({
     image.style.width = '100%'
     image.style.height = '100%'
     image.style.maxWidth = 'none'
+    let previousSize = ''
     const resize = (): void => {
-      fit.current = fitDiagram(width, height, viewport.getBoundingClientRect())
+      const bounds = viewport.getBoundingClientRect()
+      const size = `${bounds.width},${bounds.height}`
+      if (size === previousSize) return
+      previousSize = size
+      fit.current = fitDiagram(width, height, bounds)
       setView(fit.current)
     }
     const observer = new ResizeObserver(resize)

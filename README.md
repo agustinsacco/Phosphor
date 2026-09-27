@@ -116,8 +116,8 @@ follow-ups while a turn is running.
 
 The model chooser lists everything you are signed into, native providers and
 installed provider packages alike. Searchable, starrable, switchable
-mid-session. The chip names what actually serves the session (`via
-pi-claude-cli` when it is your Claude subscription):
+mid-session. The chip names what actually serves the session (`pi-claude-cli`
+when it is your Claude subscription):
 
 ![The model menu open over the composer](docs/img/models.png)
 
@@ -185,7 +185,7 @@ OAuth is the adapter's, never Phosphor's:
 
 ![The Connectors tab](docs/img/connectors.png)
 
-The light theme, on the artifact session:
+The light theme, on the edit session:
 
 ![The session in the light theme](docs/img/light.png)
 
@@ -323,8 +323,10 @@ The live runner (`scripts/capture-live-shots.mjs`) isolates app prefs but not
 pi. It runs one small edit task in a disposable worktree and one artifact task,
 then shoots the transcript, panes, menus and popovers. It spends real tokens
 and leaves the sessions and worktree behind; delete them like any other
-session. `ONLY=models,context` re-shoots a subset; `WORKSPACE=… TASK1=…
-MODEL2=…` re-aim it.
+session. `ONLY=models,context` re-shoots a subset (the turns still run);
+`WORKSPACE=… TASK_EDIT=… MODEL_ARTIFACT=…` re-aim it. Email addresses on
+screen are masked before every shot, and `REDACT='from=to,…'` masks anything
+else private, like an internal MCP server's name or host.
 
 `npm run shots` (`scripts/capture-readme-shots.mjs`) is the deterministic
 sibling: same mechanics, scratch workspace, the e2e `pi` stub, no key, no

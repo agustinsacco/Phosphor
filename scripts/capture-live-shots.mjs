@@ -5,6 +5,12 @@
  *   npm run build && node scripts/capture-live-shots.mjs
  *   ONLY=home,models node scripts/capture-live-shots.mjs      # partial rerun
  *   WORKSPACE=~/myrepo MODEL_EDIT=glm node scripts/capture-live-shots.mjs
+ *   REDACT='my-internal-mcp=knowledge' node scripts/capture-live-shots.mjs
+ *
+ * The shots are published, and a real ~/.pi shows real account details.
+ * Every email address on screen is masked before each capture, and REDACT
+ * adds `from=to` text replacements for anything else private: an internal
+ * MCP server's name or host, say.
  *
  * Unlike capture-readme-shots.mjs (the deterministic stub runner, kept for
  * CI-reproducible shots), this drives the built app against the developer's
@@ -76,6 +82,12 @@ const only = (process.env.ONLY ?? '')
   .filter(Boolean)
 const wanted = (name) => only.length === 0 || only.includes(name)
 
+/** `from=to` pairs, comma-separated, applied to on-screen text before a shot. */
+const redactions = (process.env.REDACT ?? '')
+  .split(',')
+  .map((pair) => pair.split('='))
+  .filter(([from, to]) => from && to !== undefined)
+
 const HOME_PROMPT = 'Describe a task or ask a question'
 /** A real turn can be minutes; the ceiling is generous, not a target. */
 const TURN_TIMEOUT = 600_000
@@ -129,6 +141,18 @@ async function main() {
     await page.waitForTimeout(200)
     await nudge(1)
     await page.waitForTimeout(400)
+    // Last thing before the capture, so a re-render has no time to undo it.
+    await page.evaluate((pairs) => {
+      // Runs in the renderer; globalThis keeps node's lint config honest.
+      const { document, NodeFilter } = globalThis
+      const email = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        let text = node.nodeValue.replace(email, 'you@example.com')
+        for (const [from, to] of pairs) text = text.split(from).join(to)
+        if (text !== node.nodeValue) node.nodeValue = text
+      }
+    }, redactions)
     const dataUrl = await app.evaluate(async ({ BrowserWindow }) => {
       const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed())
       return win.capturePage().then((image) => image.toDataURL())
@@ -159,7 +183,11 @@ async function main() {
   const pickHomeModel = async (provider, query) => {
     await page.getByTestId('home-model-picker').click()
     await page.getByTestId('model-list').waitFor({ timeout: 20_000 })
-    await page.getByRole('button', { name: provider }).first().click()
+    // The menu's provider filter chips (aria-pressed toggles, "name count").
+    // A bare name match also hits the home picker itself, whose label names
+    // the provider serving its current model.
+    const chip = new RegExp(`^${provider.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\d*$`)
+    await page.locator('button[aria-pressed]').filter({ hasText: chip }).first().click()
     await page.getByTestId('model-search').fill(query)
     await settle(page, 800)
     await page.getByTestId('model-row').first().click()
@@ -323,14 +351,32 @@ async function main() {
     await page.getByRole('button', { name: 'Appearance', exact: true }).click()
     await page.getByRole('button', { name: 'Light', exact: true }).click()
     await page.keyboard.press('Escape')
-    await page.getByTestId('session-row').first().click()
+    // Newest first: the artifact session was started last, so the edit
+    // session (the one with a diff worth showing) is the second row.
+    await page.getByTestId('session-row').nth(1).click()
     await page.getByPlaceholder(/Describe a task…/).waitFor({ timeout: 20_000 })
     await settle(page, 3500)
     await shot('light')
   } finally {
     console.log(`captured: ${shots.join(', ') || 'none'}`)
-    await app.close()
+    await quit(app)
   }
+}
+
+/**
+ * Close the app without hanging. The terminal shot leaves a live shell, so
+ * quitting asks "Quit Phosphor?" in a native dialog nobody will answer, and
+ * `app.close()` waits on it forever (SIGTERM does not get through either).
+ * Answer it with "Stop work and quit" instead, so the app's own teardown still
+ * runs: shells killed, pi children disposed, watchers closed.
+ */
+async function quit(app) {
+  await app
+    .evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
+    })
+    .catch(() => undefined)
+  await app.close()
 }
 
 main().catch((err) => {

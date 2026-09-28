@@ -29,6 +29,7 @@ export function usesClaudeCliProvider(
  * Refuse visibly rather than start Claude on an older provider. Before 0.9.0
  * the CLI loads its own context beside pi's, and on pi 0.86+ it misses pi's
  * prompt entirely, so the session would run without pi's instructions or skills.
+ * Before 0.10.0 the thinking level the picker shows is not what the model gets.
  */
 export function assertClaudeContextProvider(
   packages: Pick<PiPackageEntry, 'name' | 'version' | 'installed'>[],

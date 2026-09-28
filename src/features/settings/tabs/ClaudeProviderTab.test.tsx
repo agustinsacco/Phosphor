@@ -77,15 +77,15 @@ const warning = (): Element | null =>
 
 describe('ClaudeProviderTab', () => {
   it('flags an installed provider older than sessions accept', async () => {
-    provider = entry({ version: '0.8.3' })
+    provider = entry({ version: '0.9.1' })
     await render()
     expect(warning()?.textContent).toBe(
-      'Claude sessions need @saccolabs/pi-claude-cli 0.9.0 or newer; this is 0.8.3. ' +
+      'Claude sessions need @saccolabs/pi-claude-cli 0.10.0 or newer; this is 0.9.1. ' +
         'Update it, then reopen your Claude sessions.',
     )
   })
 
-  it.each(['0.9.0', '0.10.2'])('reads %s as healthy', async (version) => {
+  it.each(['0.10.0', '0.10.2', '1.0.0'])('reads %s as healthy', async (version) => {
     provider = entry({ version })
     await render()
     expect(warning()).toBeNull()

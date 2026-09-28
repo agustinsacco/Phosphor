@@ -154,7 +154,7 @@ prompt and disables native tools. Explicit host guards and managed policy
 remain active. Tool calls and complete results are normal pi messages, not
 native Claude marker previews.
 
-**Requires an installed pi-claude-cli ≥ 0.9.0.** Phosphor verifies the package
+**Requires an installed pi-claude-cli ≥ 0.10.0.** Phosphor verifies the package
 before starting or switching to Claude. pi supplies and executes all tools,
 including the coding tools, over this bridge. The provider automatically
 reimports pi history instead of resuming an old-policy Claude transcript.

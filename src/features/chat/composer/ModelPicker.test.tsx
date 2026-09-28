@@ -96,7 +96,7 @@ function pick(target: Model): void {
 describe('ModelPicker', () => {
   it('reports why main refused a switch, without the IPC wrapper', async () => {
     const reason =
-      'Claude sessions need @saccolabs/pi-claude-cli 0.9.0 or newer (found 0.8.3). ' +
+      'Claude sessions need @saccolabs/pi-claude-cli 0.10.0 or newer (found 0.9.1). ' +
       'Update it in Settings → Extensions, then reopen the session.'
     piCommand.mockRejectedValue(
       new Error(`Error invoking remote method 'pi:command': Error: ${reason}`),

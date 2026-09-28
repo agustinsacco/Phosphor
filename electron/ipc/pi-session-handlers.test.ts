@@ -90,7 +90,7 @@ beforeEach(() => {
   state.dispose.mockReset().mockResolvedValue(undefined)
   state.access.mockReset().mockResolvedValue(undefined)
   state.create.mockReset().mockReturnValue(state.session)
-  state.listPackages.mockResolvedValue(pkg('0.9.0'))
+  state.listPackages.mockResolvedValue(pkg('0.10.0'))
   state.ensureCompactionReset.mockReset().mockResolvedValue(undefined)
   registerPiSessionHandlers()
 })
@@ -213,7 +213,7 @@ describe('session context policy integration', () => {
         workspacePath: '/repo',
         provider: 'pi-claude-cli',
       }),
-    ).rejects.toThrow('0.9.0 or newer (found 0.7.0)')
+    ).rejects.toThrow('0.10.0 or newer (found 0.7.0)')
     expect(state.create).not.toHaveBeenCalled()
   })
 
@@ -225,7 +225,7 @@ describe('session context policy integration', () => {
         provider: 'pi-claude-cli',
         modelId: 'claude-opus-5',
       }),
-    ).rejects.toThrow('0.9.0 or newer (found 0.7.0)')
+    ).rejects.toThrow('0.10.0 or newer (found 0.7.0)')
     expect(state.session.client.request).not.toHaveBeenCalled()
   })
 
@@ -237,7 +237,7 @@ describe('session context policy integration', () => {
     })
     await expect(
       state.handlers.get('pi:command')!(event, 'live-1', { type: 'prompt', message: 'hi' }),
-    ).rejects.toThrow('0.9.0 or newer (found 0.7.0)')
+    ).rejects.toThrow('0.10.0 or newer (found 0.7.0)')
     expect(state.session.client.request).toHaveBeenCalledExactlyOnceWith({ type: 'get_state' })
   })
 

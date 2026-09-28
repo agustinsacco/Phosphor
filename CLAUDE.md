@@ -132,9 +132,11 @@ you want to watch.
   or subagent UI, read
   [docs/extensions.md](docs/extensions.md#how-provider-transcripts-render).
 - **Claude is a separately versioned provider, not an in-app model client.**
-  Phosphor requires `@saccolabs/pi-claude-cli >= 0.9.0`, installed in pi.
-  pi owns its prompt, tools, complete results and compaction. The CLI process
-  is a disposable cache, retired on switches/context changes; no new Claude
+  Phosphor requires `@saccolabs/pi-claude-cli >= 0.10.0`, installed in pi.
+  pi owns its prompt, tools, complete results, compaction and thinking level
+  (0.9.0 moved the context to pi; 0.10.0 sends the level as pi would and
+  applies a change without a restart). The CLI process is a disposable
+  cache, retired on switches/context changes; no new Claude
   transcript or pairing is persisted. Native and Claude sessions use the same
   pi compaction setting. Never reintroduce per-provider auto-compaction toggles.
   The package must be published and reinstalled before a source fix is live.

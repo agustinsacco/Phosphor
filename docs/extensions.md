@@ -334,7 +334,7 @@ without aborting a run. See [One context budget](cli-providers.md#one-context-bu
 and the composed system prompt and active tool schemas are not reachable from
 the renderer. Three traps: `getAllTools()` returns definitions (the schemas that
 occupy context) while `getActiveTools()` returns **names**; it publishes at
-rest (`session_start`, `agent_settled`, `turn_end`), never mid-stream; and
+rest (`session_start`, `model_select`, `agent_settled`, `turn_end`), never mid-stream; and
 messages are measured over `sessionManager.buildContextEntries()` with pi's
 own per-role `estimateTokens` rules, never over `getBranch()`, which still
 holds every compacted-away message (measured: 292k for a 151k context). That

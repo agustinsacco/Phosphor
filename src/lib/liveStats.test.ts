@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import type { SessionStats, Usage } from '@shared/rpc'
+import type { AgentMessage, SessionStats, Usage } from '@shared/rpc'
 import {
   clearLiveStats,
   contextTokensOf,
@@ -124,6 +124,46 @@ describe('overlay accounting', () => {
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0.002 },
     })
     expect(patched?.cost).toBeCloseTo(0.062)
+  })
+})
+
+describe('live message and tool counts', () => {
+  it('counts every message end, before usage deltas too, but not deltas or marker text', () => {
+    recordPolledStats(SESSION, polled())
+    recordMessageEnd(SESSION, undefined, { role: 'user', content: 'continue' })
+    recordMessageEnd(SESSION, undefined, { role: 'system', content: '' } as unknown as AgentMessage)
+    for (let i = 0; i < 300; i++) {
+      recordUsageDelta(SESSION, usage({ output: 1 }))
+      recordUsageDelta(SESSION, usage({ output: 2 }))
+      recordMessageEnd(SESSION, usage({ output: 2 }), {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: '[Claude Code · Read {}]' },
+          { type: 'toolCall', id: String(i), name: 'read', arguments: { path: 'file' } },
+        ],
+      })
+      recordMessageEnd(SESSION, undefined, {
+        role: 'toolResult',
+        toolCallId: String(i),
+        toolName: 'read',
+        content: [],
+        isError: false,
+      })
+    }
+    const stats = recordUsageDelta(SESSION, usage({}))
+    expect(stats).toMatchObject({
+      totalMessages: 611,
+      userMessages: 3,
+      assistantMessages: 303,
+      toolCalls: 304,
+      toolResults: 304,
+    })
+    expect(stats?.tokens.output).toBe(800)
+    recordPolledStats(SESSION, stats!)
+    expect(recordUsageDelta(SESSION, usage({}))?.totalMessages).toBe(611)
+    expect(
+      recordMessageEnd(SESSION, undefined, { role: 'user', content: 'next' })?.totalMessages,
+    ).toBe(612)
   })
 })
 

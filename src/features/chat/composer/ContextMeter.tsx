@@ -48,6 +48,12 @@ import { sessionContextBudget } from '@shared/context-budget'
 export function ContextMeter({ sessionId }: { sessionId: string }): React.JSX.Element | null {
   const stats = useChatStore((s) => s.sessions[sessionId]?.stats)
   const model = useChatStore((s) => s.sessions[sessionId]?.meta?.model)
+  const catalogueWindow = useChatStore(
+    (s) =>
+      s.sessions[sessionId]?.models?.find(
+        (candidate) => candidate.id === model?.id && candidate.provider === model?.provider,
+      )?.contextWindow,
+  )
   const autoCompactionEnabled = useChatStore(
     (s) => s.sessions[sessionId]?.meta?.autoCompactionEnabled ?? true,
   )
@@ -79,17 +85,21 @@ export function ContextMeter({ sessionId }: { sessionId: string }): React.JSX.El
   // (shared/context-budget.ts), not the model window: "how full is the line
   // this session compacts at" is the honest question. Against a 1M window a
   // session held to 200k read 20% the turn before it compacted. The same rule
-  // for every provider, Claude Code included — pi compacts them all. Capped at
-  // 100: pi compacts once the turn settles, so anything over is transient.
+  // for every provider, Claude Code included. Show overshoot honestly; only
+  // the ring is capped. A single response/tool batch can exceed the budget.
+  // The extension reports live window changes at tool boundaries, ahead of
+  // the end-of-run stats poll (including restoring capacity after opt-out).
+  const effectiveWindow =
+    parseContextBreakdown(breakdownStatus)?.contextWindow ?? usage?.contextWindow
   const budget = sessionContextBudget({
     raw: budgetPref,
-    contextWindow: usage?.contextWindow,
+    contextWindow: effectiveWindow,
     autoCompactionEnabled,
   })
-  const window = budget ?? usage?.contextWindow ?? 0
+  const window = budget ?? effectiveWindow ?? 0
   const rawPercent =
-    budget !== null && usage?.tokens != null ? (usage.tokens / budget) * 100 : usage?.percent
-  const percent = rawPercent == null ? null : Math.min(100, Math.round(rawPercent))
+    window > 0 && usage?.tokens != null ? (usage.tokens / window) * 100 : usage?.percent
+  const percent = rawPercent == null ? null : Math.round(rawPercent)
   const of = budget !== null ? ' budget' : ''
   const ringPercent = Math.min(100, percent ?? 0)
   const warn = percent !== null && percent >= 75
@@ -175,6 +185,17 @@ export function ContextMeter({ sessionId }: { sessionId: string }): React.JSX.El
                   : `${formatTokens(usage?.tokens ?? 0)} / ${formatTokens(window)}${of} · ${percent}%`}
               </span>
             </div>
+            {catalogueWindow != null && catalogueWindow > window && (
+              <div className="text-text-tertiary mt-1 text-sm">
+                {formatTokens(catalogueWindow)} model capacity (before the session window cap).
+              </div>
+            )}
+            {budget !== null && usage?.tokens != null && usage.tokens > budget && (
+              <div className="text-warning mt-1 text-sm">
+                {formatTokens(usage.tokens - budget)} over budget. Compaction is checked before the
+                next model request.
+              </div>
+            )}
             {burning && (
               <div
                 className={clsx(
@@ -269,7 +290,10 @@ function ContextComposition({
         {slices.map((slice) => (
           <div
             key={slice.key}
-            style={{ width: `${slice.percent}%`, backgroundColor: slice.color }}
+            style={{
+              width: `${(slice.tokens / Math.max(total, window)) * 100}%`,
+              backgroundColor: slice.color,
+            }}
             title={`${slice.label}: ${formatTokens(slice.tokens)}`}
           />
         ))}
@@ -297,6 +321,11 @@ function ContextComposition({
           </div>
         ))}
       </div>
+      {total > window && (
+        <div className="text-text-tertiary pt-1 text-sm">
+          Bar shows composition of used context; percentages are relative to the budget or window.
+        </div>
+      )}
       {breakdown.approximate && (
         <div className="text-text-tertiary pt-1 text-sm">
           Component sizes are estimates; the total is pi&apos;s own figure. Whatever pi counts

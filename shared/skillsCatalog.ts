@@ -3,11 +3,13 @@
  *
  * Same contract as the extensions catalogue (`catalogue.ts`): a static list
  * of sources we have actually read, pinned by commit SHA, so Add never
- * fetches anything unreviewed. Descriptions are harvested verbatim from each
- * skill's SKILL.md frontmatter at the pinned SHA (2026-09-04). Updating a
+ * fetches anything unreviewed. Descriptions summarize the pinned sources;
+ * evidence describes published evaluations, not a Phosphor guarantee. Updating a
  * library = reviewing upstream, then bumping its `sha` here; installed-skill
  * rows compare their provenance sidecar against this pin to offer updates.
  */
+
+import { VERCEL_REACT_FILES } from './skillBundleFiles'
 
 export interface SkillCatalogSkill {
   name: string
@@ -28,9 +30,116 @@ export interface SkillCatalogLibrary {
   /** Path inside the repo holding `<skill>/SKILL.md` dirs. */
   subpath: string
   skills: SkillCatalogSkill[]
+  offering?: {
+    goal: string
+    category: 'Build & debug' | 'Audit & verify' | 'Data & optimization'
+    fit: string
+    evidence: string
+    result: string
+    caveat: string
+    evidenceUrl: string
+    requirements: string
+    /** Full plugins with resources outside SKILL.md are review-only. */
+    external?: boolean
+  }
 }
 
 export const SKILL_CATALOG: SkillCatalogLibrary[] = [
+  {
+    id: 'vercel-react',
+    label: 'Vercel · React performance',
+    repo: 'vercel-labs/agent-skills',
+    sha: '063bee94c3f4df8453406c830b0a7df0f2860278',
+    url: 'https://github.com/vercel-labs/agent-skills/tree/063bee94c3f4df8453406c830b0a7df0f2860278/skills/react-best-practices',
+    subpath: 'skills',
+    blurb: 'Prioritized performance patterns from Vercel Engineering.',
+    offering: {
+      goal: 'Make a slow interface faster',
+      category: 'Build & debug',
+      fit: 'React or Next.js apps with waterfalls, excess renders, or layout shifts.',
+      evidence: 'Related public benchmark',
+      result: 'SkillsBench v1.1: 87 tasks, 18 configurations, 3 trials per condition.',
+      caveat:
+        'SkillsBench tested an adapted Vercel guide with browser tools, not this revision alone. Its 16.6-point aggregate gain is not a measured gain for this skill.',
+      evidenceUrl: 'https://www.skillsbench.ai/blogs/skillsbench-1-1',
+      requirements:
+        'React or Next.js project. Triggers broadly on React work; use only if that fits your workflow. Measure before and after changes. No browser tooling is installed.',
+    },
+    skills: [
+      {
+        name: 'react-best-practices',
+        files: VERCEL_REACT_FILES,
+        description:
+          'Prioritized React and Next.js patterns for waterfalls, bundle size and rendering.',
+      },
+    ],
+  },
+  {
+    id: 'nvidia-routing',
+    label: 'NVIDIA · cuOpt routing',
+    repo: 'NVIDIA/skills',
+    sha: '738d79edf4336404e1922b7321e959bdb81b6910',
+    url: 'https://github.com/NVIDIA/skills/tree/738d79edf4336404e1922b7321e959bdb81b6910/skills/cuopt-routing-api-python',
+    subpath: 'skills',
+    blurb: 'Model fleets, capacity, time windows and pickup-delivery constraints in Python.',
+    offering: {
+      goal: 'Turn routing constraints into a solver',
+      category: 'Data & optimization',
+      fit: 'Vehicle routing, delivery planning and traveling-salesperson problems using cuOpt.',
+      evidence: 'Vendor evaluation',
+      result: 'Correctness score: Claude Code 30 → 100; Codex 55 → 97.',
+      caveat:
+        'One task, one attempt per harness in the published snapshot. Rubric scores, not pass rates; no independent replication or Phosphor validation.',
+      evidenceUrl:
+        'https://github.com/NVIDIA/skills/blob/738d79edf4336404e1922b7321e959bdb81b6910/skills/cuopt-routing-api-python/BENCHMARK.md',
+      requirements:
+        'Python and a compatible NVIDIA GPU/cuOpt environment, local or remote. The skill does not install cuOpt or provision hardware.',
+    },
+    skills: [
+      {
+        name: 'cuopt-routing-api-python',
+        description: 'NVIDIA guidance and examples for the cuOpt Python vehicle-routing API.',
+        files: [
+          'SKILL.md',
+          'BENCHMARK.md',
+          'skill-card.md',
+          'skill.oms.sig',
+          'evals/evals.json',
+          'assets/README.md',
+          'assets/pdp_basic/README.md',
+          'assets/pdp_basic/model.py',
+          'assets/vrp_basic/README.md',
+          'assets/vrp_basic/model.py',
+          'references/examples.md',
+          'references/server_examples.md',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'trailofbits-dimensional',
+    label: 'Trail of Bits · dimensional analysis',
+    repo: 'trailofbits/skills',
+    sha: '0cc1c73a5e96749ab32d7ea5e14892fafa6972ae',
+    url: 'https://github.com/trailofbits/skills/tree/0cc1c73a5e96749ab32d7ea5e14892fafa6972ae/plugins/dimensional-analysis',
+    subpath: 'plugins/dimensional-analysis/skills',
+    blurb: 'Annotate units and decimal scaling, then trace mismatches across arithmetic.',
+    offering: {
+      goal: 'Catch unit and scaling mistakes',
+      category: 'Audit & verify',
+      fit: 'Arithmetic-heavy financial, scientific or smart-contract code.',
+      evidence: 'Private audit evaluation',
+      result: 'Reported recall: 50% baseline → 93% with the plugin.',
+      caveat:
+        'Author-run, unpublished audits; 10 samples per codebase. Precision is not reported. The evaluated version is not identified as this revision.',
+      evidenceUrl:
+        'https://blog.trailofbits.com/2026/03/25/try-our-new-dimensional-analysis-claude-plugin/',
+      requirements:
+        'External Claude Code plugin with dedicated Task agents. Not a standalone pi skill; review upstream setup. It annotates source files and can run a costly full-codebase audit.',
+      external: true,
+    },
+    skills: [],
+  },
   {
     id: 'anthropic-skills',
     label: 'Anthropic — official skills',
@@ -144,7 +253,7 @@ export const SKILL_CATALOG: SkillCatalogLibrary[] = [
     sha: 'b36e0829c6d0140e93cfef2ca599b1b07d4a7797',
     url: 'https://github.com/obra/superpowers',
     blurb:
-      'The reference agentic-development framework: battle-tested process skills for TDD, debugging and planning.',
+      'Process skills for TDD, debugging and planning. Published pack-level results are mixed and do not establish gains for each individual skill.',
     subpath: 'skills',
     skills: [
       {

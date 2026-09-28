@@ -145,8 +145,29 @@ not one of Phosphor's six loaded extensions. To install it, review the file,
 back up any existing `~/.pi/agent/extensions/permission-gate.ts`, then copy it
 there. Use `/reload` in pi or start a new Phosphor session to load the change.
 
-The gate keeps dangerous-command prompts and hard blocks for `shred` and
-`truncate`. AWS alone does not prompt, including writes and non-local endpoints:
+The gate judges what the shell would run, not the text of the script. It
+carries a small lexer for bash quoting, heredocs and substitutions, so text in
+a heredoc written to a file, a quoted argument, a comment or `os.kill` inside
+Python never prompts. `$(…)`, backticks, `bash -c`, `eval`, `trap`, `ssh`,
+`find -exec`, `xargs` and heredocs or herestrings fed to a shell are judged
+like any other command. A script it cannot follow falls back to the old
+whole-text patterns, so a parser gap costs a prompt, never a pass.
+
+It asks for `sudo`/`su`/`doas`, `shred`, `truncate`, `git push --force`
+(`-f`, `+ref`), `git reset --hard`, `systemctl`/`service` changes, and:
+
+- `rm -r` unless every target is a literal path under `/tmp`, `/private/tmp`,
+  `/var/folders` or `~/.pi/agent/scratch`, or a build-output directory such as
+  `node_modules`, `dist` or `test-results`. `/tmp/*`, `..` and variable targets
+  like `"$t"` still ask.
+- `kill` only for `-1`, `0` or a negative pid (every process, or a group).
+- `pkill` unless it is `pkill -f` with a specific pattern (a path, file name,
+  flag or port). `killall` always asks.
+- `chmod`/`chown 777` unless every target is a literal temp path.
+
+`git push --force-with-lease` passes. Nothing is refused outright: every
+finding is a question, and the heading names it (`Dangerous command (rm -r):`).
+AWS alone does not prompt, including writes and non-local endpoints:
 authorization is left to the machine's AWS credentials and IAM policies. Other
 checks still examine the whole script, including commands alongside AWS calls.
 Install this policy only where that AWS access is intentional.
@@ -164,8 +185,9 @@ python3 ~/.pi/agent/bin/pi-scratch.py clean "$t"
 
 The helper validates the resolved argument at execution time, rejects root/job
 symlinks, traversal and shared roots, and does not follow links inside a job.
-It never cleans arbitrary `/tmp` directories. Ordinary recursive deletion still
-prompts; mentioning the helper or `mktemp` does not exempt another command.
+It never cleans arbitrary `/tmp` directories. Recursive deletion of anything
+else still prompts; mentioning the helper or `mktemp` does not exempt another
+command.
 
 **Settings → Agent → Directives → Your own text** can teach new sessions:
 "Create temporary work with `python3 ~/.pi/agent/bin/pi-scratch.py create`;

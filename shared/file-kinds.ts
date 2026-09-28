@@ -9,7 +9,7 @@
  */
 
 /** A file the Files pane renders instead of (or as well as) editing as text. */
-export type PreviewKind = 'image' | 'video' | 'audio' | 'pdf' | 'html'
+export type PreviewKind = 'image' | 'video' | 'audio' | 'pdf' | 'html' | 'markdown'
 
 const MIME_TYPES: Record<string, string> = {
   // image
@@ -44,6 +44,8 @@ const MIME_TYPES: Record<string, string> = {
   pdf: 'application/pdf',
   html: 'text/html; charset=utf-8',
   htm: 'text/html; charset=utf-8',
+  md: 'text/markdown; charset=utf-8',
+  markdown: 'text/markdown; charset=utf-8',
   // What an HTML preview's relative references usually point at.
   css: 'text/css; charset=utf-8',
   js: 'text/javascript; charset=utf-8',
@@ -77,6 +79,7 @@ export function previewKindForPath(path: string): PreviewKind | null {
   const ext = extensionOf(path)
   if (ext === 'pdf') return 'pdf'
   if (ext === 'html' || ext === 'htm') return 'html'
+  if (ext === 'md' || ext === 'markdown') return 'markdown'
   const mime = MIME_TYPES[ext]
   if (mime?.startsWith('image/')) return 'image'
   if (mime?.startsWith('video/')) return 'video'
@@ -91,7 +94,7 @@ export function previewKindForPath(path: string): PreviewKind | null {
  */
 export function isTextPreview(path: string): boolean {
   const ext = extensionOf(path)
-  return ext === 'svg' || ext === 'html' || ext === 'htm'
+  return ext === 'svg' || ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown'
 }
 
 /** The largest file the editor opens as text, and the workspace search reads. */

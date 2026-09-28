@@ -11,6 +11,8 @@ describe('previewKindForPath', () => {
     ['/w/RQ007298_MedEx.pdf', 'pdf'],
     ['/w/report.html', 'html'],
     ['C:\\w\\report.HTM', 'html'],
+    ['/w/README.md', 'markdown'],
+    ['/w/notes.MARKDOWN', 'markdown'],
     ['/w/notes.txt', null],
     ['/w/app.ts', null],
     ['/w/report.docx', null],
@@ -26,6 +28,7 @@ describe('isTextPreview', () => {
   it('keeps a source view only for formats that are text', () => {
     expect(isTextPreview('/w/a.html')).toBe(true)
     expect(isTextPreview('/w/a.svg')).toBe(true)
+    expect(isTextPreview('/w/README.md')).toBe(true)
     expect(isTextPreview('/w/a.png')).toBe(false)
     expect(isTextPreview('/w/a.pdf')).toBe(false)
   })

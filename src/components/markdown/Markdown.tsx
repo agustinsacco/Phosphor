@@ -10,7 +10,7 @@ import { VegaLiteBlock } from './VegaLiteBlock'
 import { HtmlBlock } from './HtmlBlock'
 import { Lightbox } from '../Lightbox'
 import { MarkdownLink } from './MarkdownLink'
-import { artifactUrlTransform } from '@/lib/markdownLink'
+import { artifactUrlTransform, fileUrlTransform } from '@/lib/markdownLink'
 import { remarkArtifactLinks } from '@/lib/remarkArtifactLinks'
 
 // remarkArtifactLinks runs last: GFM's own autolinking has already claimed the
@@ -144,15 +144,26 @@ const components: Components = {
 interface MarkdownProps {
   text: string
   streaming?: boolean
+  /**
+   * Base URL relative image sources resolve against — set when the markdown
+   * is a workspace file previewed in the Files pane, so `![](docs/x.png)`
+   * loads over the file's own `phosphor-file://` grant.
+   */
+  urlBase?: string
 }
 
 export const Markdown = memo(function Markdown({
   text,
   streaming = false,
+  urlBase,
 }: MarkdownProps): React.JSX.Element {
   const { closed, openFence } = useMemo(
     () => (streaming ? splitOpenFence(text) : { closed: text, openFence: null }),
     [text, streaming],
+  )
+  const urlTransform = useMemo(
+    () => (urlBase ? fileUrlTransform(urlBase) : artifactUrlTransform),
+    [urlBase],
   )
 
   return (
@@ -160,7 +171,7 @@ export const Markdown = memo(function Markdown({
       <ReactMarkdown
         remarkPlugins={REMARK_PLUGINS}
         rehypePlugins={REHYPE_PLUGINS}
-        urlTransform={artifactUrlTransform}
+        urlTransform={urlTransform}
         components={components}
       >
         {closed}

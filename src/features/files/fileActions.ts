@@ -42,7 +42,9 @@ export async function createIn(
   const store = useFilesStore.getState()
   if (dir !== workspacePath && !store.expanded[dir]) await store.toggleDir(workspacePath, dir)
   await store.refreshDir(workspacePath, dir)
-  if (kind === 'file') await store.openFile(workspacePath, target)
+  // Reveal line 1: a just-created file is for typing, so it opens in the
+  // editor — not, for markdown/HTML/SVG, as a blank preview.
+  if (kind === 'file') await store.openFile(workspacePath, target, 1)
 }
 
 export async function renameEntry(workspacePath: string, entry: DirEntry): Promise<void> {

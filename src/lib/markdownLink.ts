@@ -133,3 +133,26 @@ function decode(path: string): string {
 export function artifactUrlTransform(url: string): string {
   return /^artifact:/i.test(url.trim()) ? url : defaultUrlTransform(url)
 }
+
+/**
+ * The transform for markdown rendered from a workspace FILE (a README in the
+ * Files pane): a relative image `![](docs/arch.png)` resolves against the
+ * file's own `phosphor-file://` grant so it loads from the workspace, not
+ * from the app's origin. The resolved URL is returned as-is —
+ * `defaultUrlTransform` would strip the custom scheme — which is safe because
+ * the grant only ever serves files under its own root. Links keep the normal
+ * treatment: `MarkdownLink` already opens a relative path in the Files pane.
+ */
+export function fileUrlTransform(base: string): (url: string, key: string) => string {
+  return (url, key) => {
+    const raw = url.trim()
+    if (key === 'src' && raw && !raw.startsWith('#') && !SCHEME.test(raw)) {
+      try {
+        return new URL(raw, base).toString()
+      } catch {
+        // Fall through to the default treatment.
+      }
+    }
+    return artifactUrlTransform(url)
+  }
+}

@@ -3795,10 +3795,28 @@ test('skills page lists a seeded skill, and creates a new one on disk', async ()
     await expect(page.getByRole('button', { name: 'Export' })).toBeVisible()
     await page.getByRole('button', { name: '← Skills' }).click()
 
-    // Discover: the pinned catalog renders with Add affordances.
+    // Outcome-first discovery: evidence before opt-in, with external plugins kept separate.
     await page.getByRole('button', { name: 'Discover' }).click()
-    await expect(page.getByText('Anthropic — official skills')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Add', exact: true }).first()).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'What should your agent do better?' }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Add react-best-practices', exact: true }),
+    ).toBeHidden()
+    await page.getByRole('button', { name: 'Audit & verify', exact: true }).click()
+    await expect(page.getByText('Catch unit and scaling mistakes')).toBeVisible()
+    await page.getByText('Compatibility & setup', { exact: false }).click()
+    await expect(page.getByRole('button', { name: 'Review upstream setup ↗' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Add / })).toHaveCount(0)
+    await page.getByRole('button', { name: 'All outcomes', exact: true }).click()
+    await page.getByPlaceholder('Search skills').fill('waterfalls')
+    await expect(
+      page.getByRole('button', { name: 'Add react-best-practices', exact: true }),
+    ).toBeVisible()
+    await expect(page.getByText('Catch unit and scaling mistakes')).toHaveCount(0)
+    await page.getByPlaceholder('Search skills').fill('no-such-skill')
+    await expect(page.getByText(/No matches in this outcome/)).toBeVisible()
+    await page.getByPlaceholder('Search skills').fill('')
 
     // Create flow writes a real bundle into the global root.
     await page.getByRole('button', { name: 'New skill' }).click()

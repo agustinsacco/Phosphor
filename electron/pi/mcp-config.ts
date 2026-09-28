@@ -15,7 +15,7 @@ import { piAgentDir } from './pi-paths'
 import { readJsonFile } from './json-config'
 
 /**
- * mcp.json management for the pi-mcp-adapter's config chain (see shared/mcp.ts
+ * Configuration management for pi-mcp-adapter 3.x (see shared/mcp.ts
  * for the precedence). The renderer only ever names a scope — paths are
  * resolved here, in the main process.
  */
@@ -43,11 +43,11 @@ export function mcpConfigPaths(
     { scope: 'xdg', path: join(dirs.xdgConfig, 'mcp', 'mcp.json') },
     { scope: 'agents', path: join(dirs.home, '.agents', 'mcp.json') },
     { scope: 'agents-dir', path: join(dirs.home, '.agents', 'mcp', 'mcp.json') },
-    { scope: 'pi-global', path: join(dirs.piAgent, 'mcp.json') },
+    { scope: 'pi-global', path: join(dirs.piAgent, 'mcp-adapter.json') },
   ]
   if (workspacePath) {
     paths.push({ scope: 'project', path: join(workspacePath, '.mcp.json') })
-    paths.push({ scope: 'pi-project', path: join(workspacePath, '.pi', 'mcp.json') })
+    paths.push({ scope: 'pi-project', path: join(workspacePath, '.pi', 'mcp-adapter.json') })
   }
   return paths
 }
@@ -102,6 +102,20 @@ export async function readMcpConfigs(
   const chain = mcpConfigPaths(workspacePath, dirs)
   const parsed = await Promise.all(chain.map(({ scope, path }) => readMcpFileAt(scope, path)))
 
+  const warnings: string[] = []
+  for (const { scope, path } of chain) {
+    if (scope !== 'pi-global' && scope !== 'pi-project') continue
+    const legacyPath = join(dirname(path), 'mcp.json')
+    const legacy = await readJsonFile(legacyPath)
+    if (!legacy.exists) continue
+    warnings.push(
+      `Phosphor targets pi-mcp-adapter 3.x, which reads ${path}, not ${legacyPath}. ` +
+        'If the old file belongs to the adapter, move its contents to the new file ' +
+        '(merge if it already exists), then restart affected sessions. ' +
+        'Leave configurations for pi built-in MCP in place. Phosphor does not migrate them automatically.',
+    )
+  }
+
   const byName = new Map<string, McpResolvedServer>()
   for (const file of parsed) {
     for (const [name, config] of Object.entries(file.servers)) {
@@ -118,6 +132,7 @@ export async function readMcpConfigs(
   return {
     servers: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)),
     files: parsed.map((p) => p.state),
+    warnings,
   }
 }
 

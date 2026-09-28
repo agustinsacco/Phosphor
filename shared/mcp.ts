@@ -1,14 +1,14 @@
 /**
  * MCP configuration model, mirroring the `pi-mcp-adapter` package's
  * documented config chain. pi core has no MCP support; the adapter reads
- * `mcp.json` files with this precedence (lowest → highest):
+ * config files with this precedence (lowest → highest):
  *
  *   xdg        ~/.config/mcp/mcp.json
  *   agents     ~/.agents/mcp.json
  *   agents-dir ~/.agents/mcp/mcp.json
- *   pi-global  ~/.pi/agent/mcp.json      (honors PI_CODING_AGENT_DIR)
+ *   pi-global  ~/.pi/agent/mcp-adapter.json      (honors PI_CODING_AGENT_DIR)
  *   project    <workspace>/.mcp.json
- *   pi-project <workspace>/.pi/mcp.json
+ *   pi-project <workspace>/.pi/mcp-adapter.json
  */
 export const MCP_SCOPES = [
   'xdg',
@@ -24,7 +24,7 @@ export type McpScope = (typeof MCP_SCOPES)[number]
 /** Scopes the UI offers for writes (the chain's global + project overrides). */
 export type McpWriteScope = 'pi-global' | 'pi-project'
 
-/** One server entry as stored in mcp.json (`mcpServers.<name>`). */
+/** One server entry as stored in adapter config (`mcpServers.<name>`). */
 export interface McpServerConfig {
   /** Remote server URL (exactly one of url/command). */
   url?: string
@@ -65,6 +65,8 @@ export interface McpFileState {
 }
 
 export interface McpConfigsResult {
+  /** Legacy pi files are not adapter config; never migrate them implicitly. */
+  warnings?: string[]
   servers: McpResolvedServer[]
   files: McpFileState[]
 }

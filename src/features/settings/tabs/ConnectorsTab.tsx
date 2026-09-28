@@ -175,10 +175,20 @@ export function ConnectorsTab(): React.JSX.Element {
       <h2 className="text-xl font-semibold">MCP Connectors</h2>
       <p className="text-text-secondary mt-1 text-base">
         Services reachable over the Model Context Protocol, provided to sessions by the{' '}
-        <span className="font-mono">pi-mcp-adapter</span> package. Signing in runs the
-        adapter&apos;s own OAuth flow — it stores the tokens in your operating system&apos;s
+        <span className="font-mono">pi-mcp-adapter</span> package (3.x required). Signing in runs
+        the adapter&apos;s own OAuth flow — it stores the tokens in your operating system&apos;s
         credential store, and Phosphor never holds a copy.
       </p>
+
+      {configs?.warnings?.map((warning) => (
+        <div
+          key={warning}
+          role="alert"
+          className="border-warning/30 bg-warning/10 mt-3 rounded-lg border px-3.5 py-2.5 text-sm break-words"
+        >
+          {warning}
+        </div>
+      ))}
 
       {packages !== null && !adapterInstalled && (
         <div className="border-warning/30 bg-warning/10 mt-3 rounded-lg border px-3.5 py-2.5">
@@ -591,7 +601,7 @@ function ConfiguredRow({
                   : undefined
               }
               onClick={() => {
-                // Reload rides the adapter's own /mcp reconnect, which needs
+                // Reload rides the adapter's own /mcp-adapter reconnect, which needs
                 // the process holding the connection. Signing in does not,
                 // and runs headless.
                 if (action === 'sign-in') {

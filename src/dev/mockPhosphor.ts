@@ -1241,7 +1241,7 @@ export function installMockPhosphor(): void {
               },
               {
                 scope: 'pi-global',
-                path: '/Users/dev/.pi/agent/mcp.json',
+                path: '/Users/dev/.pi/agent/mcp-adapter.json',
                 exists: true,
                 malformed: false,
                 serverNames: ['linear', 'snowflake'],
@@ -1255,7 +1255,7 @@ export function installMockPhosphor(): void {
               },
               {
                 scope: 'pi-project',
-                path: '/Users/dev/projects/phosphor/.pi/mcp.json',
+                path: '/Users/dev/projects/phosphor/.pi/mcp-adapter.json',
                 exists: true,
                 malformed: false,
                 serverNames: ['snowflake'],
@@ -1316,7 +1316,7 @@ export function installMockPhosphor(): void {
           return Promise.resolve(undefined)
         case 'mcp:readFile':
           return Promise.resolve({
-            path: '/Users/dev/.pi/agent/mcp.json',
+            path: '/Users/dev/.pi/agent/mcp-adapter.json',
             content: '{\n  "mcpServers": {}\n}\n',
           })
         // Shaped like a real pi answer: skills are `skill:<name>`, every entry

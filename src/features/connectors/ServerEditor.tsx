@@ -111,7 +111,7 @@ export function ServerEditor({
               checked={scope === 'pi-project'}
               onChange={() => setScope('pi-project')}
             />
-            This project (.pi/mcp.json)
+            This project (.pi/mcp-adapter.json)
           </label>
         </div>
       )}

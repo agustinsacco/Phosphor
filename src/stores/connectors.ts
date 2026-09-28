@@ -73,10 +73,10 @@ interface ConnectorsState {
   cancel: (serverName: string) => void
   /** Clear a settled flow's card. */
   dismiss: (serverName: string) => void
-  /** `/mcp logout <server>` — the adapter removes the stored credentials. */
+  /** `/mcp-adapter logout <server>` — the adapter removes the stored credentials. */
   disconnect: (serverName: string, sessionId?: string) => Promise<void>
   /**
-   * Reload one server inside a live session: `/mcp reconnect <server>` closes
+   * Reload one server inside a live session: `/mcp-adapter reconnect <server>` closes
    * the session's connection and opens a fresh one, re-reading the server's
    * tools. pi acknowledges the command before the adapter has finished, so
    * this resolves on the adapter's own notice (`reloadNoticed`), or as
@@ -228,7 +228,7 @@ export const useConnectorsStore = create<ConnectorsState>((set, get) => ({
     // live session there is nothing to ask, so the config removal that follows
     // in the tab is the whole action and the tokens are left for the next
     // session to clear — stated in the UI rather than silently skipped.
-    if (sessionId) await command(sessionId, `/mcp logout ${serverName}`)
+    if (sessionId) await command(sessionId, `/mcp-adapter logout ${serverName}`)
     set((s) => ({ flows: setFlow(s.flows, serverName, undefined) }))
   },
 
@@ -253,12 +253,12 @@ export const useConnectorsStore = create<ConnectorsState>((set, get) => ({
     })
     pendingReloads.set(key, { promise, settle })
 
-    void command(sessionId, `/mcp reconnect ${serverName}`).then((ok) => {
+    void command(sessionId, `/mcp-adapter reconnect ${serverName}`).then((ok) => {
       if (!ok) {
         settle({
           serverName,
           outcome: 'unknown',
-          detail: 'pi refused /mcp — is the pi-mcp-adapter package installed?',
+          detail: 'pi refused /mcp-adapter: is the pi-mcp-adapter package installed?',
         })
       }
     })

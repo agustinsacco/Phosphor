@@ -4,5 +4,11 @@
     "lib": ["ES2023"],
     "types": ["node"]
   },
-  "include": ["electron/**/*.ts", "shared/**/*.ts", "electron.vite.config.ts", "pi-ext/**/*.ts"]
+  "include": [
+    "electron/**/*.ts",
+    "shared/**/*.ts",
+    "electron.vite.config.ts",
+    "pi-ext/**/*.ts",
+    "scripts/omp-compat.ts"
+  ]
 }

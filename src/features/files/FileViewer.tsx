@@ -8,10 +8,11 @@ import { formatBytes } from '@/lib/format'
 import { revealLabel } from '@/lib/reveal'
 import { hostPlatform } from '@/lib/shortcuts'
 import { FileIcon } from '@/components/icons'
+import { Markdown } from '@/components/markdown/Markdown'
 
 /**
  * Viewers for the files Monaco cannot show: images, video, audio, PDFs, and
- * a rendered view of HTML/SVG beside their source.
+ * a rendered view of HTML/SVG/markdown beside their source.
  *
  * Every byte arrives over `phosphor-file://` from a grant main minted for this
  * one file (or, for HTML, this workspace) — see electron/fs/file-protocol.ts
@@ -88,7 +89,7 @@ export function FileViewer({
           </div>
         )}
         <span className="text-text-tertiary min-w-0 flex-1 truncate text-sm">
-          {view === 'preview' && file.dirty
+          {view === 'preview' && file.dirty && kind !== 'markdown'
             ? 'Unsaved edits — the preview shows the saved file'
             : [detail, formatBytes(file.size)].filter(Boolean).join(' · ')}
         </span>
@@ -127,6 +128,20 @@ function Preview({
   const { url, failed } = usePreviewUrl(workspacePath, file.path, file.mtimeMs)
   const [broken, setBroken] = useState(false)
   useEffect(() => setBroken(false), [url])
+
+  if (kind === 'markdown') {
+    // Rendered from the live buffer, in-app — no iframe, no saved-file lag.
+    // The grant URL is only the base relative images resolve against, so a
+    // missing grant (browser harness) still renders, just without them.
+    if (file.binary || file.tooLarge) return <FileFallback file={file} />
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="mx-auto max-w-3xl px-6 py-5">
+          <Markdown text={file.content} urlBase={url ?? undefined} />
+        </div>
+      </div>
+    )
+  }
 
   if (failed || broken) {
     return (

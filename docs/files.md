@@ -102,17 +102,24 @@ app or Quick Look).
 
 ## Previews
 
-Images, video, audio, PDFs and HTML open in a viewer instead of Monaco. The
-extension decides (`shared/file-kinds.ts`); the size cap does not apply, so a
-multi-gigabyte video opens and seeks. HTML and SVG keep a Preview/Source
-toggle; the preview shows the saved file, and says so while the buffer has
-unsaved edits. Every other file that cannot be edited as text gets a card with
-**Open in default app**, **Quick Look** (macOS) and **Reveal**.
+Images, video, audio, PDFs, HTML and markdown open in a viewer instead of
+Monaco. The extension decides (`shared/file-kinds.ts`); the size cap does not
+apply to media, so a multi-gigabyte video opens and seeks. HTML, SVG and
+markdown keep a Preview/Source toggle; the HTML/SVG preview shows the saved
+file, and says so while the buffer has unsaved edits. Every other file that
+cannot be edited as text gets a card with **Open in default app**, **Quick
+Look** (macOS) and **Reveal**.
+
+Markdown renders in-app with the same renderer as chat — GFM tables, Mermaid
+diagrams, KaTeX — from the live buffer, so the preview follows unsaved edits.
+Relative images resolve over the workspace's `phosphor-file://` document
+grant; relative links open in the Files pane like any path link in chat. A
+newly created file opens straight in the editor, not as a blank preview.
 
 The viewers load from `phosphor-file://`, which serves only what main granted
 by an unguessable token (`electron/fs/file-protocol.ts`): one file for media
-and PDFs, or the workspace for an HTML page, so its relative CSS, images and
-scripts resolve. Paths are realpath'd and must stay under the grant; `..` and
+and PDFs, or the workspace for an HTML page or a markdown file, so relative
+CSS, images and scripts resolve. Paths are realpath'd and must stay under the grant; `..` and
 symlinks out of it get 404. Video streams with Range requests.
 
 A previewed HTML page runs its scripts in `sandbox="allow-scripts"` under a

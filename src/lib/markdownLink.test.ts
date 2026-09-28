@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { artifactUrlTransform, classifyLink } from './markdownLink'
+import { artifactUrlTransform, classifyLink, fileUrlTransform } from './markdownLink'
 
 describe('classifyLink', () => {
   it('sends web URLs to the browser', () => {
@@ -140,5 +140,30 @@ describe('artifactUrlTransform', () => {
       'https://github.com/o/r/pull/214',
     )
     expect(artifactUrlTransform('docs/plan.md#L42')).toBe('docs/plan.md#L42')
+  })
+})
+
+describe('fileUrlTransform', () => {
+  const transform = fileUrlTransform('phosphor-file://tok/docs/README.md?v=1')
+
+  it('resolves a relative image against the grant', () => {
+    expect(transform('img/arch.png', 'src')).toBe('phosphor-file://tok/docs/img/arch.png')
+    expect(transform('../logo.svg', 'src')).toBe('phosphor-file://tok/logo.svg')
+    expect(transform('/site/hero.png', 'src')).toBe('phosphor-file://tok/site/hero.png')
+  })
+
+  it('leaves absolute image URLs and data URIs to the default filter', () => {
+    expect(transform('https://img.shields.io/badge.svg', 'src')).toBe(
+      'https://img.shields.io/badge.svg',
+    )
+    // data: and javascript: images were already stripped in chat; still are.
+    expect(transform('data:image/png;base64,AAAA', 'src')).toBe('')
+    expect(transform('javascript:alert(1)', 'src')).toBe('')
+  })
+
+  it('never rewrites links — MarkdownLink owns those', () => {
+    expect(transform('docs/plan.md#L42', 'href')).toBe('docs/plan.md#L42')
+    expect(transform('artifact://phosphor-beacon', 'href')).toBe('artifact://phosphor-beacon')
+    expect(transform('#toc', 'src')).toBe('#toc')
   })
 })

@@ -278,7 +278,7 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         ...(typeof target === 'number' ? { line: target } : target),
         seq: ++revealSeq,
       }
-      // A place in HTML or SVG is a place in its source.
+      // A place in HTML, SVG or markdown is a place in its source.
       if (isTextPreview(path)) reveal.view = 'source'
     }
     const existing = workspaceFiles(get(), workspacePath).openFiles.find((f) => f.path === path)

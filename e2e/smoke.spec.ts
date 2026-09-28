@@ -3865,6 +3865,11 @@ test('a link to a spec the model wrote opens it in the Files pane', async () => 
     await specLink.click()
     await expect(page.getByTestId('right-pane')).toBeVisible()
     await expect(page.getByTitle('docs/plan.md', { exact: true })).toBeVisible()
+    // Markdown opens rendered; the source stays one click away.
+    await expect(
+      page.getByTestId('right-pane').locator('.md-content').getByText('line 1: plan body'),
+    ).toBeVisible()
+    await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Source' }).click()
     await expect(page.locator('.monaco-editor .view-lines')).toContainText('line 1: plan body')
   } finally {
     await shutdown(harness)

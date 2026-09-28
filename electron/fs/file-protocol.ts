@@ -25,8 +25,9 @@ import { mimeTypeForPath, previewKindForPath } from '@shared/file-kinds'
  *
  * - a FILE grant (image, video, audio, PDF) serves exactly one file, whatever
  *   the URL's path says;
- * - a DOCUMENT grant (HTML) serves files under one root — the workspace — so
- *   the page's relative `style.css`, `chart.png` and `app.js` resolve. Every
+ * - a DOCUMENT grant (HTML, markdown) serves files under one root — the
+ *   workspace — so the page's relative `style.css`, `chart.png` and `app.js`
+ *   (or a README's relative images) resolve. Every
  *   path is realpath'd and must stay under the root, so neither `..` nor a
  *   symlink in the tree reaches outside it.
  *
@@ -161,7 +162,9 @@ export async function grantPreview(workspacePath: string, path: string): Promise
   const kind = previewKindForPath(real)
   if (!kind) throw new Error(`No preview for this file type: ${path}`)
 
-  if (kind === 'html') {
+  if (kind === 'html' || kind === 'markdown') {
+    // Markdown renders in the app, not an iframe; its grant exists so the
+    // README's relative images resolve against the same workspace root.
     const workspace = await realpath(workspacePath).catch(() => null)
     // A page opened from outside the workspace only sees its own folder.
     const root = workspace && isWithin(real, workspace) ? workspace : dirname(real)

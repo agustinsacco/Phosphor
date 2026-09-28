@@ -31,6 +31,7 @@ beforeAll(async () => {
   await writeFile(join(workspace, 'site', 'index.html'), '<link href="assets/app.css">')
   await writeFile(join(workspace, 'site', 'assets', 'app.css'), 'body{}')
   await writeFile(join(workspace, 'site', 'my page.html'), '<p>spaces</p>')
+  await writeFile(join(workspace, 'README.md'), '![](site/assets/app.css)')
   await writeFile(join(outside, 'secret.txt'), 'outside the workspace')
   await writeFile(join(outside, 'page.html'), '<p>outside</p>')
   await symlink(join(outside, 'secret.txt'), join(workspace, 'site', 'escape.txt'))
@@ -77,6 +78,17 @@ describe('grantPreview', () => {
     // Every page in the workspace shares one document grant.
     const other = await grantPreview(workspace, join(workspace, 'site', 'index.html'))
     expect(new URL(other).hostname).toBe(new URL(url).hostname)
+  })
+
+  it('grants markdown the workspace, sharing the HTML document grant', async () => {
+    const url = await grantPreview(workspace, join(workspace, 'README.md'))
+    expect(url).toMatch(/^phosphor-file:\/\/[0-9a-f]{32}\/README\.md$/)
+    // Relative images in the README resolve inside the same root…
+    const image = await get(url.replace('/README.md', '/site/assets/app.css'))
+    expect(image.status).toBe(200)
+    // …and it is the same workspace document grant HTML uses.
+    const html = await grantPreview(workspace, join(workspace, 'site', 'index.html'))
+    expect(new URL(html).hostname).toBe(new URL(url).hostname)
   })
 
   it('scopes a page from outside the workspace to its own folder', async () => {

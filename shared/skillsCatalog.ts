@@ -12,6 +12,8 @@
 export interface SkillCatalogSkill {
   name: string
   description: string
+  /** Reviewed bundle manifest, avoiding unrelated files in repository zipballs. */
+  files?: string[]
 }
 
 export interface SkillCatalogLibrary {

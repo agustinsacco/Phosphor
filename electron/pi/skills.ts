@@ -21,7 +21,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { probeCommandsCached } from './commands'
 import { piAgentDir } from './pi-paths'
-import { readZipEntries, writeZipStore, type ZipEntry } from './zip'
+import { invalidZipEntryName, readZipEntries, writeZipStore, type ZipEntry } from './zip'
 import {
   composeSkillMd,
   isSkillDraft,
@@ -403,12 +403,17 @@ type ZipFetcher = (url: string) => Promise<Buffer>
 
 const zipballCache = new Map<string, Promise<Buffer>>()
 
-async function defaultFetchZip(url: string): Promise<Buffer> {
+async function defaultFetchZip(url: string, limit = MAX_ARCHIVE_BYTES): Promise<Buffer> {
   const response = await fetch(url, { signal: AbortSignal.timeout(60_000), redirect: 'follow' })
-  if (!response.ok) throw new Error(`download failed (${response.status})`)
-  const data = Buffer.from(await response.arrayBuffer())
-  if (data.length > MAX_ARCHIVE_BYTES) throw new Error('archive exceeds the size cap')
-  return data
+  if (!response.ok || !response.body) throw new Error(`download failed (${response.status})`)
+  const chunks: Buffer[] = []
+  let size = 0
+  for await (const chunk of response.body) {
+    size += chunk.length
+    if (size > limit) throw new Error('download exceeds the size cap')
+    chunks.push(Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks)
 }
 
 export interface InstallSkillOptions {
@@ -419,38 +424,60 @@ export interface InstallSkillOptions {
   /** Reinstall over an existing phosphor-installed copy (the update flow). */
   overwrite?: boolean
   fetchZip?: ZipFetcher
+  fetchFile?: ZipFetcher
 }
 
 /**
  * Install one skill from a pinned catalog library into the user root.
  * Fetches the repo zipball at the pinned SHA (cached per repo@sha, so adding
  * three skills from one library downloads once) and extracts only entries
- * under the skill's subpath, through the guarded zip reader.
+ * under the skill's subpath, through the guarded zip reader. Large libraries
+ * may instead supply a reviewed file manifest; every file is fetched at the
+ * same pin and the assembled bundle passes the same zip guards.
  */
 export async function installCatalogSkill(
   options: InstallSkillOptions,
 ): Promise<{ dir: string; fileCount: number }> {
   const library = catalogLibrary(options.libraryId)
   if (!library) throw new Error(`unknown skill library: ${options.libraryId}`)
-  if (!library.skills.some((skill) => skill.name === options.skillName)) {
+  const skill = library.skills.find((skill) => skill.name === options.skillName)
+  if (!skill) {
     throw new Error(`"${options.skillName}" is not in ${library.label}`)
   }
   const targetName = options.targetName ?? options.skillName
   const nameError = validateSkillName(targetName)
   if (nameError) throw new Error(nameError)
 
+  const wanted = `${library.subpath}/${options.skillName}/`
+  let manifestZip: Buffer | undefined
+  if (skill.files) {
+    if (skill.files.length > MAX_BUNDLE_FILES) throw new Error('too many skill files')
+    const files: ZipEntry[] = []
+    let size = 0
+    for (const path of skill.files) {
+      if (invalidZipEntryName(path)) throw new Error('invalid manifest path')
+      const url = `https://raw.githubusercontent.com/${library.repo}/${library.sha}/${wanted}${path}`
+      const data = await (
+        options.fetchFile ?? ((url) => defaultFetchZip(url, MAX_TEXT_FILE_BYTES))
+      )(url)
+      size += data.length
+      if (data.length > MAX_TEXT_FILE_BYTES || size > MAX_ARCHIVE_BYTES)
+        throw new Error('skill exceeds the size cap')
+      files.push({ path: `repo/${wanted}${path}`, data })
+    }
+    manifestZip = writeZipStore(files)
+  }
   const cacheKey = `${library.repo}@${library.sha}`
   let zipball = zipballCache.get(cacheKey)
-  if (!zipball) {
+  if (!zipball && !manifestZip) {
     const fetcher = options.fetchZip ?? defaultFetchZip
     zipball = fetcher(`https://codeload.github.com/${library.repo}/zip/${library.sha}`)
     zipballCache.set(cacheKey, zipball)
     zipball.catch(() => zipballCache.delete(cacheKey))
   }
-  const entries = readZipEntries(await zipball)
+  const entries = readZipEntries(manifestZip ?? (await zipball!))
 
   // Zipball paths start with a `<repo>-<sha>/` segment; match on what follows.
-  const wanted = `${library.subpath}/${options.skillName}/`
   const bundle: Array<{ rel: string; data: Buffer }> = []
   for (const entry of entries) {
     const slash = entry.path.indexOf('/')

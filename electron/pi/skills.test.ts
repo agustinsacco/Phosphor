@@ -169,7 +169,7 @@ describe('export', () => {
 
 describe('installCatalogSkill', () => {
   it('extracts one skill from a pinned zipball and writes provenance', async () => {
-    const library = SKILL_CATALOG[0]!
+    const library = SKILL_CATALOG.find((entry) => entry.id === 'anthropic-skills')!
     const skillName = library.skills[0]!.name
     const zipball = writeZipStore([
       {
@@ -208,6 +208,45 @@ describe('installCatalogSkill', () => {
       installCatalogSkill({ libraryId: library.id, skillName, fetchZip }),
     ).rejects.toThrow(/already exists/)
     await installCatalogSkill({ libraryId: library.id, skillName, overwrite: true, fetchZip })
+  })
+
+  it('fetches only reviewed manifest files at the pin, with provenance and byte limits', async () => {
+    const library = SKILL_CATALOG.find((entry) => entry.id === 'anthropic-skills')!
+    const skill = library.skills[0]!
+    skill.files = ['SKILL.md', 'assets/model.py']
+    try {
+      const fetched: string[] = []
+      const options = { libraryId: library.id, skillName: skill.name, targetName: 'manifest-skill' }
+      const { dir, fileCount } = await installCatalogSkill({
+        ...options,
+        fetchZip: async () => {
+          throw new Error('must not download the whole repo')
+        },
+        fetchFile: async (url) => {
+          fetched.push(url)
+          return Buffer.from('reviewed file')
+        },
+      })
+      expect(fileCount).toBe(skill.files!.length)
+      expect(fetched).toEqual(
+        skill.files!.map(
+          (file) =>
+            `https://raw.githubusercontent.com/${library.repo}/${library.sha}/${library.subpath}/${skill.name}/${file}`,
+        ),
+      )
+      expect(readFileSync(join(dir, 'assets/model.py'), 'utf8')).toBe('reviewed file')
+      expect(JSON.parse(readFileSync(join(dir, SKILL_SIDECAR), 'utf8')).sha).toBe(library.sha)
+      await expect(
+        installCatalogSkill({
+          ...options,
+          targetName: 'oversized',
+          fetchFile: async () => Buffer.alloc(2 * 1024 * 1024 + 1),
+        }),
+      ).rejects.toThrow(/size cap/)
+      expect(existsSync(join(agentDir, 'skills', 'oversized'))).toBe(false)
+    } finally {
+      delete skill.files
+    }
   })
 
   it('refuses unknown libraries and unknown skills', async () => {

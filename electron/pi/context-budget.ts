@@ -1,4 +1,4 @@
-import { sessionContextBudget } from '@shared/context-budget'
+import { contextBudgetTokens, sessionContextBudget } from '@shared/context-budget'
 import type { PiRpcClient } from './rpc-client'
 import type { RpcCommand } from '@shared/rpc'
 import { log } from '../debug-log'
@@ -19,6 +19,21 @@ function enqueue<T>(gate: BudgetGate, action: () => Promise<T>): Promise<T> {
     () => undefined,
   )
   return result
+}
+
+/** Stage a cap inside pi. Its next safe boundary applies it without aborting work. */
+export async function syncContextBudget(
+  client: Pick<PiRpcClient, 'request'>,
+  rawBudget: string,
+): Promise<void> {
+  const state = await client.request({ type: 'get_state' })
+  if (!state.success || !state.data) throw new Error('Cannot read pi context budget state.')
+  const budget = state.data.autoCompactionEnabled ? contextBudgetTokens(rawBudget) : null
+  const result = await client.request({
+    type: 'prompt',
+    message: `/phosphor-context-budget ${budget ?? 'off'}`,
+  })
+  if (!result.success) throw new Error(result.error ?? 'Cannot apply pi context budget.')
 }
 
 /** A failed check leaves the session alone; a failed compaction is reported by pi. */

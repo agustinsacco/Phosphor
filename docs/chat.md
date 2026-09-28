@@ -280,13 +280,12 @@ in the **top bar** (`app/TopBar.tsx` → `SessionMenu`).
   the popover below. The denominator is pi's context window, or the
   **context budget** where one applies (Settings → Agent → Context budget,
   200k unless set; `sessionContextBudget` in `shared/context-budget.ts`): a
-  session whose model window is larger than the budget, on any provider —
-  most Claude models have a 1M window
-  ([cli-providers.md](cli-providers.md#one-context-budget)). "How full is the
-  line this session compacts at" is the honest question: against a 1M window
-  a session held to 200k read 20% the turn before it compacted. Capped at
-  100% either way, since pi compacts once the turn settles. The budget shown
-  is the current setting, the same one the next check enforces.
+  session whose catalogue capacity is at least the budget gets a capped
+  effective window on every provider
+  ([cli-providers.md](cli-providers.md#one-context-budget)). pi compacts before
+  prompts and between tool cycles, with response headroom below that cap.
+  The displayed percentage is capped at 100%; an individual tool batch can
+  overshoot before pi reaches its next safe compaction boundary.
 - **Stop** (`abort`) is the send button while a turn runs. Everything else is
   in the ⋮ menu: Export HTML…, Compact now… (optional custom instructions),
   auto-compaction, auto-retry, and the two queue-mode rows (Steering /

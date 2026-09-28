@@ -146,10 +146,10 @@ export function ContextBudgetSection(): React.JSX.Element {
         </div>
       </div>
       <p className="text-text-tertiary mt-2 text-sm">
-        pi compacts a session when a turn ends over this budget, Claude Code sessions included, and
-        a change applies to running sessions at their next turn. Switching a session&apos;s
-        auto-compaction off from its ⋮ menu opts that session out. Auto and off remove this budget,
-        not pi&apos;s own compaction near the window.
+        pi compacts before prompts and between tool cycles, reserving response headroom below this
+        budget, Claude Code included. Changes apply at the next safe boundary. Switching a
+        session&apos;s auto-compaction off from its ⋮ menu opts that session out. Auto and off
+        remove this budget, not pi&apos;s own compaction near the window.
       </p>
     </>
   )

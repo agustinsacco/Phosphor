@@ -80,8 +80,8 @@ normal pi messages. Legacy markers and rebuild UI remain readable for old record
 ### One context budget
 
 Interactive sessions share a **context budget** (Settings → Agent → Context
-budget, `AppPrefs.contextBudget`, default 200k): the size at which pi compacts
-a session whose model window is larger than the budget, whatever its provider.
+budget, `AppPrefs.contextBudget`, default 200k): an effective context window,
+never larger than the model's catalogue capacity, whatever its provider.
 The rule is `sessionContextBudget` in `shared/context-budget.ts`.
 
 It matters most on Claude Code. pi's catalogue gives most Claude models a 1M
@@ -90,10 +90,20 @@ Claude session grow to ~984k before compacting, every request re-reading all
 of it. Held to the budget, it compacts where the CLI's own auto-compact used
 to cut it.
 
-- **Checked after `agent_settled`** by `electron/pi/context-budget.ts`. When
-  the session is idle and over budget, it receives `compact`. A change applies
-  at the next check, running sessions included. Long turns can overshoot; pi's
-  native threshold stays armed and may fire sooner, mid-turn.
+- **Enforced by pi before prompts and between tool cycles**, not just after
+  the entire agent run. The bundled context extension loads
+  `pi-ext/context-budget.ts`, which uses `pi.setModel` with cloned metadata to
+  cap the session window. pi retains its normal response reserve: a 400k budget
+  with the default reserve compacts above 383,616 tokens. Catalogue models and
+  global pi settings are unchanged. Phosphor requires pi 0.87.1 or newer.
+- Main sends `/phosphor-context-budget` at startup, before prompts, after the
+  auto-compaction toggle, and when the preference changes. This extension
+  command runs no model. Changes during a run wait for the next completed tool
+  cycle so model-select hooks cannot retire an active Claude request. Idle
+  changes apply immediately; model switches reapply the cap. Smaller windows
+  are never enlarged, and opting out restores the catalogue capacity.
+- The settlement check remains an idle fallback, not the primary enforcement.
+  A single response/tool batch may overshoot; the next model request compacts.
 - **Smaller windows keep pi's native limit**: on a 200k model (Claude Haiku
   4.5, for one) pi fires at `contextWindow - reserveTokens`, ~183k with the
   default reserve, before the default budget would.
@@ -104,9 +114,9 @@ RPC `compact` aborts a running turn, and pi rejects prompts during requested
 compaction. `withBudgetCompaction` serializes checks and state-changing
 commands through completion, including slow compactions. Reads and interrupts
 remain available; an interrupt cancels queued commands and pending checks.
-The check is paused while a routine owns the session, because its runner
-prompts pi directly; a routine lane kept open for review is held like any other
-session once the routine releases it.
+The idle RPC fallback is paused while a routine owns the session because its
+runner prompts pi directly. The native window cap still applies to routines;
+pi serializes their compaction inside its own loop.
 
 The value grammar is the old Claude setting's, so a carried-over value keeps
 its meaning: `k`/`M` suffixes, 100k–1M, and bare numbers below 100k are

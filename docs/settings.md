@@ -62,7 +62,7 @@ project scope, an empty field's placeholder names what it inherits.
   provider, Claude Code included (default 200k; 400k; model maximum; or
   custom, 100k–1M). Bare numbers are thousands: `500` means 500k, previewed
   beside the field. This unscoped Phosphor pref stays editable even when pi's
-  settings file is broken. Sessions use it after settlement, including live
+  settings file is broken. pi uses the capped window between tool cycles, including live
   sessions. Smaller windows retain pi's native limit. See
   [One context budget](cli-providers.md#one-context-budget).
 - **Directives**: what Phosphor appends to every lane's system prompt, global

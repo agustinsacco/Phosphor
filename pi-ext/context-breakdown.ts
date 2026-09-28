@@ -26,7 +26,9 @@
  * to scale that overshoot away and crushed the fixed parts with it.
  */
 
-interface PiExtensionApi {
+import contextBudget, { type BudgetApi } from './context-budget'
+
+interface PiExtensionApi extends BudgetApi {
   on(event: string, handler: (event: unknown, ctx: unknown) => unknown): void
   getActiveTools?(): unknown
   getAllTools?(): unknown
@@ -272,6 +274,7 @@ export function measureMessages(entries: SessionEntryLike[]): { tokens: number; 
 }
 
 export default function contextBreakdownExtension(pi: PiExtensionApi): void {
+  contextBudget(pi)
   // Server names and tool totals come from the MCP adapter's status snapshots
   // on pi's shared event bus. Absent (no adapter, or an older one),
   // classification falls back to the `mcp__` namespace form and the chips

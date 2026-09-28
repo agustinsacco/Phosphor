@@ -161,10 +161,10 @@ describe('ContextMeter', () => {
     expect(document.body.textContent).toContain('25%')
   })
 
-  // A 200k window is no larger than the default budget: pi's own threshold
+  // A 128k window is smaller than the default budget: pi's own threshold
   // (window - reserveTokens) comes first, for Claude Code like any provider.
   it.each(['pi-claude-cli', 'openai-codex'])("uses pi's window and cap for %s", (provider) => {
-    seed({ tokens: 325_000, contextWindow: 200_000, percent: 162.5 }, provider)
+    seed({ tokens: 208_000, contextWindow: 128_000, percent: 162.5 }, provider)
     render()
     expect(document.body.textContent).toContain('100%')
     expect(document.querySelector('button')?.title).not.toContain('budget')

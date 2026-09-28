@@ -148,20 +148,22 @@ you want to watch.
   `AppPrefs.contextBudget` (Settings → Agent → Context budget). pi's catalogue
   gives most Claude models a 1M window, so pi's own threshold
   (`contextWindow - reserveTokens`) alone lets such a session reach ~984k
-  before it compacts. pi has no RPC knob for that threshold, so
-  `electron/pi/context-budget.ts` checks after each `agent_settled` and sends
-  `compact` when a session whose window is larger than the budget is over it.
-  An RPC `compact` aborts a running turn, and pi REJECTS a prompt sent during
-  one, so `pi:command` serializes checks and state-changing commands through
-  `withBudgetCompaction`. The check is paused while a routine owns the
-  session (its runner prompts pi directly, past that gate); a lane kept open
-  for review is held like any other once released. See
+  before it compacts. The bundled context extension loads
+  `pi-ext/context-budget.ts` to cap session-local model metadata via
+  `pi.setModel`, without changing the catalogue. pi 0.87.1+ then compacts
+  before prompts and between tool cycles, reserving response headroom below
+  the budget. In-run cap changes wait for `turn_end`: model-select hooks can
+  retire the Claude CLI, so never apply them during a request or tool batch.
+  An RPC `compact` aborts a running turn. `electron/pi/context-budget.ts`
+  retains a serialized idle fallback, paused while a routine owns the session;
+  native in-loop compaction remains enabled for routines. See
   [cli-providers.md](docs/cli-providers.md#one-context-budget).
 
 - **Phosphor ships six extensions that run inside pi's process** (`pi-ext/`,
   loaded with `-e` into every session; listed in `bundledExtensions()` in
   `electron/pi/session-runtime.ts`). They are the only Phosphor code with a
-  say inside a turn, and two of them can change or refuse what the model did:
+  say inside a turn. The context extension caps the session window for native
+  compaction; two others can change or refuse what the model did:
   - **`worktree-paths.ts` can refuse a tool call.** It blocks a
     `read`/`write`/`edit`/`ls`/`grep`/`find` whose path escapes a worktree
     session into the repo's main checkout (a different branch) when the same

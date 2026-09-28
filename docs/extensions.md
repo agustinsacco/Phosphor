@@ -325,6 +325,11 @@ rule is deliberately four-condition narrow (worktree session, path outside
 cwd, path inside the main checkout, counterpart exists in cwd) because pi's own
 system prompt sends the model to absolute paths outside the cwd for its docs.
 
+`context-breakdown.ts` also installs the session-local window cap from
+`context-budget.ts`. Its host-only command stages budget changes; model metadata
+is cloned at idle or safe turn boundaries so pi performs native compaction
+without aborting a run. See [One context budget](cli-providers.md#one-context-budget).
+
 `context-breakdown.ts` exists because pi reports context usage as one number,
 and the composed system prompt and active tool schemas are not reachable from
 the renderer. Three traps: `getAllTools()` returns definitions (the schemas that

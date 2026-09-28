@@ -2,8 +2,8 @@
  * The context budget (Settings → Agent → Context budget,
  * `AppPrefs.contextBudget`): how large an interactive session may grow before
  * pi compacts it, the same for every provider, Claude Code included.
- * `electron/pi/context-budget.ts` enforces it when a turn settles; the context
- * meter divides by it.
+ * The bundled context extension caps the session's model window so pi's own
+ * between-tool-cycle compaction uses it. The context meter divides by it.
  *
  * Accepted values: `auto`, `off`, or a token count from 100k to 1M — `k`/`M`
  * suffixes accepted, bare numbers below 100k are thousands (`400` means 400k).
@@ -63,8 +63,8 @@ export function contextBudgetTokens(raw: string): number | null {
 /**
  * The budget this session is held to, or null when it keeps only pi's own
  * threshold: no budget is set, the session's ⋮ auto-compaction toggle is off,
- * or its model window is no larger than the budget. pi's threshold
- * (window − reserveTokens) is still armed under a budget and can fire first.
+ * or its model window is smaller than the budget. pi's threshold
+ * (effective window minus reserveTokens) leaves response headroom.
  * The provider plays no part — a Claude Code session is held like any other.
  */
 export function sessionContextBudget(session: {
@@ -74,5 +74,5 @@ export function sessionContextBudget(session: {
 }): number | null {
   const budget = contextBudgetTokens(session.raw)
   if (budget === null || !session.autoCompactionEnabled) return null
-  return (session.contextWindow ?? 0) > budget ? budget : null
+  return (session.contextWindow ?? 0) >= budget ? budget : null
 }

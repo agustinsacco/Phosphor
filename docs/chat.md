@@ -295,13 +295,14 @@ in the **top bar** (`app/TopBar.tsx` → `SessionMenu`).
   the popover below. The denominator is pi's context window, or the
   **context budget** where one applies (Settings → Agent → Context budget,
   200k unless set; `sessionContextBudget` in `shared/context-budget.ts`): a
-  session whose model window is larger than the budget, on any provider —
-  most Claude models have a 1M window
-  ([cli-providers.md](cli-providers.md#one-context-budget)). "How full is the
-  line this session compacts at" is the honest question: against a 1M window
-  a session held to 200k read 20% the turn before it compacted. Capped at
-  100% either way, since pi compacts once the turn settles. The budget shown
-  is the current setting, the same one the next check enforces.
+  session whose catalogue capacity is at least the budget gets a capped
+  effective window on every provider
+  ([cli-providers.md](cli-providers.md#one-context-budget)). pi compacts before
+  prompts and between tool cycles, with response headroom below that cap.
+  The percentage shows actual overshoot (703k / 400k is 176%); only the ring
+  is capped at 100%. The popover names the excess and the next safe check,
+  and shows catalogue capacity separately from the effective session window.
+  Live window changes come from the context extension between stats polls.
 - **Stop** (`abort`) is the send button while a turn runs. Everything else is
   in the ⋮ menu: Export HTML…, Compact now… (optional custom instructions),
   auto-compaction, auto-retry, and the two queue-mode rows (Steering /
@@ -364,13 +365,18 @@ when its deltas have reported anything, else the last message to have
 usage only on its terminal event, so its mid-turn frames carry a
 present-but-zeroed usage object; without the fallback a whole turn read 0%.
 `message_end` carries authoritative usage on every provider, so the fallback
-costs no round trips.
+costs no round trips. Message and tool-call counters also advance from
+`message_end`, including user/system messages before the first usage delta.
+Deltas never increment counts; a stats poll resets their baseline. This keeps
+long runs from showing more messages in context than in the entire session.
 
 **Context composition** answers "full of _what_": messages, system prompt,
 tool schemas, MCP tool schemas. pi's single `contextUsage.tokens` cannot say
 that. Only the **total is authoritative**: component sizes are character-based
 estimates (no tokenizer is reachable from an extension), labelled approximate,
-and free space is the honest remainder.
+and free space is the honest remainder. When over budget, the bar normalizes
+against used context so segments still add up to 100%; legend percentages
+remain fractions of the budget/window and are explicitly labelled as such.
 
 **Messages means what the model holds now.** The extension walks pi's own
 `buildContextEntries()` (the last compaction's summary plus the kept tail),

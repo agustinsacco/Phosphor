@@ -85,7 +85,7 @@ describe('sessionContextBudget', () => {
 
   it("leaves pi's own threshold in charge when the window is no larger than the budget", () => {
     // pi fires at window - reserveTokens (~183k here) before 200k is reached.
-    expect(session({ contextWindow: 200_000 })).toBeNull()
+    expect(session({ contextWindow: 200_000 })).toBe(200_000)
     expect(session({ contextWindow: 128_000 })).toBeNull()
     expect(session({ raw: '400k', contextWindow: 272_000 })).toBeNull()
   })

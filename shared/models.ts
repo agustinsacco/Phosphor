@@ -823,7 +823,7 @@ export const DEFAULT_APP_PREFS: AppPrefs = {
 }
 
 /** Minimum pi version Phosphor is verified against. */
-export const MIN_PI_VERSION = '0.84.1'
+export const MIN_PI_VERSION = '0.87.1'
 
 /**
  * The first `@saccolabs/pi-claude-cli` release a Claude session starts on.

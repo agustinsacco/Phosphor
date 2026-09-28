@@ -22,7 +22,8 @@ import {
   usesClaudeCliProvider,
 } from '../pi/provider-detect'
 import { readAgentSettings } from '../pi/agent-settings'
-import { withBudgetCompaction } from '../pi/context-budget'
+import { syncContextBudget, withBudgetCompaction } from '../pi/context-budget'
+import { getPrefs } from '../store'
 import { listPackages } from '../pi/packages'
 import { getLanePrefs } from '../store'
 import { MIN_PI_VERSION, type CreateSessionOptions, type PiHealth } from '@shared/models'
@@ -114,9 +115,14 @@ export function registerPiSessionHandlers(): void {
           if (state.data.model?.provider === 'pi-claude-cli') {
             assertClaudeContextProvider(await listPackages(session.workspacePath))
           }
+          await syncContextBudget(session.client, getPrefs().contextBudget)
         }
       }
-      return session.client.request(command)
+      const result = await session.client.request(command)
+      if (!piStubPath() && command.type === 'set_auto_compaction' && result.success) {
+        await syncContextBudget(session.client, getPrefs().contextBudget)
+      }
+      return result
     })
   })
 

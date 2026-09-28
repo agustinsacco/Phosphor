@@ -1,6 +1,11 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { enforceContextBudget, watchContextBudget, withBudgetCompaction } from './context-budget'
+import {
+  enforceContextBudget,
+  syncContextBudget,
+  watchContextBudget,
+  withBudgetCompaction,
+} from './context-budget'
 import type { PiRpcClient } from './rpc-client'
 import type { RpcCommand } from '@shared/rpc'
 
@@ -53,6 +58,22 @@ function setup(overrides: Record<string, unknown> = {}, paused?: () => boolean) 
 
 afterEach(() => vi.useRealTimers())
 describe('context budget', () => {
+  it('sends the window policy without RPC compaction, including opt-out', async () => {
+    const s = setup({ isStreaming: true })
+    await syncContextBudget(s.client, '400k')
+    expect(s.request).toHaveBeenLastCalledWith({
+      type: 'prompt',
+      message: '/phosphor-context-budget 400000',
+    })
+    s.state.autoCompactionEnabled = false
+    await syncContextBudget(s.client, '400k')
+    expect(s.request).toHaveBeenLastCalledWith({
+      type: 'prompt',
+      message: '/phosphor-context-budget off',
+    })
+    expect(s.compact).not.toHaveBeenCalled()
+  })
+
   it.each([199_000, 200_000, null, NaN])('ignores usage %s', async (tokens) => {
     const s = setup()
     s.stats.contextUsage.tokens = tokens
@@ -68,8 +89,8 @@ describe('context budget', () => {
     },
   )
   it.each([
-    { model: { provider: 'openai-codex', contextWindow: 200_000 } },
-    { model: { provider: 'pi-claude-cli', contextWindow: 200_000 } },
+    { model: { provider: 'openai-codex', contextWindow: 128_000 } },
+    { model: { provider: 'pi-claude-cli', contextWindow: 128_000 } },
     { autoCompactionEnabled: false },
     { isStreaming: true },
     { isCompacting: true },

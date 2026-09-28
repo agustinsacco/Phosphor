@@ -65,6 +65,7 @@ vi.mock('../fs/git-info', () => ({
 }))
 vi.mock('../store', () => ({
   getPrefs: () => ({
+    contextBudget: '400k',
     agentDirectivesByProject: {},
     agentDirectives: { worktreeGuard: false, laneCharter: false, subagentPolicy: true, custom: '' },
   }),
@@ -86,7 +87,10 @@ beforeEach(() => {
   state.handlers.clear()
   state.list.mockReturnValue([])
   state.session.client.alive = true
-  state.session.client.request.mockReset().mockResolvedValue({ success: true })
+  state.session.client.request.mockReset().mockResolvedValue({
+    success: true,
+    data: { autoCompactionEnabled: true },
+  })
   state.dispose.mockReset().mockResolvedValue(undefined)
   state.access.mockReset().mockResolvedValue(undefined)
   state.create.mockReset().mockReturnValue(state.session)
@@ -162,7 +166,7 @@ describe('session context policy integration', () => {
   it('disposes a pi that is gone by the time it answers', async () => {
     state.session.client.request.mockImplementationOnce(async () => {
       state.session.client.alive = false
-      return { success: true }
+      return { success: true, data: { autoCompactionEnabled: true } }
     })
     await expect(
       state.handlers.get('pi:createSession')!(event, { workspacePath: '/repo' }),
@@ -194,6 +198,10 @@ describe('session context policy integration', () => {
       expect(options.env).not.toHaveProperty('PI_CLAUDE_CLI_SYSTEM_PROMPT')
       expect(options.env).not.toHaveProperty('PI_CLAUDE_CLI_KEEPALIVE_MS')
       expect(options.appendSystemPrompt).toContain('pi subagent: follow its advertised schema')
+      expect(state.session.client.request).toHaveBeenLastCalledWith({
+        type: 'prompt',
+        message: '/phosphor-context-budget 400000',
+      })
     },
   )
 

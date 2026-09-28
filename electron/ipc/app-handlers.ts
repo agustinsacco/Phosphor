@@ -12,6 +12,8 @@ import { access, readdir, rename } from 'node:fs/promises'
 import { claudeProjectDirForCwd, sessionDirForCwd } from '../pi/pi-paths'
 import { repointSessionCwd } from '../pi/session-cwd'
 import { registry } from '../registry'
+import { syncContextBudget, withBudgetCompaction } from '../pi/context-budget'
+import { piStubPath } from '../pi/stub'
 import { handle } from './handle'
 import { stageArtifactHtml } from '../artifacts/artifact-protocol'
 import { exportArtifactPdf } from '../artifacts/artifact-pdf'
@@ -283,8 +285,17 @@ export function registerAppHandlers(): void {
     setAgentDirectives(directives, projectPath)
   })
 
-  handle('app:setContextBudget', (_event, value: string) => {
+  handle('app:setContextBudget', async (_event, value: string) => {
     setContextBudget(value)
+    if (piStubPath()) return
+    await Promise.all(
+      registry.list().map(({ sessionId }) =>
+        withBudgetCompaction(sessionId, 'prompt', async () => {
+          const session = registry.get(sessionId)
+          if (session) await syncContextBudget(session.client, getPrefs().contextBudget)
+        }),
+      ),
+    )
   })
 
   handle('app:markSessionSeen', (_event, sessionPath: string) => {

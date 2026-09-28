@@ -17,7 +17,7 @@ import {
 import { readAgentSettings } from './agent-settings'
 import { healMissingSessionCwd } from './session-cwd'
 import { ensureCompactionReset } from './compaction-reset'
-import { watchContextBudget } from './context-budget'
+import { syncContextBudget, watchContextBudget } from './context-budget'
 import { isRoutineSession } from '../routines/ownership'
 import { listPackages } from './packages'
 import { headroomSupervisor } from '../headroom/proxy'
@@ -40,8 +40,8 @@ function bundledExtensionPath(file: string): string {
 
 /**
  * Extensions Phosphor loads into EVERY session, regardless of provider:
- * artifacts (tools the model can call), context-breakdown (passive reporting
- * of what is filling the context window, which only pi can see),
+ * artifacts (tools the model can call), context-breakdown (context composition
+ * and the session-local window cap used by pi's native compaction),
  * worktree-paths (refuses a file read that has escaped into the main
  * checkout of a worktree session), tool-name-guard (keeps a malformed
  * tool call out of the session file, where it would brick every later turn),
@@ -274,7 +274,7 @@ export async function spawnSession(
   execution.signal?.addEventListener('abort', stopOnAbort, { once: true })
   if (execution.signal?.aborted) stopOnAbort()
   try {
-    if (!stub) await session.client.request({ type: 'get_state' })
+    if (!stub) await syncContextBudget(session.client, getPrefs().contextBudget)
     execution.signal?.throwIfAborted()
     if (!session.client.alive) throw new Error('Session stopped during startup.')
   } catch (error) {

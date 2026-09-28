@@ -138,31 +138,45 @@ Rules the sheet keeps:
 `src/dev/mockPhosphor.ts` raises one in the browser harness when a prompt
 starts with `danger`.
 
-### Optional LocalStack permission gate
+### Optional permission gate and scratch cleanup
 
 `pi-ext/optional/permission-gate.ts` is an opt-in, standalone global gate,
 not one of Phosphor's six loaded extensions. To install it, review the file,
 back up any existing `~/.pi/agent/extensions/permission-gate.ts`, then copy it
 there. Use `/reload` in pi or start a new Phosphor session to load the change.
 
-It preserves the general dangerous-command prompts and hard blocks for
-`shred` and `truncate`. The AWS exception accepts only literal S3 reads:
-`list-objects-v2` and `s3 cp s3://bucket/key -`, optionally redirected to a
-simple `/tmp/filename`. Each invocation must start with `env -u AWS_PROFILE`,
-set `AWS_ACCESS_KEY_ID=test`, `AWS_SECRET_ACCESS_KEY=test`, and
-`AWS_DEFAULT_REGION=us-east-1`, then invoke `aws` with an explicit endpoint of
-`http://localhost:4566` or `http://127.0.0.1:4566`. The three assignments can
-appear in any order; the endpoint must precede the service name.
+The gate keeps dangerous-command prompts and hard blocks for `shred` and
+`truncate`. AWS alone does not prompt, including writes and non-local endpoints:
+authorization is left to the machine's AWS credentials and IAM policies. Other
+checks still examine the whole script, including commands alongside AWS calls.
+Install this policy only where that AWS access is intentional.
 
-Only a small allowlist of read options is accepted. Writes, profiles,
-endpoint overrides, dynamic shell syntax, and unsupported forms still prompt.
-Commands are checked individually, so a local read never approves a second
-real AWS invocation. Literal quoted Python heredocs can accompany reads.
-Other risky-command checks still examine the entire original script.
+For prompt-free cleanup, copy `pi-ext/optional/pi-scratch.py` to
+`~/.pi/agent/bin/pi-scratch.py`. It requires POSIX and Python 3.11+ with
+symlink-resistant `shutil.rmtree`. It creates private, randomly named jobs in
+`~/.pi/agent/scratch`, and only deletes a named job inside that root:
 
-This remains a `bash` tool confirmation heuristic, not a sandbox or a policy
-for SDK calls, other tools, aliases, or substituted executables. Phosphor's
-approval UI explains the request but does not enforce this exception itself.
+```bash
+t=$(python3 ~/.pi/agent/bin/pi-scratch.py create)
+# Put disposable work in "$t".
+python3 ~/.pi/agent/bin/pi-scratch.py clean "$t"
+```
+
+The helper validates the resolved argument at execution time, rejects root/job
+symlinks, traversal and shared roots, and does not follow links inside a job.
+It never cleans arbitrary `/tmp` directories. Ordinary recursive deletion still
+prompts; mentioning the helper or `mktemp` does not exempt another command.
+
+**Settings → Agent → Directives → Your own text** can teach new sessions:
+"Create temporary work with `python3 ~/.pi/agent/bin/pi-scratch.py create`;
+clean only the returned directory with `python3 ~/.pi/agent/bin/pi-scratch.py
+clean <directory>`. Prefer this helper over recursive shell deletion."
+Global directives can be overridden by project directives. The gate's rules
+are edited in its installed TypeScript file, not in the Directives field.
+
+These are accident guards, not a sandbox or a policy for SDK calls, other
+tools, aliases, or substituted executables. Phosphor only renders approval
+requests. The optional gate and helper are not installed by app updates.
 
 ## Foreign config files
 

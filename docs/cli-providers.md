@@ -4,7 +4,9 @@ Phosphor reaches a paid coding agent through its **own CLI**, spending the
 user's subscription instead of an API key. One has shipped:
 `@saccolabs/pi-claude-cli`, which drives Claude Code. This document is the
 Phosphor-side contract for it, why it is shaped that way, and why there is no
-Codex equivalent.
+Codex equivalent. What a Claude session shares with a native one, every known
+difference, and how to check a change are in
+[provider-symmetry.md](provider-symmetry.md).
 
 ## Current Claude integration
 

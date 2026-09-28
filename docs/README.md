@@ -39,12 +39,13 @@ Start with [overview.md](overview.md) for what Phosphor is, or
 
 ## What Phosphor talks to
 
-| File                                 | Covers                                                      |
-| ------------------------------------ | ----------------------------------------------------------- |
-| [extensions.md](extensions.md)       | pi packages, the six bundled extensions, the status channel |
-| [mcp.md](mcp.md)                     | MCP servers and connectors via the pi-mcp-adapter chain     |
-| [cli-providers.md](cli-providers.md) | Running sessions on the Claude Code CLI                     |
-| [updates.md](updates.md)             | Update detection, the three install paths, the macOS swap   |
+| File                                         | Covers                                                               |
+| -------------------------------------------- | -------------------------------------------------------------------- |
+| [extensions.md](extensions.md)               | pi packages, the six bundled extensions, the status channel          |
+| [mcp.md](mcp.md)                             | MCP servers and connectors via the pi-mcp-adapter chain              |
+| [cli-providers.md](cli-providers.md)         | Running sessions on the Claude Code CLI                              |
+| [provider-symmetry.md](provider-symmetry.md) | What native and Claude sessions share, how they differ, how to check |
+| [updates.md](updates.md)                     | Update detection, the three install paths, the macOS swap            |
 
 ## Visual identity
 

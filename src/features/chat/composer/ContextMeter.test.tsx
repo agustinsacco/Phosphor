@@ -166,7 +166,7 @@ describe('ContextMeter', () => {
   it.each(['pi-claude-cli', 'openai-codex'])("uses pi's window and cap for %s", (provider) => {
     seed({ tokens: 208_000, contextWindow: 128_000, percent: 162.5 }, provider)
     render()
-    expect(document.body.textContent).toContain('100%')
+    expect(document.body.textContent).toContain('163%')
     expect(document.querySelector('button')?.title).not.toContain('budget')
   })
 
@@ -188,11 +188,16 @@ describe('ContextMeter', () => {
       expect(document.body.textContent).toContain('65%')
     })
 
-    it('is capped over its budget, since pi compacts once the turn settles', () => {
+    it('shows overshoot but caps the ring, and explains the next safe check', () => {
       seed({ tokens: 260_000, contextWindow: 1_000_000, percent: 26 }, provider)
       render()
-      expect(document.body.textContent).toContain('100%')
-      expect(document.body.textContent).not.toContain('130%')
+      expect(document.body.textContent).toContain('130%')
+      expect(document.querySelectorAll('circle')[1]?.getAttribute('stroke-dasharray')).toBe(
+        '40.8 40.8',
+      )
+      click('130%')
+      expect(document.body.textContent).toContain('60.0k over budget')
+      expect(document.body.textContent).toContain('before the next model request')
     })
 
     it("falls back to pi's window when the session's auto-compaction is off", () => {
@@ -207,6 +212,61 @@ describe('ContextMeter', () => {
       render()
       expect(document.body.textContent).toContain('15%')
     })
+  })
+
+  it('renders the reported overshoot with a normalized bar and separate model capacity', () => {
+    useContextBudgetStore.setState({ contextBudget: '400k' })
+    seed({ tokens: 703_167, contextWindow: 400_000, percent: 175.8 }, 'openai-codex')
+    useChatStore.getState().setModels(SESSION, [
+      {
+        ...useChatStore.getState().sessions[SESSION]!.meta!.model!,
+        contextWindow: 1_000_000,
+      },
+    ])
+    useExtensionUiStore.setState({
+      statuses: {
+        [SESSION]: {
+          'phosphor-context-breakdown': JSON.stringify({
+            totalTokens: 703_167,
+            contextWindow: 400_000,
+            approximate: true,
+            parts: { messages: 338_000, systemPrompt: 11_300, tools: 7_100, mcpTools: 3_100 },
+            counts: { messages: 661, tools: 27, mcpTools: 14 },
+            mcpByServer: {},
+          }),
+        },
+      },
+    })
+    render()
+    click('176%')
+    expect(document.body.textContent).toContain('1.0M model capacity')
+    expect(document.body.textContent).toContain('303k over budget')
+    const widths = [...document.querySelectorAll<HTMLElement>('[style]')]
+      .filter((node) => node.style.width.endsWith('%'))
+      .map((node) => parseFloat(node.style.width))
+    expect(widths.reduce((a, b) => a + b, 0)).toBeCloseTo(100)
+    expect(document.body.textContent).toContain('percentages are relative to the budget or window')
+  })
+
+  it('uses a live restored window after opt-out before the next stats poll', () => {
+    useContextBudgetStore.setState({ contextBudget: 'off' })
+    seed({ tokens: 100_000, contextWindow: 400_000, percent: 25 }, 'openai-codex')
+    useExtensionUiStore.setState({
+      statuses: {
+        [SESSION]: {
+          'phosphor-context-breakdown': JSON.stringify({
+            totalTokens: 100_000,
+            contextWindow: 1_000_000,
+            approximate: true,
+            parts: { messages: 80_000, systemPrompt: 1000, tools: 1000, mcpTools: 0 },
+            counts: { messages: 10, tools: 4, mcpTools: 0 },
+            mcpByServer: {},
+          }),
+        },
+      },
+    })
+    render()
+    expect(document.body.textContent).toContain('10%')
   })
 
   it('fetches and shows both plan windows for a Claude Code session', async () => {

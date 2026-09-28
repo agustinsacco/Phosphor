@@ -37,7 +37,7 @@ export function shouldRefreshStatsOn(
   // With usage riding every delta (pi >= 0.84.2, detected per session rather
   // than version-checked), the meter climbs from the stream and the poll only
   // needs to re-sync at boundaries where pi computes things the stream cannot
-  // carry — the authoritative post-turn context estimate, message counts, and
+  // carry — the authoritative post-turn context estimate and
   // the post-compaction reset. Without it, the old per-sub-step polling is
   // the only thing that moves the meter mid-turn, so it stays.
   if (usageArrivesOnDeltas) {
@@ -678,7 +678,7 @@ function attachSessionPushHandler(phosphorId: string): void {
         } else if (push.event.type === 'message_end') {
           const message = push.event.message
           const usage = message.role === 'assistant' ? message.usage : undefined
-          const patched = recordMessageEnd(phosphorId, usage)
+          const patched = recordMessageEnd(phosphorId, usage, message)
           if (patched) chatStore.setStats(phosphorId, patched)
         }
         if (shouldRefreshStatsOn(push.event.type, hasUsageDeltas(phosphorId))) {

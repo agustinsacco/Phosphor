@@ -1,4 +1,9 @@
-import type { SessionStats, Usage } from '@shared/rpc'
+import type { AgentMessage, SessionStats, Usage } from '@shared/rpc'
+
+type Counts = Pick<
+  SessionStats,
+  'totalMessages' | 'userMessages' | 'assistantMessages' | 'toolCalls' | 'toolResults'
+>
 
 /**
  * Live session stats from the event stream, replacing most of the
@@ -68,6 +73,7 @@ interface TokenTotals {
 interface LiveStatsEntry {
   /** Session totals as of the last authoritative poll plus ended messages. */
   base: TokenTotals & { cost: number }
+  counts: Counts
   /** The message currently streaming, per its latest delta. */
   current: Usage | null
   /**
@@ -90,6 +96,13 @@ function entryFor(sessionId: string): LiveStatsEntry {
   if (!entry) {
     entry = {
       base: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+      counts: {
+        totalMessages: 0,
+        userMessages: 0,
+        assistantMessages: 0,
+        toolCalls: 0,
+        toolResults: 0,
+      },
       current: null,
       lastEnded: null,
       polled: null,
@@ -115,6 +128,8 @@ export function recordPolledStats(sessionId: string, stats: SessionStats): void 
   const entry = entryFor(sessionId)
   entry.polled = stats
   entry.base = { ...stats.tokens, cost: stats.cost }
+  const { totalMessages, userMessages, assistantMessages, toolCalls, toolResults } = stats
+  entry.counts = { totalMessages, userMessages, assistantMessages, toolCalls, toolResults }
   // The poll already includes anything that was streaming when pi answered;
   // keeping `current` would double-count it in the next overlay. `lastEnded`
   // goes for the same reason AND for a sharper one: pi's answer is the ground
@@ -141,9 +156,26 @@ export function recordUsageDelta(sessionId: string, usage: Usage): SessionStats 
  * and is banked as `lastEnded` for the context estimate, which is the only
  * true reading a completion-only provider ever gives us mid-turn.
  */
-export function recordMessageEnd(sessionId: string, usage: Usage | undefined): SessionStats | null {
+export function recordMessageEnd(
+  sessionId: string,
+  usage: Usage | undefined,
+  message?: AgentMessage,
+): SessionStats | null {
   const entry = entries.get(sessionId)
-  if (!entry || !entry.seenUsageDelta) return null
+  if (!entry) return null
+  // Match pi's getSessionStats: all message entries count, including system
+  // messages; only actual toolCall blocks count as calls, not legacy markers.
+  // Count user/system entries before the first usage delta too.
+  if (message) {
+    entry.counts.totalMessages++
+    if (message.role === 'user') entry.counts.userMessages++
+    if (message.role === 'toolResult') entry.counts.toolResults++
+    if (message.role === 'assistant') {
+      entry.counts.assistantMessages++
+      entry.counts.toolCalls += message.content.filter((b) => b.type === 'toolCall').length
+    }
+  }
+  if (!entry.seenUsageDelta) return message ? overlay(entry) : null
   if (usage) {
     entry.base.input += usage.input
     entry.base.output += usage.output
@@ -201,6 +233,7 @@ function overlay(entry: LiveStatsEntry): SessionStats | null {
 
   return {
     ...polled,
+    ...entry.counts,
     tokens,
     cost: entry.base.cost + (current?.cost?.total ?? 0),
     contextUsage,

@@ -403,6 +403,7 @@ export default function contextBreakdownExtension(pi: PiExtensionApi): void {
     publish(latestContext)
   }
   pi.on('session_start', remember)
+  pi.on('model_select', remember)
   pi.on('agent_settled', remember)
   pi.on('turn_end', remember)
 }

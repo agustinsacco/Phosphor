@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Fake pi that speaks the MCP adapter's `/mcp reconnect` conversation, for
+ * Fake pi that speaks the MCP adapter's `/mcp-adapter reconnect` conversation, for
  * `connector-check.test.ts`. The verdict arrives as a `notify`, exactly as the
  * real adapter reports it. Behaviour is chosen by PHOSPHOR_FAKE_CHECK:
  *
@@ -49,7 +49,7 @@ function handle(cmd) {
     return
   }
 
-  const server = (cmd.message || '').replace('/mcp reconnect ', '').trim()
+  const server = (cmd.message || '').replace('/mcp-adapter reconnect ', '').trim()
   if (mode === 'refuse') {
     out({
       id: cmd.id,

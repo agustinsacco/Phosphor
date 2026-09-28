@@ -20,7 +20,7 @@ back to Extensions.
 | ↳ Claude Code    | The `pi-claude-cli` provider: health, accounts, pi context ownership | Phosphor prefs + the package's own config               |
 | ↳ Web access     | The `pi-web-access` provider: search, fetch, PDF                     | `web-search.json`                                       |
 | ↳ Computer use   | Info page for `@injaneity/pi-computer-use`                           | nothing (read-only)                                     |
-| ↳ MCP Connectors | Curated OAuth catalog + custom servers                               | `mcp.json`, or the project's `.mcp.json`                |
+| ↳ MCP Connectors | Curated OAuth catalog + custom servers                               | `mcp-adapter.json`, or the project's `.mcp.json`        |
 | Workspaces       | Lane naming/markers, new-session branching, recents, sandboxes       | Phosphor prefs; layout reset clears localStorage        |
 | Optimization     | Headroom tool-result compression + the Advisor                       | Phosphor prefs; `headroom:*` lifecycle in main          |
 | Advanced         | pi health, raw config editors, maintenance, discovered resources     | the pi files it edits; maintenance prefs                |
@@ -165,9 +165,9 @@ rather than a top-level app concern.
 - **Connectors**: the curated OAuth catalog (Linear, Notion, Braintrust,
   Datadog, Supabase, Questrade, Fellow, Slack). Add, sign in, reconnect,
   remove. Add starts the sign-in itself. Signing in drives the adapter's own
-  `/mcp-auth`; Phosphor holds no tokens and only writes `mcp.json` (or the
+  `/mcp-auth`; Phosphor holds no tokens and only writes `mcp-adapter.json` (or the
   project's `.mcp.json`).
-- **MCP**: the `mcp.json` resolution chain, custom servers, raw JSON repair.
+- **MCP**: the `mcp-adapter.json` resolution chain, custom servers, raw JSON repair.
 - Both are specified in [mcp.md](mcp.md).
 
 ## Workspaces

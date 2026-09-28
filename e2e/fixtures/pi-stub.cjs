@@ -576,11 +576,11 @@ function handle(cmd) {
         })
         break
       }
-      // The connection test: `/mcp reconnect <server>` is an extension
+      // The connection test: `/mcp-adapter reconnect <server>` is an extension
       // command too, and its verdict arrives as a `notify` — the string Phosphor
       // parses into an up/down badge.
-      if (message.startsWith('/mcp reconnect ')) {
-        const server = message.slice('/mcp reconnect '.length).trim()
+      if (message.startsWith('/mcp-adapter reconnect ')) {
+        const server = message.slice('/mcp-adapter reconnect '.length).trim()
         out({
           type: 'extension_ui_request',
           id: `mcp-reconnect-${server}`,

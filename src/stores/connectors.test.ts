@@ -142,7 +142,10 @@ describe('connector flow — in a live session', () => {
 
   it('disconnects through the adapter so it clears its own stored credentials', async () => {
     await useConnectorsStore.getState().disconnect('slack', 's1')
-    expect(piCommand).toHaveBeenCalledWith('s1', { type: 'prompt', message: '/mcp logout slack' })
+    expect(piCommand).toHaveBeenCalledWith('s1', {
+      type: 'prompt',
+      message: '/mcp-adapter logout slack',
+    })
   })
 
   it('disconnecting with no session removes config without pretending to log out', async () => {
@@ -161,7 +164,7 @@ describe('reloading a server in a live session', () => {
     })
     expect(piCommand).toHaveBeenCalledWith('s1', {
       type: 'prompt',
-      message: '/mcp reconnect linear',
+      message: '/mcp-adapter reconnect linear',
     })
     // pi acknowledges the prompt before the adapter has reconnected anything.
     await Promise.resolve()

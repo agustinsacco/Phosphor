@@ -50,7 +50,7 @@ describe('mcpConfigPaths', () => {
       'pi-project',
     ])
     expect(paths[0]?.path).toBe(join(dirs.xdgConfig, 'mcp', 'mcp.json'))
-    expect(paths[3]?.path).toBe(join(dirs.piAgent, 'mcp.json'))
+    expect(paths[3]?.path).toBe(join(dirs.piAgent, 'mcp-adapter.json'))
   })
 
   it('omits project scopes without a workspace', () => {
@@ -60,11 +60,36 @@ describe('mcpConfigPaths', () => {
 })
 
 describe('readMcpConfigs', () => {
+  it('warns about legacy pi files without loading or modifying them', async () => {
+    const legacy = join(dirs.piAgent, 'mcp.json')
+    const projectLegacy = join(workspace, '.pi', 'mcp.json')
+    await write(legacy, { mcpServers: { old: { url: 'https://old.example' } } })
+    await write(projectLegacy, { mcpServers: { projectOld: { command: 'old' } } })
+    const before = await readFile(legacy, 'utf8')
+    const projectBefore = await readFile(projectLegacy, 'utf8')
+    const empty = await readMcpConfigs(workspace, dirs)
+    expect(empty.servers).toEqual([])
+    expect(empty.warnings).toHaveLength(2)
+    expect(empty.warnings?.[0]).toContain(legacy)
+    expect(empty.warnings?.[1]).toContain(projectLegacy)
+
+    await upsertMcpServer('pi-global', workspace, 'new', { url: 'https://new.example' }, dirs)
+    const result = await readMcpConfigs(workspace, dirs)
+    expect(result.servers.map((server) => server.name)).toEqual(['new'])
+    expect(result.warnings?.[0]).toContain('merge if it already exists')
+    expect(await readFile(legacy, 'utf8')).toBe(before)
+    expect(await readFile(projectLegacy, 'utf8')).toBe(projectBefore)
+  })
+
+  it('does not warn when legacy files are absent', async () => {
+    expect((await readMcpConfigs(workspace, dirs)).warnings).toEqual([])
+  })
+
   it('resolves precedence with shadows recorded', async () => {
-    await write(join(dirs.piAgent, 'mcp.json'), {
+    await write(join(dirs.piAgent, 'mcp-adapter.json'), {
       mcpServers: { shared: { url: 'https://global.example' }, only: { url: 'https://x' } },
     })
-    await write(join(workspace, '.pi', 'mcp.json'), {
+    await write(join(workspace, '.pi', 'mcp-adapter.json'), {
       mcpServers: { shared: { url: 'https://project.example' } },
     })
 
@@ -78,7 +103,7 @@ describe('readMcpConfigs', () => {
   })
 
   it('reports malformed files without failing the whole read', async () => {
-    await writeFile(join(dirs.piAgent, 'mcp.json'), '{ not json')
+    await writeFile(join(dirs.piAgent, 'mcp-adapter.json'), '{ not json')
     const { files, servers } = await readMcpConfigs(workspace, dirs)
     expect(files.find((f) => f.scope === 'pi-global')?.malformed).toBe(true)
     expect(servers).toEqual([])
@@ -87,18 +112,18 @@ describe('readMcpConfigs', () => {
 
 describe('mutations', () => {
   it('upsert creates dirs, preserves unknown keys, validates input', async () => {
-    await write(join(dirs.piAgent, 'mcp.json'), {
+    await write(join(dirs.piAgent, 'mcp-adapter.json'), {
       customTopLevel: { keep: true },
       mcpServers: {},
     })
     await upsertMcpServer('pi-global', undefined, 'linear', { url: 'https://linear' }, dirs)
-    const parsed = JSON.parse(await readFile(join(dirs.piAgent, 'mcp.json'), 'utf8'))
+    const parsed = JSON.parse(await readFile(join(dirs.piAgent, 'mcp-adapter.json'), 'utf8'))
     expect(parsed.customTopLevel).toEqual({ keep: true })
     expect(parsed.mcpServers.linear.url).toBe('https://linear')
 
     // Fresh project file (dir does not exist yet).
     await upsertMcpServer('pi-project', workspace, 'local', { command: 'npx', args: ['x'] }, dirs)
-    const project = JSON.parse(await readFile(join(workspace, '.pi', 'mcp.json'), 'utf8'))
+    const project = JSON.parse(await readFile(join(workspace, '.pi', 'mcp-adapter.json'), 'utf8'))
     expect(project.mcpServers.local.command).toBe('npx')
 
     await expect(
@@ -110,26 +135,26 @@ describe('mutations', () => {
   })
 
   it('refuses writes over malformed files', async () => {
-    await writeFile(join(dirs.piAgent, 'mcp.json'), '{ nope')
+    await writeFile(join(dirs.piAgent, 'mcp-adapter.json'), '{ nope')
     await expect(
       upsertMcpServer('pi-global', undefined, 'x', { url: 'https://x' }, dirs),
     ).rejects.toThrow(/not valid JSON/)
   })
 
   it('toggles disabled in place and removes servers', async () => {
-    await write(join(dirs.piAgent, 'mcp.json'), {
+    await write(join(dirs.piAgent, 'mcp-adapter.json'), {
       mcpServers: { linear: { url: 'https://linear' } },
     })
     await setMcpServerDisabled('pi-global', undefined, 'linear', true, dirs)
-    let parsed = JSON.parse(await readFile(join(dirs.piAgent, 'mcp.json'), 'utf8'))
+    let parsed = JSON.parse(await readFile(join(dirs.piAgent, 'mcp-adapter.json'), 'utf8'))
     expect(parsed.mcpServers.linear.disabled).toBe(true)
 
     await setMcpServerDisabled('pi-global', undefined, 'linear', false, dirs)
-    parsed = JSON.parse(await readFile(join(dirs.piAgent, 'mcp.json'), 'utf8'))
+    parsed = JSON.parse(await readFile(join(dirs.piAgent, 'mcp-adapter.json'), 'utf8'))
     expect('disabled' in parsed.mcpServers.linear).toBe(false)
 
     await removeMcpServer('pi-global', undefined, 'linear', dirs)
-    parsed = JSON.parse(await readFile(join(dirs.piAgent, 'mcp.json'), 'utf8'))
+    parsed = JSON.parse(await readFile(join(dirs.piAgent, 'mcp-adapter.json'), 'utf8'))
     expect(parsed.mcpServers).toEqual({})
   })
 })

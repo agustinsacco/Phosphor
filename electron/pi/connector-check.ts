@@ -10,7 +10,7 @@ import { log } from '../debug-log'
  * it showed `state unknown`, or a stale `Signed in · idle` that says nothing
  * about the server being reachable right now.
  *
- * The adapter already has the probe: `/mcp reconnect <server>` closes the
+ * The adapter already has the probe: `/mcp-adapter reconnect <server>` closes the
  * connection, opens a fresh one and reports the outcome. So this spawns a
  * throwaway `pi --mode rpc --no-session` (the same machinery as
  * `connector-auth.ts`), sends that one extension command — no model call, no
@@ -103,13 +103,14 @@ export function checkConnector(options: ConnectorCheckOptions): Promise<Connecto
       return
     }
 
-    void client.request({ type: 'prompt', message: `/mcp reconnect ${serverName}` }).then(
+    void client.request({ type: 'prompt', message: `/mcp-adapter reconnect ${serverName}` }).then(
       (response) => {
         if (!response.success) {
           finish({
             serverName,
             outcome: 'unknown',
-            detail: response.error ?? 'pi refused /mcp — is the pi-mcp-adapter package installed?',
+            detail:
+              response.error ?? 'pi refused /mcp-adapter: is the pi-mcp-adapter package installed?',
           })
         }
       },

@@ -2168,9 +2168,11 @@ test('Connectors: resolved rows, disable toggle, add custom server', async () =>
   // global MCP server it did not ask for.
   const soloAgentDir = privateAgentDir()
   await writeFile(
-    join(soloAgentDir, 'mcp.json'),
+    join(soloAgentDir, 'mcp-adapter.json'),
     JSON.stringify({ mcpServers: { linear: { url: 'https://mcp.linear.app/sse' } } }),
   )
+  const legacyText = JSON.stringify({ mcpServers: { legacyOnly: { command: 'legacy' } } })
+  await writeFile(join(soloAgentDir, 'mcp.json'), legacyText)
   // Dedicated prefs dir: project-scope writes target the ACTIVE workspace, so
   // a `lastSessionPath` left by an earlier test could restore a different
   // workspace and send the write there.
@@ -2193,6 +2195,9 @@ test('Connectors: resolved rows, disable toggle, add custom server', async () =>
     // read-only box belonging to some unconfigured catalog entry.
     await expect(page.getByText('linear', { exact: true })).toBeVisible()
     await expect(page.getByText('https://mcp.linear.app/sse').first()).toBeVisible()
+    await expect(page.getByRole('alert').filter({ hasText: 'does not migrate' })).toBeVisible()
+    await expect(page.getByText('legacyOnly', { exact: true })).toHaveCount(0)
+    expect(await readFile(join(soloAgentDir, 'mcp.json'), 'utf8')).toBe(legacyText)
 
     // Disable writes `"disabled": true` into the owning file. Plain click:
     // the checkbox is controlled and only re-renders after the IPC round
@@ -2200,12 +2205,12 @@ test('Connectors: resolved rows, disable toggle, add custom server', async () =>
     await page.getByRole('checkbox').first().click()
     await expect
       .poll(async () => {
-        const raw = await readFile(join(soloAgentDir, 'mcp.json'), 'utf8')
+        const raw = await readFile(join(soloAgentDir, 'mcp-adapter.json'), 'utf8')
         return (JSON.parse(raw).mcpServers.linear as { disabled?: boolean }).disabled === true
       })
       .toBe(true)
 
-    // Add a project-scoped stdio server → workspace/.pi/mcp.json is written.
+    // Add a project-scoped stdio server → workspace/.pi/mcp-adapter.json is written.
     await page.getByRole('button', { name: 'Add custom server…' }).click()
     await page.getByPlaceholder('server name (e.g. linear)').fill('local-tools')
     await page.getByRole('radio', { name: 'Local command' }).check()
@@ -2216,7 +2221,7 @@ test('Connectors: resolved rows, disable toggle, add custom server', async () =>
     await expect
       .poll(async () => {
         try {
-          const raw = await readFile(join(workspace, '.pi', 'mcp.json'), 'utf8')
+          const raw = await readFile(join(workspace, '.pi', 'mcp-adapter.json'), 'utf8')
           return (JSON.parse(raw).mcpServers['local-tools'] as { command?: string }).command
         } catch {
           return null
@@ -2254,7 +2259,7 @@ test('Connectors: adding a catalog connector writes a verified OAuth endpoint', 
     await expect
       .poll(async () => {
         try {
-          const raw = await readFile(join(soloAgentDir, 'mcp.json'), 'utf8')
+          const raw = await readFile(join(soloAgentDir, 'mcp-adapter.json'), 'utf8')
           return JSON.parse(raw).mcpServers.datadog as Record<string, unknown>
         } catch {
           return null
@@ -2280,7 +2285,7 @@ test('Connectors: adding a catalog connector writes a verified OAuth endpoint', 
     await expect
       .poll(async () => {
         try {
-          const raw = await readFile(join(soloAgentDir, 'mcp.json'), 'utf8')
+          const raw = await readFile(join(soloAgentDir, 'mcp-adapter.json'), 'utf8')
           return JSON.parse(raw).mcpServers.slack as Record<string, unknown>
         } catch {
           return null
@@ -2316,7 +2321,7 @@ test('Connectors: signing in works with no session open', async () => {
   // authorization path, and the previous test already covers writing config.
   const soloAgentDir = privateAgentDir()
   await writeFile(
-    join(soloAgentDir, 'mcp.json'),
+    join(soloAgentDir, 'mcp-adapter.json'),
     JSON.stringify({
       mcpServers: { linear: { url: 'https://mcp.linear.app/mcp', auth: 'oauth' } },
     }),

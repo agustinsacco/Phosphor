@@ -6,6 +6,19 @@ ordinary `tool_execution_*` events, so the transcript needs nothing special.
 Phosphor's job is **config management and status surfacing**: mount a server,
 sign in, see whether it is up, see what it costs.
 
+**Requires pi-mcp-adapter 3.x.** Adapter-owned config is `mcp-adapter.json`
+in the pi agent directory and project `.pi` directory. The old `mcp.json`
+files are reserved for pi's built-in MCP. Settings warns when those old files
+exist but never migrates them automatically: they may belong to built-in MCP.
+For an adapter-only installation, rename the old file to `mcp-adapter.json`
+(or merge into the destination if it exists), then restart affected sessions.
+The format and credential storage are unchanged. Shared `.mcp.json` files
+keep their names. Phosphor uses `/mcp-adapter`, not the conditional `/mcp` alias.
+
+Project-defined servers also require the adapter's project trust and approval.
+Headless Test skips unapproved project servers; it does not bypass approval.
+User-global connectors are not subject to that project approval gate.
+
 ## Settings → Connectors
 
 **One tab, one list.** A connector IS an MCP server, and connecting one writes
@@ -34,7 +47,7 @@ auth" (`src/features/connectors/catalog.ts`).
 **Add starts the sign-in.** Add writes the `pi-global` entry and immediately
 runs the headless OAuth flow, so the row appears in Connected with its flow
 card open and the browser already launched. The headless route is used even
-when a session is open: that session's adapter read `mcp.json` at startup and
+when a session is open: that session's adapter read `mcp-adapter.json` at startup and
 has never heard of the server just written.
 
 **Two connectors default to read-only, on purpose.** With no `oauth.scope`
@@ -48,7 +61,7 @@ account.
 
 **"Is it up?" is a button, not an inference.** The status chip comes from the
 adapter inside a live session, so with nothing open a row can only say
-`state unknown`. **Test** runs the adapter's own `/mcp reconnect <server>` in
+`state unknown`. **Test** runs the adapter's own `/mcp-adapter reconnect <server>` in
 a throwaway `pi --mode rpc --no-session` (`electron/pi/connector-check.ts`),
 which closes the connection, opens a fresh one, and reports the outcome.
 `parseReconnectNotice` (`shared/connectors.ts`) turns that into a verdict:
@@ -58,7 +71,7 @@ wrong up-or-down. No model runs, so a test spends no tokens.
 
 **Test checks the server; Reload fixes the session.** Test's reconnect happens
 in its own process, so a session holding a stale or dead connection keeps it.
-**Reload** sends the same `/mcp reconnect <server>` to the active session,
+**Reload** sends the same `/mcp-adapter reconnect <server>` to the active session,
 which drops that session's connection, opens a fresh one and re-reads the
 server's tools — for stdio servers too, which have no sign-in. pi acknowledges
 the command before the adapter finishes, so `reload` in `stores/connectors.ts`
@@ -87,11 +100,11 @@ Three rules hold this together:
 
 1. **Phosphor never holds a connector token.** The adapter does PKCE, dynamic
    client registration, a loopback callback on `localhost:19876/callback` and
-   token custody in the OS credential store. Phosphor writes `mcp.json` and
+   token custody in the OS credential store. Phosphor writes adapter configuration and
    nothing else. Two copies of a refresh token means one is always stale.
 2. **Auth is actuated by the adapter's own command,** `/mcp-auth <server>`. pi
    runs extension commands without an LLM call, so connecting spends **no
-   tokens**. Disconnect is `/mcp logout`, Reload `/mcp reconnect`. Two
+   tokens**. Disconnect is `/mcp-adapter logout`, Reload `/mcp-adapter reconnect`. Two
    routes to that command:
    - **Headless** (`mcp:authorize`, the default): main spawns a throwaway
      `pi --mode rpc --no-session` (`electron/pi/connector-auth.ts`), drives the
@@ -189,9 +202,9 @@ cost ([chat.md](chat.md#what-the-context-meters-popover-shows)).
 | `xdg`        | `$XDG_CONFIG_HOME/mcp/mcp.json` (default `~/.config/mcp/mcp.json`) |
 | `agents`     | `~/.agents/mcp.json`                                               |
 | `agents-dir` | `~/.agents/mcp/mcp.json`                                           |
-| `pi-global`  | `~/.pi/agent/mcp.json` (honors `PI_CODING_AGENT_DIR`)              |
+| `pi-global`  | `~/.pi/agent/mcp-adapter.json` (honors `PI_CODING_AGENT_DIR`)      |
 | `project`    | `<workspace>/.mcp.json`                                            |
-| `pi-project` | `<workspace>/.pi/mcp.json`                                         |
+| `pi-project` | `<workspace>/.pi/mcp-adapter.json`                                 |
 
 Shape: `{"mcpServers": {name: {url | command+args+env, directTools?, disabled?}}}`.
 Later files win per server name; Phosphor records shadowed scopes.

@@ -85,7 +85,7 @@ export function parseAuthNotice(message: string): AuthNotice | null {
 }
 
 /**
- * The verdict of `/mcp reconnect <server>` — Phosphor's connection test.
+ * The verdict of `/mcp-adapter reconnect <server>` — Phosphor's connection test.
  *
  * "Is this connector up?" had no answer without a live session, because
  * per-server state only arrives from the adapter running inside one. The
@@ -141,7 +141,7 @@ export function parseReconnectNotice(message: string): ReconnectNotice | null {
     return {
       serverName: missing[1],
       outcome: 'missing',
-      detail: 'Not in the resolved mcp.json chain.',
+      detail: 'Not in the adapter configuration. Check mcp-adapter.json and restart the session.',
     }
   }
 

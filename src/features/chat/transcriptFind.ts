@@ -236,15 +236,13 @@ function stepPieces(
 }
 
 /**
- * An activity run in the order ActivityGroup renders it: each step's summary
- * line, then its expanded detail, then the reasoning that preceded it (the
- * pinned thought opens below the row). Reasoning with no step after it closes
- * the run.
+ * An activity run in the order ActivityGroup renders it: the reasoning before
+ * a step (its own "Thought for 12s" row, opening in place), then the step's
+ * summary line, then its expanded detail. Reasoning with no step after it
+ * closes the run.
  *
- * Only a pi tool row shows the reasoning before it. A CLI-side tool or a
- * sub-agent row has no gutter mark, and a tool whose state is missing renders
- * no row at all, so the reasoning before those is on no screen and is not
- * counted.
+ * Every thought has a row, whatever follows it: a pi tool, a CLI-side tool, a
+ * sub-agent, or a tool whose state is missing and renders nothing itself.
  */
 function activityPieces(
   steps: ActivityStep[],
@@ -261,12 +259,10 @@ function activityPieces(
       continue
     }
     const key = stepFindKey(step)
+    // One segment, several pieces: ActivityGroup joins the thoughts into one
+    // body, so their matches count on from each other.
+    for (const text of thoughts) pieces.push({ segment: SEGMENT.thought(key), text })
     pieces.push(...stepPieces(step, key, context, summaries))
-    if (step.block.type === 'tool' && context.tools[step.block.toolCallId]) {
-      // One segment, several pieces: ActivityGroup joins the thoughts into one
-      // body, so their matches count on from each other.
-      for (const text of thoughts) pieces.push({ segment: SEGMENT.thought(key), text })
-    }
     thoughts = []
   }
   for (const text of thoughts) pieces.push({ segment: SEGMENT.thought(TRAILING_THOUGHT), text })

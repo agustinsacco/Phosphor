@@ -584,7 +584,8 @@ describe('ActivityGroup row shapes', () => {
     renderMixed()
     const marks = document.querySelectorAll('[data-testid="thought-mark"]')
     expect(marks.length).toBe(1)
-    expect(marks[0]!.textContent).toContain('Reasoning')
+    // No timing on this fixture, as for history: "Thought", then its headline.
+    expect(marks[0]!.textContent).toBe('✳Thought·weighing options')
   })
 
   it('anchors the summary, so its label and the card share a left edge', () => {
@@ -643,11 +644,137 @@ describe('the gutter is one measurement', () => {
   })
 
   it('hangs the expanded rails off that same length', () => {
-    // The rails under a pinned thought and a sub-agent prompt have to line up
+    // The rails under an open thought and a sub-agent prompt have to line up
     // under the label, not under the card edge.
     const source = readFileSync('src/features/chat/items/ActivityGroup.tsx', 'utf8')
     const rails = [...source.matchAll(/mb-1\.5 ml-(\d+) mr-2/g)].map((m) => m[1])
-    expect(rails).toHaveLength(3)
+    expect(rails).toHaveLength(2)
     for (const rail of rails) expect(rail).toBe(step(ROW_INSET, 'pl'))
+  })
+})
+
+describe('thought rows', () => {
+  const think = (
+    index: number,
+    text: string,
+    extra: { startedAt?: number; endedAt?: number; closed?: boolean } = {},
+  ): ActivityStep => step({ type: 'thinking', index, text, closed: true, ...extra })
+  const live = (s: ActivityStep): ActivityStep => ({ ...s, streaming: true, isLastInItem: true })
+  const group = (steps: ActivityStep[], active = false): void =>
+    render(
+      <ActivityGroup
+        steps={steps}
+        tools={{ t1: tool('t1') }}
+        hideThinking={false}
+        sessionId="s1"
+        active={active}
+      />,
+    )
+  const summaryText = (): string =>
+    document.querySelector('[data-testid="activity-summary"]')!.textContent ?? ''
+  const thoughtRows = (): HTMLElement[] => [
+    ...document.querySelectorAll<HTMLElement>('[data-testid="thought-row"]'),
+  ]
+
+  it('folds a finished thought into "Thought for Ns" and its headline, opening in place', () => {
+    group([
+      think(0, '**Checking the config**\n\nThe file sets the port.', {
+        startedAt: 1_000,
+        endedAt: 13_000,
+      }),
+      step({ type: 'tool', index: 1, toolCallId: 't1' }),
+    ])
+    const [row] = thoughtRows()
+    expect(row!.textContent).toBe('✳Thought for 12s·Checking the config')
+    expect(document.querySelector('[data-testid="thought-body"]')).toBeNull()
+    act(() => row!.querySelector('button')!.click())
+    expect(document.querySelector('[data-testid="thought-body"]')!.textContent).toContain(
+      'The file sets the port.',
+    )
+    // The thought's row sits just above the step it preceded.
+    expect(row!.nextElementSibling!.querySelector('[data-find-segment="step:t1"]')).not.toBeNull()
+    expect(summaryText()).toContain('thought for 12s')
+  })
+
+  it('reads "Thinking Ns · <latest headline>" while the model thinks, and keeps counting', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(10_000)
+    try {
+      group(
+        [
+          live(
+            think(0, '**Reading the spec**\n\nFirst part.\n\n**Planning the change**', {
+              startedAt: 2_000,
+              closed: false,
+            }),
+          ),
+        ],
+        true,
+      )
+      expect(summaryText()).toBe('Thinking 8s · Planning the change')
+      expect(thoughtRows()[0]!.dataset.live).toBe('true')
+      // The new section has only its title: the row does not repeat it.
+      expect(thoughtRows()[0]!.textContent).toBe('✳Thinking…')
+      act(() => {
+        vi.advanceTimersByTime(3_000)
+      })
+      expect(summaryText()).toBe('Thinking 11s · Planning the change')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows the newest sentence in a live row, under the headline on the group line', () => {
+    group(
+      [
+        live(
+          think(0, '**Planning the change**\n\nOne edit. Then run the tests.', {
+            startedAt: Date.now(),
+            closed: false,
+          }),
+        ),
+      ],
+      true,
+    )
+    expect(summaryText()).toMatch(/^Thinking \d+s · Planning the change$/)
+    expect(thoughtRows()[0]!.textContent).toBe('✳Then run the tests.')
+  })
+
+  it('gives reasoning before a Claude Code tool or a sub-agent a row, as a gutter mark never could', () => {
+    group([
+      think(0, 'before the CLI tool'),
+      step({ type: 'externalTool', index: 1, name: 'WebSearch', args: '{"query":"x"}' }),
+      think(2, 'before the agent'),
+      step({
+        type: 'subagent',
+        index: 3,
+        status: 'launched',
+        description: 'Survey',
+        prompt: 'Look around',
+        seen: new Set(['call']),
+      }),
+    ])
+    expect(thoughtRows().map((row) => row.textContent)).toEqual([
+      '✳Thought·before the CLI tool',
+      '✳Thought·before the agent',
+    ])
+  })
+
+  it('counts thoughts it has no timing for, since history records none', () => {
+    group([
+      think(0, 'first'),
+      step({ type: 'tool', index: 1, toolCallId: 't1' }),
+      think(2, 'second'),
+    ])
+    expect(summaryText()).toContain('2 thoughts')
+    expect(summaryText()).not.toContain('thought for')
+  })
+
+  it('has nothing to open for thinking that carries no text', () => {
+    group([live(think(0, '', { startedAt: Date.now(), closed: false }))], true)
+    const button = thoughtRows()[0]!.querySelector('button')!
+    expect(button.disabled).toBe(true)
+    expect(button.hasAttribute('aria-expanded')).toBe(false)
+    expect(summaryText()).toMatch(/^Thinking \d+s$/)
   })
 })

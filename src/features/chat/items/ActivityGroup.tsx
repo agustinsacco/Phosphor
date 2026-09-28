@@ -18,6 +18,14 @@ import { useSessionsStore } from '@/stores/sessions'
 import { Markdown } from '@/components/markdown/Markdown'
 import { ChevronIcon } from '@/components/icons'
 import { formatDuration, formatTokens } from '@/lib/format'
+import {
+  formatSeconds,
+  thoughtDuration,
+  thoughtHeadline,
+  thoughtLabel,
+  thoughtTail,
+  type ThoughtTiming,
+} from '../thoughts'
 import { useChatUiStore } from '../uiState'
 import { useExtensionUiStore } from '@/stores/extensionUi'
 import { findLiveSubagent, SUBAGENTS_STATUS_KEY } from '../subagentStatus'
@@ -33,9 +41,13 @@ import { DetailRevealContext, useOpenOnReveal, type FindReveal } from '../useTra
  * - **Spine (A)**: the whole run is one framed unit with a collapsed head
  *   ("9 steps · edited 5 files, ran 2 commands"), so a 22-tool turn reads as
  *   four scannable lines instead of 22 spaced rows.
- * - **Gutter thinking (B)**: thinking never occupies a row of its own. It
- *   becomes a small mark in the left gutter of the step it preceded; hover or
- *   focus previews it, click pins it open. Zero vertical cost until asked for.
+ * - **Thought rows (B)**: each run of reasoning is one quiet line before the
+ *   step it preceded: "✳ Thought for 12s · <headline>", opening in place to
+ *   the full text. While the model thinks, the group's own line reads
+ *   "Thinking 8s · <latest headline>", the way the Claude and Codex apps show
+ *   it. (Thinking used to be a hover-only gutter mark, which hid its length,
+ *   said nothing while the model was thinking, and could not attach to a
+ *   Claude Code tool or a sub-agent row at all.)
  * - **Live vs settled (D)**: while anything is running the group is open and
  *   accented so you can watch work happen; once it settles it auto-collapses
  *   to the summary line — unless the user opened it themselves, which always
@@ -91,6 +103,38 @@ export const GUTTER_MARK = 'absolute inset-y-0 left-0 flex w-5 items-center just
 export const GUTTER_MARK_FILL =
   'text-2xs flex h-3.5 min-w-3.5 items-center justify-center rounded px-0.5'
 
+/** One run of reasoning, joined across the thinking blocks before a step. */
+interface Thought {
+  text: string
+  /** Each block's timing: together they give the thought's duration. */
+  timing: ThoughtTiming[]
+  /** Still streaming: the tail of a live message. */
+  live: boolean
+}
+
+/** Wall clock, re-read every second while `ticking`. */
+function useTicker(ticking: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!ticking) return
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [ticking])
+  return now
+}
+
+const isLiveThought = (step: ActivityStep): boolean =>
+  step.block.type === 'thinking' && step.streaming && step.isLastInItem && !step.block.closed
+
+/** "Thinking 8s · <headline>", the line a live thought shows. */
+function thinkingLine(thought: Thought, now: number): string {
+  const elapsed = thoughtDuration(thought.timing, now)
+  const head = elapsed === undefined ? 'Thinking' : `Thinking ${formatSeconds(elapsed)}`
+  const headline = thoughtHeadline(thought.text, 'latest')
+  return headline ? `${head} · ${headline}` : head
+}
+
 export const ActivityGroup = memo(function ActivityGroup({
   steps,
   tools,
@@ -138,18 +182,26 @@ export const ActivityGroup = memo(function ActivityGroup({
   const revealKey = reveal ? segmentPart(reveal.segment)?.key : undefined
 
   const visible = hideThinking ? steps.filter((s) => s.block.type !== 'thinking') : steps
+  const now = useTicker(visible.some(isLiveThought))
   if (visible.length === 0) return null
 
   const open = activeRun || (userOpen ?? verbose)
   const summary = summarizeActivity(visible, tools, (t) => settledVerb(t.toolName ?? ''))
 
-  // Pair each thinking block onto the step that follows it (gutter mark);
-  // trailing thinking with nothing after it keeps its own minimal row.
-  const rows: Array<{ step: ActivityStep; thought?: string }> = []
-  let pendingThought: string | undefined
+  // Pair each run of thinking with the step that follows it: its row sits
+  // just above that step's. Thinking with nothing after it closes the card.
+  const rows: Array<{ step: ActivityStep; thought?: Thought }> = []
+  const timings: ThoughtTiming[] = []
+  let pendingThought: Thought | undefined
   for (const step of visible) {
     if (step.block.type === 'thinking') {
-      pendingThought = pendingThought ? `${pendingThought}\n\n${step.block.text}` : step.block.text
+      const block = step.block
+      timings.push(block)
+      pendingThought = {
+        text: pendingThought ? `${pendingThought.text}\n\n${block.text}` : block.text,
+        timing: [...(pendingThought?.timing ?? []), block],
+        live: isLiveThought(step),
+      }
       continue
     }
     rows.push({ step, thought: pendingThought })
@@ -157,15 +209,19 @@ export const ActivityGroup = memo(function ActivityGroup({
   }
   const trailingThought = pendingThought
 
-  const liveLabel = [
-    summary.stepLabel,
-    summary.detail,
-    summary.thinkingCount > 0
-      ? `${summary.thinkingCount} thought${summary.thinkingCount === 1 ? '' : 's'}`
-      : undefined,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  // "thought for 41s" once every thought has its timing, else a count:
+  // history carries no timing, and a partial sum would undercount.
+  const thoughtTime = thoughtDuration(timings, now)
+  const thinkingPart =
+    summary.thinkingCount === 0
+      ? undefined
+      : thoughtTime !== undefined
+        ? `thought for ${formatSeconds(thoughtTime)}`
+        : `${summary.thinkingCount} thought${summary.thinkingCount === 1 ? '' : 's'}`
+
+  const liveLabel = trailingThought?.live
+    ? thinkingLine(trailingThought, now)
+    : [summary.stepLabel, summary.detail, thinkingPart].filter(Boolean).join(' · ')
 
   return (
     // The frame moved off this wrapper on purpose: the summary line is plain
@@ -194,10 +250,10 @@ export const ActivityGroup = memo(function ActivityGroup({
           <span className="text-text-secondary min-w-0 truncate text-base">
             <span className="text-text font-medium">{summary.stepLabel}</span>
             {summary.detail && ` · ${summary.detail}`}
-            {summary.thinkingCount > 0 && (
+            {thinkingPart && (
               <span className="text-text-tertiary">
                 {' · '}
-                {summary.thinkingCount} thought{summary.thinkingCount === 1 ? '' : 's'}
+                {thinkingPart}
               </span>
             )}
           </span>
@@ -252,9 +308,16 @@ export const ActivityGroup = memo(function ActivityGroup({
                     step.block.type === 'tool' ? step.block.toolCallId : `th-${step.block.index}`
                   }
                 >
+                  {thought && (
+                    <ThoughtRow
+                      thought={thought}
+                      now={now}
+                      segment={SEGMENT.thought(findKey)}
+                      reveal={revealKey === findKey ? reveal : undefined}
+                    />
+                  )}
                   <ActivityRow
                     step={step}
-                    thought={thought}
                     tools={tools}
                     sessionId={sessionId}
                     findKey={findKey}
@@ -264,8 +327,10 @@ export const ActivityGroup = memo(function ActivityGroup({
               )
             })}
             {trailingThought && (
-              <ThoughtOnlyRow
-                text={trailingThought}
+              <ThoughtRow
+                thought={trailingThought}
+                now={now}
+                segment={SEGMENT.thought(TRAILING_THOUGHT)}
                 reveal={revealKey === TRAILING_THOUGHT ? reveal : undefined}
               />
             )}
@@ -276,17 +341,15 @@ export const ActivityGroup = memo(function ActivityGroup({
   )
 })
 
-/** A tool step, with any preceding reasoning available from the gutter. */
+/** One step's row: a pi tool, a CLI-side tool or a sub-agent. */
 function ActivityRow({
   step,
-  thought,
   tools,
   sessionId,
   findKey,
   reveal,
 }: {
   step: ActivityStep
-  thought?: string
   tools: Record<string, ToolState>
   sessionId: string
   /** `stepFindKey(step)`, naming this row's find segments. */
@@ -294,11 +357,8 @@ function ActivityRow({
   /** The current find hit is in this step. */
   reveal?: FindReveal
 }): React.JSX.Element | null {
-  const [pinned, setPinned] = useState(false)
-  const [hovered, setHovered] = useState(false)
   const [expanded, setExpanded] = useState(false)
   useOpenOnReveal(reveal, setExpanded, 'detail')
-  useOpenOnReveal(reveal, setPinned, 'thought')
 
   // Tools Claude Code ran inside its own process while acting as the model
   // provider. There is no pi tool result to show — only what was invoked —
@@ -333,41 +393,9 @@ function ActivityRow({
   const tool = tools[step.block.toolCallId]
   if (!tool) return null
 
-  const showThought = thought && (pinned || hovered)
-
   return (
     <div>
-      {/* The mark floats in the row's own inset rather than reserving a column
-          in front of every row. Reserving it pushed all four row types 20px
-          right of the card edge for the sake of the few that have reasoning. */}
       <div data-find-segment={SEGMENT.step(findKey)} className={clsx('relative', ROW_INSET)}>
-        {thought && (
-          <button
-            onClick={() => setPinned((p) => !p)}
-            onPointerEnter={() => setHovered(true)}
-            onPointerLeave={() => setHovered(false)}
-            onFocus={() => setHovered(true)}
-            onBlur={() => setHovered(false)}
-            title="Reasoning before this step"
-            aria-label="Show reasoning before this step"
-            aria-expanded={pinned}
-            data-testid="thought-mark"
-            className={clsx(GUTTER_MARK, 'group/mark')}
-          >
-            <span
-              aria-hidden
-              className={clsx(
-                GUTTER_MARK_FILL,
-                'transition-colors',
-                pinned
-                  ? 'bg-accent-soft text-accent'
-                  : 'text-text-tertiary group-hover/mark:bg-accent-soft group-hover/mark:text-accent',
-              )}
-            >
-              ✳
-            </span>
-          </button>
-        )}
         <ToolCard
           tool={tool}
           sessionId={sessionId}
@@ -386,15 +414,6 @@ function ActivityRow({
           <DetailRevealContext value={reveal}>
             <ToolDetail tool={tool} sessionId={sessionId} />
           </DetailRevealContext>
-        </div>
-      )}
-      {showThought && (
-        <div
-          data-testid="thought-body"
-          data-find-segment={SEGMENT.thought(findKey)}
-          className="border-border text-text-secondary mb-1.5 ml-5 mr-2 border-l-2 pl-2.5 text-base italic opacity-90 [&_.md-content]:text-base"
-        >
-          <Markdown text={thought} />
         </div>
       )}
     </div>
@@ -797,41 +816,96 @@ function SubagentRow({
   )
 }
 
-/** Reasoning with no tool call after it (e.g. the turn ended on a thought). */
-function ThoughtOnlyRow({
-  text,
+/**
+ * One run of reasoning: "✳ Thought for 12s · <headline>", opening in place to
+ * the full text. While it streams, the group's line above carries "Thinking 8s
+ * · <latest headline>", so this row shimmers the newest sentence instead:
+ * what the model is on right now, not the same words twice. It stays
+ * collapsed unless opened, because a body growing under the reader's eye
+ * would push the step rows down while they read them.
+ *
+ * The label sits outside every find segment. Its headline repeats the body's
+ * words, which find counts once, in the body, and opens the row to show.
+ */
+function ThoughtRow({
+  thought,
+  now,
+  segment,
   reveal,
 }: {
-  text: string
+  thought: Thought
+  now: number
+  /** The body's find segment: the step it precedes, or the trailing one. */
+  segment: string
   reveal?: FindReveal
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
-  useOpenOnReveal(reveal, setOpen)
+  useOpenOnReveal(reveal, setOpen, 'thought')
+  // A signature with no text (encrypted thinking) has nothing to open.
+  const hasText = thought.text.trim().length > 0
+  const label = thought.live
+    ? (thoughtTail(thought.text) ?? 'Thinking…')
+    : thoughtLabel(thoughtDuration(thought.timing, now))
+  const headline = thought.live ? undefined : thoughtHeadline(thought.text, 'first')
   return (
-    <div>
+    <div data-testid="thought-row" data-live={thought.live || undefined}>
       <button
         onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
+        disabled={!hasText}
+        aria-expanded={hasText ? open : undefined}
         data-testid="thought-mark"
         className={clsx(
-          'text-text-tertiary hover:text-text-secondary relative flex w-full items-center py-1 text-left text-base italic transition-colors',
+          'group/thought text-text-tertiary relative flex w-full min-w-0 items-center py-1 text-left text-base transition-colors',
+          hasText && 'hover:text-text-secondary',
           ROW_INSET,
         )}
       >
-        {/* Same slot the paired mark uses, so a reasoning-only row and a tool
-            row with reasoning put their ✳ in exactly one place. */}
+        {/* The gutter slot every row's mark uses, so the ✳ and the `cc` chip
+            of a Claude Code row sit on one axis. */}
         <span className={GUTTER_MARK} aria-hidden>
-          <span className={GUTTER_MARK_FILL}>✳</span>
+          <span
+            className={clsx(
+              GUTTER_MARK_FILL,
+              'transition-colors',
+              open && 'bg-accent-soft text-accent',
+              hasText && !open && 'group-hover/thought:text-accent',
+            )}
+          >
+            ✳
+          </span>
         </span>
-        <span>Reasoning</span>
+        {thought.live ? (
+          // One flat span: the shimmer clips a gradient to a single run of text.
+          <span className="thinking-shimmer min-w-0 truncate">{label}</span>
+        ) : (
+          <>
+            <span className="shrink-0">{label}</span>
+            {headline && (
+              <span className="min-w-0 truncate">
+                <span aria-hidden className="px-1">
+                  ·
+                </span>
+                {headline}
+              </span>
+            )}
+          </>
+        )}
+        {hasText && (
+          <ChevronIcon
+            expanded={open}
+            size={9}
+            strokeWidth={3}
+            className="ml-1.5 shrink-0 opacity-0 transition-opacity group-hover/thought:opacity-100 group-focus-visible/thought:opacity-100"
+          />
+        )}
       </button>
-      {open && (
+      {open && hasText && (
         <div
           data-testid="thought-body"
-          data-find-segment={SEGMENT.thought(TRAILING_THOUGHT)}
-          className="border-border text-text-secondary mb-1.5 ml-5 mr-2 border-l-2 pl-2.5 text-base italic opacity-90 [&_.md-content]:text-base"
+          data-find-segment={segment}
+          className="border-border text-text-secondary expand-enter mb-1.5 ml-5 mr-2 border-l-2 pl-2.5 text-base italic opacity-90 [&_.md-content]:text-base"
         >
-          <Markdown text={text} />
+          <Markdown text={thought.text} />
         </div>
       )}
     </div>

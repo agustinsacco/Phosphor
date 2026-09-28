@@ -99,8 +99,23 @@ The composer is one small field with several ways in.
   rebuilt per delta.
 - **Text** renders as live markdown. A fenced block renders its rich form only
   once the fence closes (plain mono while open), to avoid flicker.
-- **Thinking** streams into a collapsed-by-default block, subdued, expandable
-  during and after. Respects pi's `hideThinkingBlock`.
+- **Thinking** is one quiet row per run of reasoning, above the step it
+  preceded (`ThoughtRow` in `ActivityGroup.tsx`, text helpers in
+  `features/chat/thoughts.ts`). Collapsed by default, expandable during and
+  after; respects pi's `hideThinkingBlock`.
+  - **While it streams**, the group's line reads "Thinking 8s · <headline>"
+    and the row shimmers the newest sentence, so the two lines never repeat
+    each other. The headline is the latest section title for Codex (its
+    summaries open each section with `**Title**`) or the first sentence of
+    the latest paragraph for prose (Claude).
+  - **Once it ends**, the row reads "✳ Thought for 12s · <first headline>" and
+    the group's line adds "thought for 41s" in total.
+  - **Timing is local.** The reducer stamps `startedAt`/`endedAt` on a
+    thinking block as it streams and carries them through `message_end`. pi's
+    session file records none, so history shows "Thought" and "N thoughts".
+  - Every thought has a row, including reasoning before a Claude Code tool or
+    a sub-agent, which the old hover-only gutter mark could not show. Thinking
+    with no text (a signature only) has nothing to open.
 - **Tool calls** appear as cards at `toolcall_start`, args fill from deltas,
   live output attaches via `tool_execution_update`, final state at
   `tool_execution_end`.

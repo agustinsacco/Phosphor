@@ -76,13 +76,14 @@ describe('rowPieces', () => {
     expect(rowPieces(row!, context())).toEqual([{ segment: 'body', text: 'See the docs' }])
   })
 
-  it('splits a tool step into its summary, its output, and the reasoning before it', () => {
+  it('splits a tool step into the reasoning before it, its summary and its output', () => {
     const tools = { c1: bashTool('c1', 'npm test', 'all green') }
     const rows = buildTranscriptRows([assistant([thought(0, 'Run the *tests*'), call(1, 'c1')])])
     const activity = rows.find((row) => row.kind === 'activity')!
     const segments = rowPieces(activity, context(tools)).map((piece) => piece.segment)
-    expect(segments).toEqual(['step:c1', 'detail:c1', 'thought:c1'])
-    expect(rowPieces(activity, context(tools)).at(-1)!.text).toBe('Run the tests')
+    // The order the rows show them: the thought's row sits above its step.
+    expect(segments).toEqual(['thought:c1', 'step:c1', 'detail:c1'])
+    expect(rowPieces(activity, context(tools))[0]!.text).toBe('Run the tests')
   })
 
   it('drops reasoning when thinking is hidden, and pairs a trailing thought with the run end', () => {
@@ -97,7 +98,7 @@ describe('rowPieces', () => {
     )
   })
 
-  it('counts reasoning only before a row that shows it', () => {
+  it('counts the reasoning before every step, since every thought has its own row', () => {
     const tools = { c1: bashTool('c1', 'ls', '') }
     const rows = buildTranscriptRows([
       assistant([
@@ -115,7 +116,16 @@ describe('rowPieces', () => {
     const thoughts = rowPieces(activity, context(tools)).filter((piece) =>
       piece.segment.startsWith('thought:'),
     )
-    expect(thoughts).toEqual([{ segment: 'thought:c1', text: 'before the tool' }])
+    // Reasoning before a CLI-side tool or a sub-agent used to be on no screen
+    // (only a pi tool row had a gutter mark), so find skipped it.
+    expect(thoughts.map((piece) => piece.text)).toEqual([
+      'before the CLI tool',
+      'before the agent',
+      'before the missing tool',
+      'before the tool',
+    ])
+    // Each is keyed by the step after it, whatever that step is.
+    expect(thoughts.slice(2).map((piece) => piece.segment)).toEqual(['thought:gone', 'thought:c1'])
   })
 
   it('reads a summary line with its parts spaced, as the row shows them', () => {

@@ -13,6 +13,7 @@ import {
   WriteDetail,
 } from './toolDetails'
 import { ArtifactDetail } from './ArtifactDetail'
+import { SubagentDetail } from './SubagentDetail'
 import { useSessionsStore } from '@/stores/sessions'
 
 export const ToolCard = memo(function ToolCard({
@@ -123,6 +124,8 @@ export function ToolDetail({
     case 'artifact_update':
     case 'artifact_edit':
       return <ArtifactDetail tool={tool} sessionId={sessionId} />
+    case 'subagent':
+      return <SubagentDetail tool={tool} />
     default:
       return <GenericDetail tool={tool} />
   }

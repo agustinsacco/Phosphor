@@ -197,7 +197,18 @@ you want to watch.
   are in
   [docs/extensions.md](docs/extensions.md#the-status-channel-is-a-wire-contract).
   Component sizes in that breakdown are estimates and must stay labelled as
-  such — only pi's total is authoritative.
+  such — only pi's total is authoritative. Widgets are the same bus:
+  pi-subagents publishes its background runs on the `subagent-async` widget
+  as one `PI_SUBAGENT_ASYNC_JSON:` line, parsed by `chat/subagentRuns.ts`;
+  a widget key with a machine payload must be in `STRUCTURED_WIDGET_KEYS`
+  or the composer prints it (it did, for weeks).
+- **Sub-agents are pi-subagents on both providers.** Claude Code's own
+  `Agent`/`Task` tools are off with the rest of its tools (provider ≥ 0.9.0),
+  so the `[Claude Code · Agent …]` markers and the `claude-subagents` key are
+  history only. The live path is the `subagent` tool call, its streamed
+  `details`, the widget above, and a `subagent-notify` custom message that is
+  `display: false` on success and is kept anyway (`CustomItem.quiet`). See
+  [docs/chat.md](docs/chat.md#sub-agents).
 - **macOS updates itself by replacing its own bundle**, because Squirrel.Mac
   refuses the ad-hoc signature this repo ships (`electron/updates/mac-installer.ts`).
   Staging lives BESIDE the installed `.app`, not in `/tmp`, so the swap is two

@@ -793,6 +793,7 @@ const NOUNS: Record<string, [string, string]> = {
   Updated: ['artifact', 'artifacts'],
   'Claude Code': ['tool', 'tools'],
   Launched: ['agent', 'agents'],
+  Delegated: ['agent', 'agents'],
 }
 
 /**

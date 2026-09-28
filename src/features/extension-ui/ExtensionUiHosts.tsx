@@ -16,6 +16,12 @@ import {
   parseSubagentStatus,
   summarizeSubagents,
 } from '@/features/chat/subagentStatus'
+import {
+  SUBAGENT_ASYNC_WIDGET_KEY,
+  SUBAGENT_INSPECT_WIDGET_KEY,
+  parseFleetWidget,
+  summarizeFleet,
+} from '@/features/chat/subagentRuns'
 import { useSettingsUiStore } from '@/features/settings/settingsUiStore'
 import { CommandApprovalSheet } from './CommandApprovalSheet'
 import { parseCommandApproval } from './commandApproval'
@@ -440,33 +446,55 @@ function McpChip({ sessionId }: { sessionId: string }): React.JSX.Element | null
 }
 
 /**
+ * Widget keys this slot must not render: they carry a machine payload for a
+ * specific component, the way the structured status keys do. pi-subagents
+ * publishes its background-run tree on `subagent-async` as one line of
+ * `PI_SUBAGENT_ASYNC_JSON:` (its documented host protocol for RPC clients);
+ * printed as lines, that blob filled the space above the composer. Its
+ * `subagent-inspect` replies are correlated by request id and, per the same
+ * protocol, must never be rendered.
+ */
+const STRUCTURED_WIDGET_KEYS = new Set([SUBAGENT_ASYNC_WIDGET_KEY, SUBAGENT_INSPECT_WIDGET_KEY])
+
+/**
  * Sub-agents as a chip: how many are out there, and what the newest one is
  * doing right now.
  *
- * The provider clears this key when the episode ends (0.4.14), so the chip is
- * live state and disappears with the turn — the transcript's own agent rows
- * are what remain. On an older provider the key is never cleared, which is
- * why the chip says "done" rather than "running" once nothing is active.
+ * Two sources, one chip. Sessions on pi-subagents (both providers) publish
+ * their background runs on the `subagent-async` widget, which the extension
+ * removes once nothing runs. Sessions recorded on the Claude Code provider
+ * before 0.9.0 published `claude-subagents`, cleared at the end of the
+ * episode (0.4.14; never on older providers, which is why that chip can say
+ * "done"). Either way the chip is live state: the transcript's own rows are
+ * what remain.
  */
 function SubagentChip({ sessionId }: { sessionId: string }): React.JSX.Element | null {
   const statusText = useExtensionUiStore((s) => s.statuses[sessionId]?.[SUBAGENTS_STATUS_KEY])
-  const snapshot = parseSubagentStatus(statusText)
-  if (!snapshot) return null
+  const fleetLines = useExtensionUiStore(
+    (s) => s.widgets[sessionId]?.[SUBAGENT_ASYNC_WIDGET_KEY]?.lines,
+  )
+  const legacy = parseSubagentStatus(statusText)
+  const fleet = legacy ? null : parseFleetWidget(fleetLines)
+  if (!legacy && !fleet) return null
+  const active = legacy ? legacy.active > 0 : fleet!.active > 0
+  const title = legacy
+    ? legacy.tasks.map((task) => `${task.description || task.taskId}: ${task.status}`).join('\n')
+    : fleet!.runs.map((run) => `${run.label}: ${run.state}`).join('\n')
   return (
     <span
       data-testid="subagent-chip"
-      title={snapshot.tasks
-        .map((task) => `${task.description || task.taskId}: ${task.status}`)
-        .join('\n')}
+      title={title}
       className="text-text-tertiary flex min-w-0 items-center gap-1.5 text-xs"
     >
       <span
         className={clsx(
           'h-1.5 w-1.5 shrink-0 rounded-full',
-          snapshot.active > 0 ? 'bg-accent' : 'bg-text-tertiary/50',
+          active ? 'bg-accent' : 'bg-text-tertiary/50',
         )}
       />
-      <span className="truncate">{summarizeSubagents(snapshot)}</span>
+      <span className="truncate">
+        {legacy ? summarizeSubagents(legacy) : summarizeFleet(fleet!)}
+      </span>
     </span>
   )
 }
@@ -474,10 +502,13 @@ function SubagentChip({ sessionId }: { sessionId: string }): React.JSX.Element |
 /** Status strip entries for a session (extension setStatus). */
 export function StatusStrip({ sessionId }: { sessionId: string }): React.JSX.Element | null {
   const statuses = useExtensionUiStore((s) => s.statuses[sessionId])
-  if (!statuses) return null
-  const entries = Object.entries(statuses).filter(([key]) => !STRUCTURED_STATUS_KEYS.has(key))
-  const hasMcp = statuses[MCP_STATUS_STATUS_KEY] !== undefined
-  const hasAgents = statuses[SUBAGENTS_STATUS_KEY] !== undefined
+  const hasFleet = useExtensionUiStore(
+    (s) => s.widgets[sessionId]?.[SUBAGENT_ASYNC_WIDGET_KEY] !== undefined,
+  )
+  if (!statuses && !hasFleet) return null
+  const entries = Object.entries(statuses ?? {}).filter(([key]) => !STRUCTURED_STATUS_KEYS.has(key))
+  const hasMcp = statuses?.[MCP_STATUS_STATUS_KEY] !== undefined
+  const hasAgents = hasFleet || statuses?.[SUBAGENTS_STATUS_KEY] !== undefined
   if (entries.length === 0 && !hasMcp && !hasAgents) return null
   return (
     <div className="border-border bg-bg-secondary/60 flex h-6 shrink-0 items-center gap-3 border-t px-3">
@@ -508,7 +539,9 @@ export function WidgetSlot({
   placement: 'aboveEditor' | 'belowEditor'
 }): React.JSX.Element | null {
   const widgets = useExtensionUiStore((s) => s.widgets[sessionId])
-  const entries = Object.entries(widgets ?? {}).filter(([, w]) => w.placement === placement)
+  const entries = Object.entries(widgets ?? {}).filter(
+    ([key, w]) => w.placement === placement && !STRUCTURED_WIDGET_KEYS.has(key),
+  )
   if (entries.length === 0) return null
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-1.5 px-1 pb-2">

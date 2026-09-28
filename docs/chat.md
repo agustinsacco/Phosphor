@@ -190,14 +190,15 @@ own panel. Each surface reaches its own text, and has its own limits.
 
 ## Tool renderers
 
-| Tool               | Treatment                                                                                                                                                                                                  |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `read`             | Collapsed file chip: path, line range, size; click opens the file in Files pane. Returned images render inline                                                                                             |
-| `bash`             | Terminal-styled block, streaming output, exit-code badge, duration; truncation notice names `fullOutputPath` (text, not a link)                                                                            |
-| `edit`             | Proper diff from `details.diff`/`details.patch` — green/red gutters, collapsed beyond ~40 lines, header shows path + hunk stats, click opens file at `details.firstChangedLine`; feeds Files Changed panel |
-| `write`            | "Created/Overwrote <path>" chip + collapsible content preview (highlighted)                                                                                                                                |
-| `grep`/`find`/`ls` | Compact result lists, match counts, truncation notices; rows click through to files                                                                                                                        |
-| unknown/extension  | Generic: tool name, collapsed pretty-JSON args, streaming output area, error state. Must look polished with zero special-casing                                                                            |
+| Tool               | Treatment                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `read`             | Collapsed file chip: path, line range, size; click opens the file in Files pane. Returned images render inline                                                                                                                                                                                                                                                                 |
+| `bash`             | Terminal-styled block, streaming output, exit-code badge, duration; truncation notice names `fullOutputPath` (text, not a link)                                                                                                                                                                                                                                                |
+| `edit`             | Proper diff from `details.diff`/`details.patch` — green/red gutters, collapsed beyond ~40 lines, header shows path + hunk stats, click opens file at `details.firstChangedLine`; feeds Files Changed panel                                                                                                                                                                     |
+| `write`            | "Created/Overwrote <path>" chip + collapsible content preview (highlighted)                                                                                                                                                                                                                                                                                                    |
+| `grep`/`find`/`ls` | Compact result lists, match counts, truncation notices; rows click through to files                                                                                                                                                                                                                                                                                            |
+| `subagent`         | pi-subagents, in both providers. "Delegated to reviewer" with the child's current tool and tool count while it runs, tools · tokens · time once settled; "Started scout · in background" for a detached run; "Listed agents" / "Checked on" / "Stopped" for management actions. Opens onto the task, one card per child, or the agent catalogue. See [Sub-agents](#sub-agents) |
+| unknown/extension  | Generic: tool name, collapsed pretty-JSON args, streaming output area, error state. Must look polished with zero special-casing                                                                                                                                                                                                                                                |
 
 ### Blocks from the Claude Code provider
 
@@ -219,7 +220,8 @@ emitting side. A result payload is complete JSON and parsed strictly; a payload
 that does not parse leaves the row settled with no outcome rather than an
 invented one. The call marker's argument preview is complete JSON only on
 provider ≥ 0.8.0; below that it is cut at 120 characters, so `externalToolInfo`
-reads it **best-effort only** to pick a headline. `Agent`/`Task` markers fold
+reads it **best-effort only** to pick a headline. `Agent`/`Task` markers (sessions
+before 0.9.0; live delegation is [Sub-agents](#sub-agents) below) fold
 into `subagent` steps, one per agent (three markers describe each), and feed
 the composer's sub-agent strip. **A sub-agent row's status claims only what its
 markers prove**: `launched` until the CLI confirms a start, no completion until
@@ -228,6 +230,50 @@ one is reported. Its live step and running cost come from the
 ([extensions.md](extensions.md#how-provider-transcripts-render)). Nothing may
 ever _depend_ on the preview parsing: a marker with unreadable args still
 renders as a plain named step.
+
+## Sub-agents
+
+One engine for both providers: pi owns the tools on a Claude session too, so
+delegation always goes through the `pi-subagents` extension inside pi, and
+Phosphor renders it from four RPC channels (`features/chat/subagentRuns.ts`,
+every reader defensive, a payload it cannot read leaving the generic row).
+
+- **The `subagent` tool call is the row**, in pi's vocabulary: the verb is
+  what the model did, the object is the agent, the hint is what it is on
+  right now (`read src/auth.ts · 3 tools`, from the progress pi-subagents
+  streams on `tool_execution_update`) or what it cost (`44 tools · 80k tokens
+· 4m 27s`). A workflow script names its agents (`scout · worker`); a
+  management action gets its own verb (`Listed agents`, `Checked on`,
+  `Stopped`, `Read the guide on workflows`). The group line counts launches as
+  `delegated 2 agents` and management calls as ordinary tools.
+- **It opens onto the task and one card per child** (`tools/SubagentDetail.tsx`):
+  agent, session name, state, model · tools · turns · tokens · time · cost;
+  while it runs, the current tool, the last three tools and the last line it
+  said; settled, its answer as markdown and its session file. pi-subagents
+  redacts the task in its details, so the card shows the one from the call.
+  `action: "list"` renders the agent catalogue with the ones that cannot run
+  struck through and the reason beside them.
+- **A detached run has no child here.** The tool returns at once; the run's
+  tree then rides the `subagent-async` widget (one line of
+  `PI_SUBAGENT_ASYNC_JSON:`, pi-subagents' documented host protocol), which the
+  status strip's sub-agent chip summarizes (`1 background agent running ·
+scout · grep`) and which is **never printed as widget lines**
+  (`STRUCTURED_WIDGET_KEYS` in `ExtensionUiHosts.tsx`, alongside the
+  `subagent-inspect` reply key the protocol says a host must not render). The
+  extension removes the widget when nothing runs, so the chip goes with it.
+- **The completion is a card where the model woke up.** pi-subagents delivers
+  it as a `subagent-notify` custom message and marks a plain success
+  `display: false` so its own TUI does not badge an idle tab; Phosphor keeps
+  that one hidden message (`CustomItem.quiet`) because the reply after it
+  quotes the result and a reader could not see why the model spoke again.
+  `items/SubagentNotice.tsx` reads the header (`Background task completed:
+**scout**`) into "scout finished in the background" and folds the output
+  under it; a failure, a stop, or a `subagent_control_notice` opens by default.
+
+Not here yet: an expandable fleet tree with stop and steer, opening a child's
+own session file as a transcript, and the parent-plus-child cost report.
+Stop, steer, inspect and cost exist in pi-subagents without a model turn (an
+extension command and an in-process RPC), which is the path for them.
 
 ## Rich content (first-class citizens)
 

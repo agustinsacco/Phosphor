@@ -378,7 +378,7 @@ disagree.
 | `phosphor-mcp-status`        | `pi-ext/mcp-status.ts`              | `connectors/mcpStatus.ts` → Connectors, footer                                                                    |
 | `phosphor-headroom`          | `pi-ext/headroom.ts`                | `chat/composer/headroomStatus.ts` → ContextMeter (Optimization section)                                           |
 | `claude-rate-limit`          | `@saccolabs/pi-claude-cli` ≥ 0.4.5  | `chat/composer/rateLimit.ts` → ContextMeter, RateLimitBanner; `shared/claude-limits.ts` → account routing in main |
-| `claude-subagents`           | `@saccolabs/pi-claude-cli` ≥ 0.4.13 | `chat/subagentStatus.ts` → the status strip's agent chip (see the sub-agent section below)                        |
+| `claude-subagents`           | `@saccolabs/pi-claude-cli` ≥ 0.4.13 | `chat/subagentStatus.ts` → the status strip's agent chip, for sessions recorded before 0.9.0 (see below)          |
 
 The two `claude-*` keys cross a repo boundary; their shape is documented on the
 emitting side in that repo's `docs/ARCHITECTURE.md`. Rules for all five: the
@@ -388,6 +388,19 @@ key must also be listed in `STRUCTURED_STATUS_KEYS`
 (`features/extension-ui/ExtensionUiHosts.tsx`) or the status strip prints its
 JSON as prose. Status pushes must never be able to break a turn, so emitters
 swallow their own errors.
+
+**Widgets are the same bus with the same rule.** `setWidget` carries lines for
+the composer slot, and a key carrying a machine payload must be in
+`STRUCTURED_WIDGET_KEYS` (same file) or the slot prints it. Two are
+load-bearing today, both from `pi-subagents` in RPC mode:
+
+| Key                | Payload                                                                        | Consumer                                                   |
+| ------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `subagent-async`   | One line, `PI_SUBAGENT_ASYNC_JSON:` + a versioned snapshot of background runs  | `chat/subagentRuns.ts` `parseFleetWidget` → the agent chip |
+| `subagent-inspect` | `PI_SUBAGENT_INSPECT_JSON:` replies to `/subagents-inspect-rpc`, by request id | Nothing yet; the protocol says a host must never render it |
+
+The extension's component widgets (its FleetView) never reach Phosphor: pi's
+RPC mode forwards only string-array widgets and drops factories.
 
 ## How provider transcripts render
 
@@ -451,8 +464,11 @@ provider-specific handling
 - **Encrypted thinking**: a signature with no plaintext. Skipped on settled
   items.
 
-- **Sub-agents**: `Agent`/`Task` markers render as sub-agent rows (badge,
-  description, status, cost, expandable prompt).
+- **Sub-agents, in sessions recorded before 0.9.0**: `Agent`/`Task` markers
+  render as sub-agent rows (badge, description, status, cost, expandable
+  prompt). A current session delegates through `pi-subagents` inside pi on
+  both providers and renders from the `subagent` tool call instead
+  ([chat.md](chat.md#sub-agents)); nothing below applies to it.
 
   **One row per AGENT, not per marker.** The CLI reports the same agent three
   times (the `Agent` tool call, `Task started`, `Task completed`).

@@ -3211,6 +3211,35 @@ test('a long tool run collapses to one dense group', async () => {
   }
 })
 
+test('a thought shows its headline while it streams, then folds into how long it took', async () => {
+  const harness = await launch()
+  const { page } = harness
+  try {
+    await openWorkspace(page)
+    await page.getByPlaceholder('Describe a task or ask a question').fill('thinkstream please')
+    await page.getByRole('button', { name: /Start session/i }).click()
+
+    // Live: the group's line carries the newest section title and a timer.
+    const summary = page.getByTestId('activity-summary').first()
+    await expect(summary).toHaveText(/^Thinking \d+s · Planning the change$/, { timeout: 60_000 })
+    await expect(page.getByTestId('thought-row').first()).toHaveAttribute('data-live', 'true')
+
+    await expect(page.getByText('Thought it through.')).toBeVisible({ timeout: 30_000 })
+    // Settled: the run's line totals the thinking, and the row says how long
+    // and what it opened with.
+    await expect(summary).toContainText(/thought for \d+s/)
+    await summary.click()
+    const row = page.getByTestId('thought-row').first()
+    await expect(row).not.toHaveAttribute('data-live', 'true')
+    await expect(row).toHaveText(/Thought for \d+s·Reading the spec/)
+    await expect(page.getByTestId('thought-body')).toHaveCount(0)
+    await row.getByRole('button').click()
+    await expect(page.getByTestId('thought-body')).toContainText('One edit, then the tests.')
+  } finally {
+    await shutdown(harness)
+  }
+})
+
 test('a Claude fan-out is one row per sub-agent, with the ones that died named', async () => {
   const harness = await launch()
   const { page } = harness

@@ -615,6 +615,7 @@ function handle(cmd) {
       else if (message.includes('manyitems')) runManyItemsTurn()
       else if (message.includes('fanout')) runSubagentTurn()
       else if (message.includes('longstream')) runLongStreamTurn()
+      else if (message.includes('thinkstream')) runThinkingTurn()
       else if (message.includes('manyturns')) runManyTurnsTurn(message.includes('tailgroup'))
       else runTurn()
       break
@@ -1141,6 +1142,70 @@ function runLongStreamTurn() {
   steps.push(() => out({ type: 'agent_settled' }))
 
   play(steps)
+}
+
+/**
+ * A Codex-shaped thought: two bold-titled sections, held open long enough to
+ * see the live line ("Thinking Ns · <latest title>"), then a tool call and an
+ * answer. The thought then folds into "Thought for Ns · <first title>".
+ */
+function runThinkingTurn() {
+  const msg = { role: 'assistant', content: [] }
+  const think = (assistantMessageEvent) =>
+    out({ type: 'message_update', message: msg, assistantMessageEvent })
+  const first = '**Reading the spec**\n\nThe plan lives in docs/plan.md.'
+  const second = '\n\n**Planning the change**\n\nOne edit, then the tests.'
+  play([
+    () => out({ type: 'agent_start' }),
+    () => out({ type: 'turn_start' }),
+    () => out({ type: 'message_start', message: msg }),
+    () => think({ type: 'thinking_start', contentIndex: 0 }),
+    () => think({ type: 'thinking_delta', contentIndex: 0, delta: first }),
+    () => think({ type: 'thinking_delta', contentIndex: 0, delta: second }),
+    () => new Promise((resolve) => setTimeout(resolve, 1500)),
+    () => think({ type: 'thinking_end', contentIndex: 0, content: first + second }),
+    () =>
+      out({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: first + second },
+            { type: 'toolCall', id: 'think_ls', name: 'bash', arguments: { command: 'ls' } },
+          ],
+          stopReason: 'toolUse',
+          timestamp: Date.now(),
+        },
+      }),
+    () =>
+      out({
+        type: 'tool_execution_start',
+        toolCallId: 'think_ls',
+        toolName: 'bash',
+        args: { command: 'ls' },
+      }),
+    () =>
+      out({
+        type: 'tool_execution_end',
+        toolCallId: 'think_ls',
+        toolName: 'bash',
+        isError: false,
+        result: { content: [{ type: 'text', text: 'docs' }], details: {} },
+      }),
+    () => out({ type: 'message_start', message: msg }),
+    () =>
+      out({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Thought it through.' }],
+          stopReason: 'stop',
+          timestamp: Date.now(),
+        },
+      }),
+    () => out({ type: 'agent_end', messages: [] }),
+    () => out({ type: 'agent_settled' }),
+  ])
 }
 
 /**

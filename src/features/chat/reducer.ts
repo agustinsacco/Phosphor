@@ -294,9 +294,25 @@ function appendTextishDelta(
       b.index === contentIndex && b.type === kind ? { ...b, text: b.text + delta } : b,
     )
   }
-  return [...blocks, { type: kind, index: contentIndex, text: delta, closed: false }].sort(
-    (a, b) => a.index - b.index,
-  )
+  const created: AssistantBlock =
+    kind === 'thinking'
+      ? { type: kind, index: contentIndex, text: delta, closed: false, startedAt: Date.now() }
+      : { type: kind, index: contentIndex, text: delta, closed: false }
+  return [...blocks, created].sort((a, b) => a.index - b.index)
+}
+
+/**
+ * Carry each streamed thought's timing onto the final blocks, which
+ * `message_end` rebuilds from pi's content and would otherwise lose. A thought
+ * the turn ended before its `thinking_end` (an abort) ends now.
+ */
+function keepThoughtTiming(streamed: AssistantBlock[], final: AssistantBlock[]): AssistantBlock[] {
+  return final.map((block) => {
+    if (block.type !== 'thinking') return block
+    const before = streamed.find((b) => b.index === block.index && b.type === 'thinking')
+    if (before?.type !== 'thinking' || before.startedAt === undefined) return block
+    return { ...block, startedAt: before.startedAt, endedAt: before.endedAt ?? Date.now() }
+  })
 }
 
 function applyAssistantDelta(
@@ -324,12 +340,17 @@ function applyAssistantDelta(
     case 'text_start':
     case 'thinking_start': {
       const kind = delta.type === 'text_start' ? 'text' : 'thinking'
-      const blocks = ensureBlock(item.blocks, delta.contentIndex, () => ({
-        type: kind,
-        index: delta.contentIndex,
-        text: '',
-        closed: false,
-      }))
+      const blocks = ensureBlock(item.blocks, delta.contentIndex, () =>
+        kind === 'thinking'
+          ? {
+              type: kind,
+              index: delta.contentIndex,
+              text: '',
+              closed: false,
+              startedAt: Date.now(),
+            }
+          : { type: kind, index: delta.contentIndex, text: '', closed: false },
+      )
       return { ...state, items: replaceItem(state.items, index, { ...item, blocks }) }
     }
 
@@ -343,11 +364,11 @@ function applyAssistantDelta(
     case 'text_end':
     case 'thinking_end': {
       const kind = delta.type === 'text_end' ? 'text' : 'thinking'
-      const blocks = item.blocks.map((b) =>
-        b.index === delta.contentIndex && b.type === kind
-          ? { ...b, text: delta.content ?? b.text, closed: true }
-          : b,
-      )
+      const blocks = item.blocks.map((b) => {
+        if (b.index !== delta.contentIndex || b.type !== kind) return b
+        const closed = { ...b, text: delta.content ?? b.text, closed: true }
+        return closed.type === 'thinking' ? { ...closed, endedAt: Date.now() } : closed
+      })
       return { ...state, items: replaceItem(state.items, index, { ...item, blocks }) }
     }
 
@@ -519,7 +540,7 @@ function applyMessageEnd(state: ChatSessionState, message: AgentMessage): ChatSe
       const item = state.items[index] as AssistantItem
       const updated: AssistantItem = {
         ...item,
-        blocks: blocksFromContent(assistant),
+        blocks: keepThoughtTiming(item.blocks, blocksFromContent(assistant)),
         streaming: false,
         stopReason: assistant.stopReason,
         errorMessage: assistant.errorMessage,

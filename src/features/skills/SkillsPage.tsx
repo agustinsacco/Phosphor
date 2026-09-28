@@ -12,11 +12,9 @@ import { Markdown } from '@/components/markdown/Markdown'
 import { NewSkillModal } from './NewSkillModal'
 
 /**
- * Global Skills page (sidebar → Skills), modeled on Claude Desktop's
- * Customize → Skills: a **Yours** tab listing everything pi resolves, grouped
- * by where it lives, and a **Discover** tab of pinned curated libraries with
- * one-click install into the global root. Everything shown comes from
- * `skills:list`; every mutation round-trips through main and refreshes.
+ * Global Skills page: outcome-first discovery with evidence and fit before
+ * installation, plus a Yours inventory grouped by where skills live.
+ * Installed state comes from `skills:list`; mutations refresh from main.
  *
  * A page, not a right pane: skills are global/project state with no tie to
  * any session, so this renders over the whole main region and works from the
@@ -64,7 +62,7 @@ export const SkillsPage = memo(function SkillsPage({
     >
       {/* Centered column: a page spans the whole main region, and list rows
           stretched across an ultrawide window stop reading as rows. */}
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col">
         {selected ? (
           <SkillDetail
             skill={selected}
@@ -146,6 +144,7 @@ function Segmented<T extends string>({
         <button
           key={option.id}
           onClick={() => onChange(option.id)}
+          aria-pressed={option.id === value}
           className={clsx(
             'cursor-pointer px-2.5 py-1 text-base transition-colors',
             option.id === value
@@ -494,14 +493,58 @@ function DiscoverList({
   search: string
   workspacePath: string
 }): React.JSX.Element {
+  const [category, setCategory] = useState('All outcomes')
+  const categories = ['All outcomes', 'Build & debug', 'Audit & verify', 'Data & optimization']
+  const visible = SKILL_CATALOG.filter(
+    (library) =>
+      (category === 'All outcomes' || library.offering?.category === category) &&
+      `${library.label} ${library.blurb} ${JSON.stringify(library.offering ?? {})} ${library.skills.map((skill) => `${skill.name} ${skill.description}`).join(' ')}`
+        .toLowerCase()
+        .includes(search.trim().toLowerCase()),
+  )
   return (
     <div className="space-y-4">
-      <div className="text-text-tertiary text-sm">
-        Curated libraries, pinned by commit — installs land in the global pi root and follow you
-        into every workspace and provider. Skills can instruct the model and ship scripts it may
-        run; read one before adding it.
+      <header className="border-border border-b py-5">
+        <p className="text-text-secondary font-mono text-xs tracking-wider uppercase">
+          Capability workbench
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold">What should your agent do better?</h1>
+        <p className="text-text-secondary mt-2 max-w-xl text-lg">
+          Start with a job, not a collection. Choose a focused skill, inspect its evidence, and keep
+          only what helps your work.
+        </p>
+        <div className="text-text-secondary mt-4 flex flex-wrap gap-x-5 gap-y-1 font-mono text-sm">
+          <span>01 · Find a fit</span>
+          <span>02 · Check the evidence</span>
+          <span>03 · Add deliberately</span>
+        </div>
+      </header>
+      <div className="flex flex-wrap gap-2" aria-label="Skill outcomes">
+        {categories.map((item) => (
+          <button
+            key={item}
+            aria-pressed={category === item}
+            onClick={() => setCategory(item)}
+            className={clsx(
+              'cursor-pointer rounded-full border px-3 py-1.5 text-base',
+              category === item
+                ? 'border-accent bg-accent-soft text-text'
+                : 'border-border text-text-secondary hover:text-text',
+            )}
+          >
+            {item}
+          </button>
+        ))}
       </div>
-      {SKILL_CATALOG.map((library) => (
+      <p className="text-text-secondary text-base">
+        Evidence is a starting point, not a guarantee. Nothing is installed automatically. Add
+        installs into your global pi skills folder for all workspaces. Skills can guide the model
+        and ship scripts it may run; dependencies are not installed.
+      </p>
+      {visible.length === 0 && (
+        <EmptyNote text="No matches in this outcome. Try another filter or search." />
+      )}
+      {visible.map((library) => (
         <LibrarySection
           key={library.id}
           library={library}
@@ -527,14 +570,14 @@ function LibrarySection({
 }): React.JSX.Element | null {
   const [busy, setBusy] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  const offering = library.offering
   const needle = search.trim().toLowerCase()
+  const libraryMatch = `${library.label} ${library.blurb} ${JSON.stringify(offering ?? {})}`
+    .toLowerCase()
+    .includes(needle)
   const visible = library.skills.filter(
-    (entry) =>
-      !needle ||
-      entry.name.toLowerCase().includes(needle) ||
-      entry.description.toLowerCase().includes(needle),
+    (entry) => libraryMatch || `${entry.name} ${entry.description}`.toLowerCase().includes(needle),
   )
-  if (visible.length === 0) return null
 
   const installedNames = new Set(
     skills
@@ -556,44 +599,91 @@ function LibrarySection({
   }
 
   return (
-    <div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-base font-semibold">{library.label}</span>
-        <button
-          onClick={() => void window.phosphor.invoke('app:openExternal', library.url)}
-          className="text-accent cursor-pointer text-xs hover:underline"
-        >
-          {library.repo} ↗
-        </button>
-        <span className="text-text-tertiary font-mono text-xs">@{library.sha.slice(0, 7)}</span>
-      </div>
-      <div className="text-text-tertiary pb-1.5 text-sm">{library.blurb}</div>
-      {failure && <div className="text-danger pb-1 text-sm">{failure}</div>}
-      <div className="space-y-1">
-        {visible.map((entry) => {
-          const installed = installedNames.has(entry.name)
-          return (
-            <div
-              key={entry.name}
-              className="border-border flex items-start gap-2 rounded-lg border px-2.5 py-1.5"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-mono text-base font-medium">{entry.name}</div>
-                <div className="text-text-tertiary line-clamp-2 text-sm">{entry.description}</div>
-              </div>
-              <Button
-                size="sm"
-                variant={installed ? 'secondary' : 'primary'}
-                disabled={installed || busy != null}
-                onClick={() => void install(entry.name)}
-              >
-                {installed ? 'Installed' : busy === entry.name ? 'Adding…' : 'Add'}
-              </Button>
+    <article className="border-border bg-surface overflow-hidden rounded-xl border p-4">
+      {offering && (
+        <>
+          <div className="text-text-secondary flex flex-wrap justify-between gap-2 font-mono text-xs uppercase tracking-wider">
+            <span>{offering.category}</span>
+            <span>{offering.evidence}</span>
+          </div>
+          <h2 className="mt-2 text-2xl font-semibold">{offering.goal}</h2>
+          <p className="text-text-secondary text-sm">{library.label}</p>
+          <p className="text-text-secondary mt-1 text-lg">{offering.fit}</p>
+          <div className="border-border my-4 grid gap-3 border-y py-3 sm:grid-cols-2">
+            <div>
+              <h3 className="text-base font-semibold">The evidence</h3>
+              <p className="text-text-secondary mt-1 text-base">{offering.result}</p>
             </div>
-          )
-        })}
-      </div>
-    </div>
+            <div>
+              <h3 className="text-base font-semibold">The limits</h3>
+              <p className="text-text-secondary mt-1 text-base">{offering.caveat}</p>
+            </div>
+          </div>
+          <button
+            className="text-text-secondary cursor-pointer text-base underline hover:text-text"
+            onClick={() => void window.phosphor.invoke('app:openExternal', offering.evidenceUrl)}
+          >
+            Read evaluation ↗
+          </button>
+        </>
+      )}
+      <details className="mt-2" open={needle ? true : undefined}>
+        <summary className="text-text cursor-pointer py-2 text-base font-medium">
+          {offering
+            ? offering.external
+              ? 'Compatibility & setup'
+              : 'Review & choose skills'
+            : library.label}
+          <span className="text-text-secondary ml-2 font-normal">
+            {offering?.external
+              ? 'External plugin'
+              : `${library.skills.length} skill${library.skills.length === 1 ? '' : 's'}`}
+          </span>
+        </summary>
+        {offering && <p className="text-text-secondary mb-3 text-base">{offering.requirements}</p>}
+        <div className="flex flex-wrap items-baseline gap-2">
+          <span className="text-base font-semibold">{library.label}</span>
+          <button
+            onClick={() => void window.phosphor.invoke('app:openExternal', library.url)}
+            className="text-accent cursor-pointer text-xs hover:underline"
+          >
+            {offering?.external ? 'Review upstream setup' : library.repo} ↗
+          </button>
+          <span className="text-text-tertiary font-mono text-xs">@{library.sha.slice(0, 7)}</span>
+        </div>
+        <div className="text-text-tertiary pb-1.5 text-sm">{library.blurb}</div>
+        {failure && (
+          <div role="alert" className="text-danger pb-1 text-sm">
+            {failure}
+          </div>
+        )}
+        <div className="space-y-1">
+          {visible.map((entry) => {
+            const installed = installedNames.has(entry.name)
+            return (
+              <div
+                key={entry.name}
+                className="border-border flex items-start gap-2 rounded-lg border px-2.5 py-1.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-mono text-base font-medium">{entry.name}</div>
+                  <div className="text-text-tertiary line-clamp-2 text-sm">{entry.description}</div>
+                </div>
+                <Button
+                  size="sm"
+                  aria-label={`${installed ? 'Installed' : 'Add'} ${entry.name}`}
+                  variant={installed ? 'secondary' : 'primary'}
+                  disabled={installed || busy != null}
+                  onClick={() => void install(entry.name)}
+                >
+                  {installed ? 'Installed' : busy === entry.name ? 'Adding…' : 'Add'}
+                </Button>
+              </div>
+            )
+          })}
+        </div>
+      </details>
+    </article>
   )
 }
 

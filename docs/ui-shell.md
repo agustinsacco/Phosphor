@@ -268,6 +268,15 @@ All switch together, live, no reload.
   import/export and install into pi's global or project roots. The Artifacts
   page indexes every open session's artifacts; opening one jumps to its
   session with the pane on it.
+- **Skills discovery** is a capability workbench: outcome filters, task fit,
+  evidence and limitations precede an expandable review/install section.
+  Vercel React guidance and NVIDIA cuOpt routing install at reviewed commit
+  pins; related benchmark results are not promises of local gains. Trail of
+  Bits dimensional analysis is an external-plugin offering, not a standalone
+  pi install, because its dedicated agents live outside the skill directory.
+  Existing libraries remain expandable and searchable. Add is explicit,
+  global, and installs only the skill bundle, not runtimes or dependencies.
+  Yours retains source grouping, inspection, draft hiding, updates and deletion.
 - **Routines** — local scheduled tasks producing fresh lanes, with configuration,
   next-run previews, history, and explicit unattended access. Runs are owned by
   main, not this page; closing it never stops the scheduler. See [routines.md](routines.md).

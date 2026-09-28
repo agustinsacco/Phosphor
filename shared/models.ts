@@ -826,11 +826,13 @@ export const DEFAULT_APP_PREFS: AppPrefs = {
 export const MIN_PI_VERSION = '0.84.1'
 
 /**
- * The first `@saccolabs/pi-claude-cli` release a Claude session starts on:
- * the one that runs on pi's context alone. Main refuses anything older
- * (`electron/pi/provider-detect.ts`) and Settings → Claude Code flags it.
+ * The first `@saccolabs/pi-claude-cli` release a Claude session starts on.
+ * 0.9.0 runs on pi's context alone; 0.10.0 sends pi's thinking level as pi
+ * would (below it `off` still thinks and a level change restarts the CLI).
+ * Main refuses anything older (`electron/pi/provider-detect.ts`) and
+ * Settings → Claude Code flags it.
  */
-export const MIN_CLAUDE_CONTEXT_VERSION = '0.9.0'
+export const MIN_CLAUDE_CONTEXT_VERSION = '0.10.0'
 
 /**
  * Health of one pi config file. `malformed` distinguishes "present but

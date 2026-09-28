@@ -8,8 +8,8 @@ Codex equivalent.
 
 ## Current Claude integration
 
-Phosphor requires **`pi-claude-cli >= 0.9.0`**. pi owns the prompt, active tools,
-conversation and compaction. The official Claude Code CLI supplies model access
+Phosphor requires **`pi-claude-cli >= 0.10.0`**. pi owns the prompt, active tools,
+conversation, compaction and thinking level. The official Claude Code CLI supplies model access
 and subscription authentication, not a second coding-agent configuration.
 
 `claudeProviderSpawnEnv` sets `PI_CLAUDE_CLI_CONTEXT=pi` on every pi spawn so an
@@ -21,7 +21,12 @@ host guards and managed policy remain in force; bare mode is not used.
 
 One warm CLI process serves matching follow-ups and pi tool handoffs. It is a
 disposable cache: model switches, changed prompts/tools, branch rewrites and
-compaction retire it. Returning to Claude imports pi's current context, including
+compaction retire it. A thinking-level change does not: the provider applies it
+to the warm process before the next turn, as the request pi's own Anthropic
+provider would send (`off` disables thinking, other levels send pi's budget or
+effort, with thinking summaries). The picker lists the levels pi reports for
+the model; the provider drops `minimal` on adaptive models, where it equals
+`low`. Returning to Claude imports pi's current context, including
 native-provider turns. No new Claude transcript or resume sidecar is written.
 Imports use role-labelled text plus images because the CLI print interface is
 not a direct structured-history API; this is continuity, not identical wire input.

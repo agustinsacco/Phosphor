@@ -79,12 +79,12 @@ project scope, an empty field's placeholder names what it inherits.
 The subscription routes are distinct (`SUBSCRIPTION_PROVIDERS` in
 `electron/pi/auth-status.ts` is the registry):
 
-| Account        | Route                                                                      | Requirement                  |
-| -------------- | -------------------------------------------------------------------------- | ---------------------------- |
-| ChatGPT        | pi's native `openai-codex` OAuth; no Codex CLI bridge                      | Plus or Pro                  |
-| Claude         | Authenticated Claude Code CLI through `@saccolabs/pi-claude-cli`           | Pro or Max; provider ≥ 0.9.0 |
-| GitHub Copilot | pi account login on github.com; Enterprise Server uses pi's terminal login | Copilot subscription         |
-| Kimi           | pi's `kimi-for-coding` account login                                       | Kimi For Coding plan         |
+| Account        | Route                                                                      | Requirement                   |
+| -------------- | -------------------------------------------------------------------------- | ----------------------------- |
+| ChatGPT        | pi's native `openai-codex` OAuth; no Codex CLI bridge                      | Plus or Pro                   |
+| Claude         | Authenticated Claude Code CLI through `@saccolabs/pi-claude-cli`           | Pro or Max; provider ≥ 0.10.0 |
+| GitHub Copilot | pi account login on github.com; Enterprise Server uses pi's terminal login | Copilot subscription          |
+| Kimi           | pi's `kimi-for-coding` account login                                       | Kimi For Coding plan          |
 
 Provider limits and billing rules still apply. Native Anthropic OAuth is a
 separate route from Claude Code subscription sessions, and the tab says it

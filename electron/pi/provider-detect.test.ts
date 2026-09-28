@@ -54,7 +54,7 @@ describe('Claude context provider version gate', () => {
     installed,
   })
   it('accepts installed stable supported releases', () => {
-    for (const version of ['0.9.0', '0.10.0', '1.0.0']) {
+    for (const version of ['0.10.0', '0.10.3', '0.11.0', '1.0.0']) {
       expect(() => assertClaudeContextProvider([pkg(version)])).not.toThrow()
     }
   })
@@ -62,6 +62,9 @@ describe('Claude context provider version gate', () => {
     for (const packages of [
       [],
       [pkg('0.8.3')],
+      // pi's context, but not pi's thinking levels.
+      [pkg('0.9.1')],
+      [pkg('0.10.0-rc.1')],
       [pkg('0.7.1-beta.1')],
       [pkg('unknown')],
       [pkg('0.7.1', false)],
@@ -72,14 +75,16 @@ describe('Claude context provider version gate', () => {
   })
   it('does not mistake another package for the provider', () => {
     expect(() => assertClaudeContextProvider([{ ...pkg('99.0.0'), name: 'other' }])).toThrow(
-      '0.9.0 or newer (it is not installed)',
+      '0.10.0 or newer (it is not installed)',
     )
   })
   it('names the copy that failed, not the one that passed', () => {
-    expect(() => assertClaudeContextProvider([pkg('0.8.3')])).toThrow(
-      'Claude sessions need @saccolabs/pi-claude-cli 0.9.0 or newer (found 0.8.3).',
+    expect(() => assertClaudeContextProvider([pkg('0.9.1')])).toThrow(
+      'Claude sessions need @saccolabs/pi-claude-cli 0.10.0 or newer (found 0.9.1).',
     )
-    expect(() => assertClaudeContextProvider([pkg('0.9.0'), pkg('0.8.0')])).toThrow('(found 0.8.0)')
+    expect(() => assertClaudeContextProvider([pkg('0.10.0'), pkg('0.9.1')])).toThrow(
+      '(found 0.9.1)',
+    )
     expect(() => assertClaudeContextProvider([pkg('0.7.1', false)])).toThrow(
       '(it is listed but not installed)',
     )

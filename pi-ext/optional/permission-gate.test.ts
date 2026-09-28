@@ -24,7 +24,7 @@ print(json.dumps({
 PY
 printf '\\nArtifact totals:\\n'; ${prefix} s3api list-objects-v2 --bucket knowledge-artifacts-local --prefix spreadsheets/augment-brokerage/internal/global/9e6906f41c438ca0/ --query '{Count:KeyCount,Bytes:sum(Contents[].Size)}' --output json`
 
-describe('LocalStack exception', () => {
+describe('AWS authorization is left to the machine', () => {
   it.each([
     listing,
     compound,
@@ -79,13 +79,15 @@ describe('LocalStack exception', () => {
     `${listing}; echo "unterminated`,
     `${listing}; python3 - <<'PY'\nunterminated`,
     `${listing}; python3 - <<PY\n$COMMAND\nPY`,
-  ])('keeps approval for unsafe or unsupported input: %s', (command) => {
-    expect(permissionDecision(command)).toBe('ask')
+  ])('does not prompt solely for AWS syntax, credentials or endpoints: %s', (command) => {
+    expect(permissionDecision(command)).toBe('allow')
   })
 
   it.each([
     'sudo true',
     'rm -rf /tmp/test',
+    't=$(mktemp -d); rm -rf "$t"',
+    'python3 ~/.pi/agent/bin/pi-scratch.py clean "$t"; rm -rf /important',
     'git push --force',
     'git reset --hard',
     'kill 123',
@@ -155,7 +157,7 @@ console.log(JSON.stringify({regions: []}));
   },
 )
 
-it('enforces approval, cancellation, non-UI blocks and the local exception at the hook', async () => {
+it('enforces other approvals and hard blocks, without prompting for AWS at the hook', async () => {
   const on = vi.fn<Parameters<typeof permissionGate>[0]['on']>()
   permissionGate({ on })
   const handler = on.mock.calls[0]![1]
@@ -164,14 +166,17 @@ it('enforces approval, cancellation, non-UI blocks and the local exception at th
   const call = (command: string) => handler({ toolName: 'bash', input: { command } }, ctx)
   expect(await call(listing)).toBeUndefined()
   expect(select).not.toHaveBeenCalled()
-  expect(await call('aws s3 ls')).toMatchObject({ block: true })
-  select.mockResolvedValue(undefined)
-  expect(await call('aws s3 ls')).toMatchObject({ block: true })
-  select.mockResolvedValue('Yes')
   expect(await call('aws s3 ls')).toBeUndefined()
+  expect(select).not.toHaveBeenCalled()
+  expect(await call('rm -rf /tmp/test')).toMatchObject({ block: true })
+  select.mockResolvedValue(undefined)
+  expect(await call('rm -rf /tmp/test')).toMatchObject({ block: true })
+  select.mockResolvedValue('Yes')
+  expect(await call('rm -rf /tmp/test')).toBeUndefined()
   select.mockClear()
   ctx.hasUI = false
-  expect(await call('aws s3 ls')).toMatchObject({ block: true })
+  expect(await call('rm -rf /tmp/test')).toMatchObject({ block: true })
+  expect(await call('aws s3 ls')).toBeUndefined()
   expect(await call(compound)).toBeUndefined()
   expect(await call('shred /tmp/test')).toMatchObject({ block: true })
   expect(select).not.toHaveBeenCalled()

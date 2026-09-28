@@ -613,6 +613,7 @@ function handle(cmd) {
       else if (message.includes('artifactlink')) runArtifactLinkTurn()
       else if (message.includes('longartifact')) runLongArtifactTurn()
       else if (message.includes('manyitems')) runManyItemsTurn()
+      else if (message.includes('delegate')) runNativeSubagentTurn()
       else if (message.includes('fanout')) runSubagentTurn()
       else if (message.includes('longstream')) runLongStreamTurn()
       else if (message.includes('thinkstream')) runThinkingTurn()
@@ -1433,6 +1434,224 @@ function runSubagentTurn() {
   steps.push(() => out({ type: 'agent_settled' }))
 
   play(steps)
+}
+
+/**
+ * A native delegation through pi-subagents — the live sub-agent path for BOTH
+ * providers now that pi owns the tools on a Claude session. Three wire facts
+ * Phosphor depends on, each captured from a real session (01a0e90a,
+ * 2026-09-28, pi-subagents 0.73.1):
+ *
+ *  - a foreground `subagent` call streams its child's progress in
+ *    `tool_execution_update.partialResult.details` (`progress[]`) and settles
+ *    with the child's answer as the tool text plus `results[]`;
+ *  - a detached (`async: true`) call returns at once, and the run's tree then
+ *    rides the `subagent-async` widget as one `PI_SUBAGENT_ASYNC_JSON:` line.
+ *    Unparsed, that line was printed verbatim above the composer;
+ *  - the run reports back as a `subagent-notify` custom message with
+ *    `display: false`, and the model is woken for a new turn to read it.
+ */
+function runNativeSubagentTurn() {
+  const msg = { role: 'assistant', content: [] }
+  const ASYNC_ID = 'a1b2c3d4-0000-4000-8000-000000000000'
+  const foreground = { agent: 'reviewer', task: 'Review the auth diff for regressions' }
+  const background = { agent: 'scout', task: 'Map the auth flow', async: true }
+  const child = (progress, result) => ({
+    mode: 'single',
+    results: [
+      {
+        index: 0,
+        agent: 'reviewer',
+        task: '[prompt redacted]',
+        sessionName: 'reviewer: Review the auth diff for regressions',
+        usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 1 },
+        ...result,
+      },
+    ],
+    progress: [
+      {
+        index: 0,
+        agent: 'reviewer',
+        task: '[prompt redacted]',
+        recentTools: [{ tool: 'read', args: 'SKILL.md', endMs: 1 }],
+        recentOutput: [],
+        model: 'stub/stub-model',
+        ...progress,
+      },
+    ],
+  })
+  const review =
+    'No regressions found. One nit: `auth.ts:42` ignores the error branch of `verify()`.'
+  const fleet =
+    'PI_SUBAGENT_ASYNC_JSON:' +
+    JSON.stringify({
+      kind: 'pi-subagents.async-status-snapshot',
+      version: 1,
+      generatedAt: Date.now(),
+      caps: {
+        maxRuns: 20,
+        maxChildrenPerNode: 8,
+        maxDepth: 3,
+        maxStringLength: 160,
+        maxSerializedBytes: 32768,
+      },
+      omitted: { runs: 0, children: 0, byteLimitExceeded: false },
+      runs: [
+        {
+          id: ASYNC_ID,
+          kind: 'subagent',
+          label: 'scout',
+          state: 'running',
+          startedAt: Date.now(),
+          activity: { lastActivityAt: Date.now(), turnCount: 1, toolCount: 2 },
+          children: [
+            {
+              id: 'step:0',
+              kind: 'step',
+              label: 'scout',
+              state: 'running',
+              startedAt: Date.now(),
+              activity: { currentTool: 'grep', turnCount: 1, toolCount: 2 },
+            },
+          ],
+        },
+      ],
+    })
+  const notify = {
+    role: 'custom',
+    customType: 'subagent-notify',
+    display: false,
+    content:
+      'Background task completed: **scout**\n\nscout:\nThe auth flow enters at `login.ts` and settles in `session.ts`.\n\nRetention-managed async directory: /tmp/stub/async/' +
+      ASYNC_ID,
+    timestamp: Date.now(),
+  }
+  const call = (id, args) => [
+    () => out({ type: 'message_start', message: msg }),
+    () =>
+      out({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'toolCall', id, name: 'subagent', arguments: args }],
+          stopReason: 'toolUse',
+          timestamp: Date.now(),
+        },
+      }),
+    () => out({ type: 'tool_execution_start', toolCallId: id, toolName: 'subagent', args }),
+  ]
+  const say = (text) => [
+    () => out({ type: 'message_start', message: msg }),
+    () =>
+      out({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text }],
+          stopReason: 'stop',
+          timestamp: Date.now(),
+        },
+      }),
+  ]
+
+  play([
+    () => out({ type: 'agent_start' }),
+    () => out({ type: 'turn_start' }),
+    ...call('sub_fg', foreground),
+    () =>
+      out({
+        type: 'tool_execution_update',
+        toolCallId: 'sub_fg',
+        toolName: 'subagent',
+        partialResult: {
+          content: [{ type: 'text', text: 'reviewer: running' }],
+          details: child(
+            {
+              status: 'running',
+              currentTool: 'read',
+              currentToolArgs: 'src/auth.ts',
+              toolCount: 3,
+              turnCount: 2,
+              tokens: 2100,
+              durationMs: 4000,
+            },
+            {},
+          ),
+        },
+      }),
+    () => new Promise((resolve) => setTimeout(resolve, 900)),
+    () =>
+      out({
+        type: 'tool_execution_end',
+        toolCallId: 'sub_fg',
+        toolName: 'subagent',
+        isError: false,
+        result: {
+          content: [{ type: 'text', text: review }],
+          details: child(
+            { status: 'completed', toolCount: 4, turnCount: 3, tokens: 4000, durationMs: 9100 },
+            {
+              exitCode: 0,
+              usage: { input: 3100, output: 900, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 3 },
+              finalOutput: review,
+              sessionFile: '/tmp/stub/sessions/reviewer-1.jsonl',
+            },
+          ),
+        },
+      }),
+    ...call('sub_bg', background),
+    () =>
+      out({
+        type: 'tool_execution_end',
+        toolCallId: 'sub_bg',
+        toolName: 'subagent',
+        isError: false,
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: `Async: scout [${ASYNC_ID}]\n\nThe async run is detached and running in the background.`,
+            },
+          ],
+          details: {
+            mode: 'single',
+            runId: ASYNC_ID,
+            asyncId: ASYNC_ID,
+            results: [],
+            background: true,
+            timeoutMs: 1800000,
+          },
+        },
+      }),
+    () =>
+      out({
+        type: 'extension_ui_request',
+        id: 'ext-widget-fleet',
+        method: 'setWidget',
+        widgetKey: 'subagent-async',
+        widgetLines: [fleet],
+      }),
+    ...say('Reviewer found one nit; scout is mapping the auth flow in the background.'),
+    () => out({ type: 'agent_end', messages: [] }),
+    () => out({ type: 'agent_settled' }),
+    () => new Promise((resolve) => setTimeout(resolve, 2500)),
+    // The run reports back: the widget goes, the muted completion lands, and
+    // the model is woken to read it.
+    () =>
+      out({
+        type: 'extension_ui_request',
+        id: 'ext-widget-fleet-clear',
+        method: 'setWidget',
+        widgetKey: 'subagent-async',
+      }),
+    () => out({ type: 'agent_start' }),
+    () => out({ type: 'turn_start' }),
+    () => out({ type: 'message_start', message: notify }),
+    () => out({ type: 'message_end', message: notify }),
+    ...say('Scout reports: the auth flow enters at login.ts.'),
+    () => out({ type: 'agent_end', messages: [] }),
+    () => out({ type: 'agent_settled' }),
+  ])
 }
 
 /**

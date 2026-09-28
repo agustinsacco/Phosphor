@@ -1,0 +1,90 @@
+import { useState } from 'react'
+import clsx from 'clsx'
+import type { CustomItem } from '../reducer'
+import { parseSubagentNotice } from '../subagentRuns'
+import { Markdown } from '@/components/markdown/Markdown'
+import { ChevronIcon } from '@/components/icons'
+import { SEGMENT } from '../transcriptFind'
+
+/**
+ * A background run reporting back, where the model woke up to read it.
+ *
+ * pi-subagents delivers the completion as a custom message and marks a plain
+ * success `display: false` so its TUI does not badge an idle tab. Phosphor
+ * shows it anyway, compactly: the reply that follows quotes this result, and
+ * a reader could not see why the model spoke again. A success stays folded;
+ * a failure, a stop, or an attention notice opens, because those are the ones
+ * that need a decision.
+ */
+export function SubagentNoticeItem({ item }: { item: CustomItem }): React.JSX.Element {
+  const notice = parseSubagentNotice(item.customType, item.text) ?? {
+    kind: 'completion' as const,
+    agents: [],
+    headline: item.customType ?? 'Sub-agent notice',
+    body: item.text,
+  }
+  const calm = notice.kind === 'completion' && notice.status === 'completed'
+  const [open, setOpen] = useState(!calm)
+  const expandable = notice.body.length > 0
+  const tone =
+    notice.kind === 'attention' || notice.status === 'failed'
+      ? 'warning'
+      : notice.status === 'stopped'
+        ? 'stopped'
+        : 'calm'
+
+  return (
+    <div
+      data-testid="subagent-notice"
+      data-kind={notice.kind}
+      data-status={notice.status}
+      className={clsx(
+        'rounded-lg border px-2 py-1',
+        tone === 'warning'
+          ? 'border-warning/30 bg-[color-mix(in_srgb,var(--px-warning)_6%,transparent)]'
+          : 'border-border/60',
+      )}
+    >
+      <button
+        onClick={() => expandable && setOpen((o) => !o)}
+        aria-expanded={expandable ? open : undefined}
+        disabled={!expandable}
+        className={clsx(
+          'flex w-full items-center gap-2 py-0.5 text-left text-base',
+          expandable && 'hover:bg-bg-secondary/60 rounded-md',
+        )}
+      >
+        <span
+          className={clsx(
+            'shrink-0 rounded px-1.5 py-px text-xs font-semibold uppercase tracking-wide',
+            tone === 'warning'
+              ? 'bg-bg-secondary text-warning'
+              : tone === 'stopped'
+                ? 'bg-bg-secondary text-text-secondary'
+                : 'bg-accent-soft text-accent',
+          )}
+        >
+          agent
+        </span>
+        <span className="text-text min-w-0 truncate font-medium">{notice.headline}</span>
+        {expandable && (
+          <ChevronIcon
+            expanded={open}
+            size={9}
+            strokeWidth={3}
+            className="text-text-tertiary ml-auto"
+          />
+        )}
+      </button>
+      {open && expandable && (
+        <div
+          data-testid="subagent-notice-body"
+          data-find-segment={SEGMENT.body}
+          className="border-accent/30 mt-1 mb-1 ml-1 max-h-[28rem] overflow-auto border-l-2 pl-3 text-base"
+        >
+          <Markdown text={notice.body} />
+        </div>
+      )}
+    </div>
+  )
+}

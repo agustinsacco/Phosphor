@@ -3292,6 +3292,62 @@ test('a Claude fan-out is one row per sub-agent, with the ones that died named',
   }
 })
 
+test('a native delegation is an agent row with live progress, a fleet chip and a completion card', async () => {
+  const harness = await launch()
+  const { page } = harness
+  try {
+    await openWorkspace(page)
+    // The stub replays pi-subagents over RPC: a foreground reviewer that
+    // streams progress and settles, a scout detached into the background, the
+    // background tree on the `subagent-async` widget, and the completion
+    // message that wakes the model.
+    await page.getByPlaceholder('Describe a task or ask a question').fill('delegate please')
+    await page.getByRole('button', { name: /Start session/i }).click()
+
+    // While the reviewer runs, its row says who, and what it is on right now.
+    await expect(page.getByText('Delegating to')).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText('read src/auth.ts · 3 tools')).toBeVisible()
+
+    await expect(
+      page.getByText('Reviewer found one nit; scout is mapping the auth flow in the background.'),
+    ).toBeVisible({ timeout: 60_000 })
+
+    // The background run is a chip, not a JSON blob above the composer.
+    const chip = page.getByTestId('subagent-chip')
+    await expect(chip).toContainText('1 background agent running · scout · grep')
+    expect(await page.evaluate(() => document.body.innerText)).not.toContain(
+      'PI_SUBAGENT_ASYNC_JSON',
+    )
+
+    // Settled: one row per call, in pi's vocabulary, with what it cost.
+    const summary = page.getByTestId('activity-summary').first()
+    await expect(summary).toContainText(/delegated 2 agents/)
+    await summary.click()
+    const reviewer = page.getByRole('button', { name: /Delegated to reviewer/ })
+    await expect(reviewer).toContainText('4 tools · 4.0k tokens · 9.1s')
+    await expect(page.getByRole('button', { name: /Started scout/ })).toContainText('in background')
+
+    // The row opens onto the task and the child's answer.
+    await reviewer.click()
+    await expect(page.getByTestId('subagent-task')).toContainText('Review the auth diff')
+    const childCard = page.getByTestId('subagent-child')
+    await expect(childCard).toHaveAttribute('data-status', 'completed')
+    await expect(childCard).toContainText('No regressions found')
+
+    // The run reports back: a compact card where the model woke up, folded
+    // because it succeeded, and the chip is gone with the widget.
+    const notice = page.getByTestId('subagent-notice')
+    await expect(notice).toContainText('scout finished in the background', { timeout: 30_000 })
+    await expect(page.getByTestId('subagent-notice-body')).toHaveCount(0)
+    await notice.getByRole('button').click()
+    await expect(page.getByTestId('subagent-notice-body')).toContainText('login.ts')
+    await expect(page.getByText('Scout reports: the auth flow enters at login.ts.')).toBeVisible()
+    await expect(chip).toHaveCount(0)
+  } finally {
+    await shutdown(harness)
+  }
+})
+
 test('the updater stays dormant in an unpackaged run', async () => {
   const harness = await launch()
   const { page } = harness

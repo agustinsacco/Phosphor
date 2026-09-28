@@ -3,6 +3,7 @@ import { basename } from '@/lib/path'
 import { formatBytes } from '@/lib/format'
 import type { ArtifactToolDetails } from '@/stores/artifacts'
 import { diffStats, parseDisplayDiff, unifiedPatchStats, type DiffStats } from '../diff'
+import { subagentCall, subagentRun, summarizeSubagentCall } from '../subagentRuns'
 
 export interface EditDetails {
   diff?: string
@@ -51,8 +52,12 @@ export interface ToolSummary {
  * than `summarizeTool().label` (which switches to the progressive tense while
  * running — counting by it would split "Read 3" into "Reading 1, Read 2").
  */
-export function settledVerb(toolName: string | null): string {
+export function settledVerb(toolName: string | null, args?: Record<string, unknown>): string {
   switch (toolName) {
+    case 'subagent':
+      // A launch is the headline of a turn ("delegated 2 agents"); a status
+      // check or a listing is bookkeeping and counts as a tool like any other.
+      return typeof args?.action === 'string' ? 'Used' : 'Delegated'
     case 'read':
       return 'Read'
     case 'bash':
@@ -240,6 +245,19 @@ export function summarizeTool(tool: ToolState, workspacePath?: string): ToolSumm
             : undefined,
       }
     }
+    case 'subagent': {
+      // pi-subagents, in both providers. The verb is what the model did, the
+      // object is the agent, the hint is what it is on right now or what it
+      // cost (see subagentRuns.ts).
+      const settled = !running
+      return summarizeSubagentCall(
+        subagentCall(args),
+        subagentRun(toolDetails(tool), settled),
+        running,
+      )
+    }
+    case 'subagents_enable':
+      return { label: running ? 'Enabling' : 'Enabled', object: 'sub-agents' }
     default:
       return { label: running ? 'Running' : 'Used', object: tool.toolName, mono: true }
   }

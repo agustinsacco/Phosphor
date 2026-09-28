@@ -292,12 +292,15 @@ All switch together, live, no reload.
   you can open 7s, the rest 5s.
 - **Status strip** — the bottom of the chat pane, only while a session has
   something to say: an MCP chip (`connected/enabled`, tool count, "N need
-  attention"; opens Settings → MCP Connectors), a sub-agent chip, and whatever
-  prose an extension pushed through `setStatus`. `setStatus` is pi's only
-  channel for extension state, so it doubles as a data bus: keys carrying
-  structured payloads (context breakdown, rate limit, MCP, sub-agents,
-  headroom) are filtered out of the strip and parsed by the component that
-  owns them. Crash notices are not here; update availability is the sidebar's
+  attention"; opens Settings → MCP Connectors), a sub-agent chip (background
+  runs from pi-subagents' `subagent-async` widget, or the `claude-subagents`
+  key of a session recorded before provider 0.9.0), and whatever prose an
+  extension pushed through `setStatus`. `setStatus` is pi's only channel for
+  extension state, so it doubles as a data bus: keys carrying structured
+  payloads (context breakdown, rate limit, MCP, sub-agents, headroom) are
+  filtered out of the strip and parsed by the component that owns them, and
+  the composer's widget slot filters its structured keys the same way
+  ([extensions.md](extensions.md#the-status-channel-is-a-wire-contract)). Crash notices are not here; update availability is the sidebar's
   pill.
 - **Command palette** (Cmd/Ctrl+K): new session, go to file, toggle sidebar
   and each pane, open the Artifacts/Skills pages, rewind, expand/collapse tool

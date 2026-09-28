@@ -84,6 +84,13 @@ export interface CustomItem {
   text: string
   images?: ImageContent[]
   inContext: boolean
+  /**
+   * The extension asked for it to be hidden (`display: false`). Kept only for
+   * the sub-agent completion, which pi-subagents mutes on success so its TUI
+   * does not badge an idle tab; here it is the visible cause of the reply
+   * that follows it.
+   */
+  quiet?: boolean
 }
 
 export type ChatItem = UserItem | AssistantItem | BashItem | DividerItem | CustomItem

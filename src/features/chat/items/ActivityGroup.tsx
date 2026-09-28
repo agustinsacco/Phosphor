@@ -186,7 +186,7 @@ export const ActivityGroup = memo(function ActivityGroup({
   if (visible.length === 0) return null
 
   const open = activeRun || (userOpen ?? verbose)
-  const summary = summarizeActivity(visible, tools, (t) => settledVerb(t.toolName ?? ''))
+  const summary = summarizeActivity(visible, tools, (t) => settledVerb(t.toolName ?? '', t.args))
 
   // Pair each run of thinking with the step that follows it: its row sits
   // just above that step's. Thinking with nothing after it closes the card.

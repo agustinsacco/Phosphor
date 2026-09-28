@@ -142,7 +142,10 @@ you want to watch.
   The package must be published and reinstalled before a source fix is live.
   Every one-shot host passes `claudeOneShotEnv()` to avoid a parked process
   keeping `pi -p` alive after its answer. Existing Claude marker transcripts
-  remain supported. See [cli-providers.md](docs/cli-providers.md).
+  remain supported. See [cli-providers.md](docs/cli-providers.md). A Claude
+  session is meant to match a native one: before changing the prompt, tools,
+  compaction or thinking on either side, read
+  [provider-symmetry.md](docs/provider-symmetry.md) and re-run its checks.
 
 - **Interactive sessions share an absolute context budget (default 200k),
   Claude included.** `shared/context-budget.ts` (`sessionContextBudget`) is

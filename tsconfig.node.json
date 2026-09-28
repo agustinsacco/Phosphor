@@ -9,6 +9,7 @@
     "runtime/**/*.ts",
     "shared/**/*.ts",
     "electron.vite.config.ts",
-    "pi-ext/**/*.ts"
+    "pi-ext/**/*.ts",
+    "scripts/omp-compat.ts"
   ]
 }

@@ -66,6 +66,7 @@ import type {
   OptimizationStats,
   LiveSessionInfo,
   PiHealth,
+  AgentPrefs,
   LoginFlowState,
   LoginProviderId,
   ModelPicks,
@@ -248,6 +249,12 @@ export interface IpcInvokeMap {
     result: void
   }
   'app:setContextBudget': { args: [value: string]; result: void }
+  /**
+   * Choose the agent new sessions run on. Main re-points every agent-derived
+   * cache (health, command lists, model catalogue, session-dir watchers); the
+   * caller reloads the window so every screen re-derives from the new agent.
+   */
+  'app:setAgent': { args: [prefs: AgentPrefs]; result: AgentPrefs }
   'app:setRecentWorkspaces': { args: [WorkspaceInfo[]]; result: void }
   /** Absolute path of the main-process debug log, or null if it could not be opened. */
   'app:debugLogPath': { args: []; result: string | null }

@@ -23,7 +23,19 @@ export interface UserItem {
 
 export type AssistantBlock =
   | { type: 'text'; index: number; text: string; closed: boolean }
-  | { type: 'thinking'; index: number; text: string; closed: boolean }
+  | {
+      type: 'thinking'
+      index: number
+      text: string
+      closed: boolean
+      /**
+       * Local ms when the block appeared and when it ended, for "Thought for
+       * 12s". Only a thought that streamed in this window has them: pi's
+       * session file records no timing, so history shows "Thought".
+       */
+      startedAt?: number
+      endedAt?: number
+    }
   | { type: 'tool'; index: number; toolCallId: string }
 
 export interface AssistantItem {

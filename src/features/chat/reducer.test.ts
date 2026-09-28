@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   emptyChatSession,
   hydrateFromMessages,
@@ -465,5 +465,78 @@ describe('chat reducer — hydration', () => {
     const assistant = state.items[1] as AssistantItem
     expect(assistant.blocks.map((b) => b.type)).toEqual(['thinking', 'text', 'tool'])
     expect(state.tools['c1']).toMatchObject({ toolName: 'read', status: 'done' })
+  })
+})
+
+describe('chat reducer — thinking timing', () => {
+  afterEach(() => vi.useRealTimers())
+  const thinkingEvent = (
+    assistantMessageEvent:
+      | { type: 'thinking_start'; contentIndex: number }
+      | { type: 'thinking_delta'; contentIndex: number; delta: string }
+      | { type: 'thinking_end'; contentIndex: number; content?: string },
+  ): PiEvent => ({ type: 'message_update', assistantMessageEvent })
+  const final = (stopReason: AssistantMessage['stopReason'] = 'stop'): AssistantMessage => ({
+    role: 'assistant',
+    content: [
+      { type: 'thinking', thinking: 'hmm' },
+      { type: 'text', text: 'ok' },
+    ],
+    stopReason,
+    usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0 },
+  })
+  const firstBlock = (state: ChatSessionState) => (state.items[0] as AssistantItem).blocks[0]
+
+  it('times a streamed thought and keeps the timing through message_end', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000)
+    let state = run([assistantStart, thinkingEvent({ type: 'thinking_start', contentIndex: 0 })])
+    vi.setSystemTime(4_000)
+    state = run(
+      [
+        thinkingEvent({ type: 'thinking_delta', contentIndex: 0, delta: 'hmm' }),
+        thinkingEvent({ type: 'thinking_end', contentIndex: 0, content: 'hmm' }),
+      ],
+      state,
+    )
+    vi.setSystemTime(9_000)
+    // message_end rebuilds the blocks from pi's content; the timing survives.
+    state = run([{ type: 'message_end', message: final() }], state)
+    expect(firstBlock(state)).toMatchObject({
+      type: 'thinking',
+      text: 'hmm',
+      closed: true,
+      startedAt: 1_000,
+      endedAt: 4_000,
+    })
+  })
+
+  it('starts the clock on a thought whose first delta arrives before its start event', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(2_000)
+    const state = run([
+      assistantStart,
+      thinkingEvent({ type: 'thinking_delta', contentIndex: 0, delta: 'hm' }),
+    ])
+    expect(firstBlock(state)).toMatchObject({ type: 'thinking', startedAt: 2_000 })
+  })
+
+  it('ends a thought the turn stopped before its thinking_end', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000)
+    let state = run([
+      assistantStart,
+      thinkingEvent({ type: 'thinking_delta', contentIndex: 0, delta: 'hmm' }),
+    ])
+    vi.setSystemTime(7_000)
+    state = run([{ type: 'message_end', message: final('aborted') }], state)
+    expect(firstBlock(state)).toMatchObject({ startedAt: 1_000, endedAt: 7_000 })
+  })
+
+  it('has no timing for a thought loaded from history, and none on text', () => {
+    const state = hydrateFromMessages([{ role: 'user', content: 'q' }, final()])
+    const [thought, text] = (state.items[1] as AssistantItem).blocks
+    expect(thought).not.toHaveProperty('startedAt')
+    expect(text).not.toHaveProperty('startedAt')
   })
 })

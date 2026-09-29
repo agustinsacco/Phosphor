@@ -1,7 +1,8 @@
 import { join } from 'node:path'
 
 /**
- * The same six extensions run in every interactive or routine pi session.
+ * The same six extensions run in every interactive or routine session, on pi
+ * or omp (omp loads pi's extension API too).
  * The caller supplies the resource root; neither the host nor this module
  * needs Electron to resolve the files. Stub sessions deliberately omit them.
  */

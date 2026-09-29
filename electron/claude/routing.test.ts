@@ -4,9 +4,11 @@ import {
   claudeAccountEnv,
   cooldownFromUsage,
   isCoolingDown,
+  orgIdToBackfill,
   pruneCooldowns,
   reconcileAuthIdentity,
   selectAccount,
+  usageProbeEnv,
 } from './routing'
 
 const NOW = 1_700_000_000_000
@@ -195,6 +197,52 @@ describe('claudeAccountEnv', () => {
       CLAUDE_SECURESTORAGE_CONFIG_DIR: '/creds/work',
       CLAUDE_CODE_ORGANIZATION_UUID: 'org-1',
     })
+  })
+
+  it('pins the org for the default account too, without touching the keychain var', () => {
+    expect(
+      claudeAccountEnv({ ...account('default'), credentialDir: null, orgId: 'org-d' }),
+    ).toEqual({ CLAUDE_CODE_ORGANIZATION_UUID: 'org-d' })
+  })
+})
+
+describe('usageProbeEnv', () => {
+  it('gives each account its own config dir, so the CLI usage snapshot cannot cross accounts', () => {
+    expect(usageProbeEnv({ ...account('work'), orgId: 'org-1' }, '/probe/work')).toEqual({
+      CLAUDE_CONFIG_DIR: '/probe/work',
+      CLAUDE_SECURESTORAGE_CONFIG_DIR: '/creds/work',
+      CLAUDE_CODE_ORGANIZATION_UUID: 'org-1',
+    })
+  })
+
+  it('keeps the default account on the default keychain entry with an EMPTY securestorage dir', () => {
+    // Unset, the CLI would hash CLAUDE_CONFIG_DIR into the keychain entry name
+    // and find no credential. Empty is what selects the unsuffixed entry.
+    expect(usageProbeEnv({ ...account('default'), credentialDir: null }, '/probe/d')).toEqual({
+      CLAUDE_CONFIG_DIR: '/probe/d',
+      CLAUDE_SECURESTORAGE_CONFIG_DIR: '',
+    })
+  })
+})
+
+describe('orgIdToBackfill', () => {
+  const seeded = { ...account('default'), email: 'me@work.com' }
+
+  it('takes the org from a probe identity with the same email', () => {
+    expect(
+      orgIdToBackfill(seeded, { emailAddress: 'Me@Work.com', organizationUuid: 'org-w' }),
+    ).toBe('org-w')
+  })
+
+  it('refuses another account, a recorded org, or a malformed identity', () => {
+    const other = { emailAddress: 'me@hotmail.com', organizationUuid: 'org-h' }
+    expect(orgIdToBackfill(seeded, other)).toBeNull()
+    expect(
+      orgIdToBackfill({ ...seeded, orgId: 'org-x' }, { ...other, emailAddress: 'me@work.com' }),
+    ).toBeNull()
+    expect(orgIdToBackfill(seeded, { emailAddress: 'me@work.com' })).toBeNull()
+    expect(orgIdToBackfill(seeded, undefined)).toBeNull()
+    expect(orgIdToBackfill(account('x'), other)).toBeNull()
   })
 })
 

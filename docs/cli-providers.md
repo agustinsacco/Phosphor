@@ -39,6 +39,16 @@ not a direct structured-history API; this is continuity, not identical wire inpu
   (`electron/claude/`; routing modes `specific | ordered | round-robin`, with
   cooldowns keyed off the window each account last exhausted). The credential
   is fixed for the life of the process; moving a lane is a respawn.
+- **Each account's `/usage` probe runs in its own config dir**
+  (`<userData>/claude-accounts/usage/<id>`, `usageProbeEnv` in
+  `electron/claude/routing.ts`). The CLI caches a usage snapshot in
+  `.claude.json` under that file's shared `oauthAccount`, answers from it for
+  a minute without asking, and falls back to it for an hour when the endpoint
+  fails. On the shared `~/.claude.json` one account's numbers were shown for
+  another. The private dir also has no local transcripts, so the CLI's
+  machine-wide "What's contributing" block no longer appears per account. Its
+  `oauthAccount` comes from the account's own token, and it backfills an
+  account's missing `orgId` (the seeded default account never recorded one).
 - **Account state never enters turn content.** Rate limits arrive on the
   `claude-rate-limit` status key
   ([extensions.md](extensions.md#the-status-channel-is-a-wire-contract)).

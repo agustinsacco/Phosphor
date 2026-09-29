@@ -16,19 +16,60 @@ import type { ClaudeAccount, ClaudeAccountPrefs, ClaudeAuthStatus } from '@share
 /**
  * Environment that points the CLI at one account's credential.
  *
- * Empty for the default account: an *unset* variable is what selects the
- * keychain entry the terminal already uses, and setting it to `~/.claude`
- * would not be equivalent (`e !== undefined` flips the hash suffix on).
+ * No securestorage dir for the default account: an *unset* variable is what
+ * selects the keychain entry the terminal already uses, and setting it to
+ * `~/.claude` would not be equivalent (`e !== undefined` flips the hash
+ * suffix on).
  */
 export function claudeAccountEnv(account: ClaudeAccount | null): Record<string, string> {
-  if (!account?.credentialDir) return {}
+  if (!account) return {}
   return {
-    CLAUDE_SECURESTORAGE_CONFIG_DIR: account.credentialDir,
+    ...(account.credentialDir ? { CLAUDE_SECURESTORAGE_CONFIG_DIR: account.credentialDir } : {}),
     // Pinned because `~/.claude.json`'s `oauthAccount` is shared by every
     // account (it follows CLAUDE_CONFIG_DIR, not the securestorage dir), so
     // the last sign-in wins its org id. The CLI reads this variable first.
+    // The default account needs it as much as the others do.
     ...(account.orgId ? { CLAUDE_CODE_ORGANIZATION_UUID: account.orgId } : {}),
   }
+}
+
+/**
+ * Environment for one account's `claude -p /usage` probe.
+ *
+ * The CLI keeps a usage snapshot in `.claude.json` (`cachedUsageUtilization`)
+ * keyed by that file's shared `oauthAccount.accountUuid`. It answers from the
+ * snapshot without asking the endpoint while it is under a minute old, and
+ * falls back to one up to an hour old when the endpoint fails (it 429s).
+ * With every account on `~/.claude.json`, one account's reading was served
+ * as another's. A private `CLAUDE_CONFIG_DIR` per account gives each its own
+ * snapshot and its own `oauthAccount`, learned from its own token.
+ *
+ * `CLAUDE_SECURESTORAGE_CONFIG_DIR` is set explicitly because the config dir
+ * alone would move the keychain entry too. Empty selects the CLI's default
+ * entry, which is what the default account (no credential dir) uses.
+ */
+export function usageProbeEnv(account: ClaudeAccount, configDir: string): Record<string, string> {
+  return {
+    ...claudeAccountEnv(account),
+    CLAUDE_CONFIG_DIR: configDir,
+    CLAUDE_SECURESTORAGE_CONFIG_DIR: account.credentialDir ?? '',
+  }
+}
+
+/**
+ * The org id to record for an account, read from its probe dir's
+ * `.claude.json` identity. Only when the account has none yet and the email
+ * matches the one recorded at sign-in; anything else returns null.
+ */
+export function orgIdToBackfill(
+  account: ClaudeAccount,
+  probeIdentity: { emailAddress?: unknown; organizationUuid?: unknown } | null | undefined,
+): string | null {
+  if (account.orgId || !account.email || !probeIdentity) return null
+  const { emailAddress, organizationUuid } = probeIdentity
+  if (typeof emailAddress !== 'string' || typeof organizationUuid !== 'string') return null
+  if (emailAddress.toLowerCase() !== account.email.toLowerCase()) return null
+  return organizationUuid || null
 }
 
 /**

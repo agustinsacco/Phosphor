@@ -141,8 +141,9 @@ print-mode prompt through the CLI, the login and the extension at once, because
   **spending overage credits**. A running session keeps its account: the
   credential is fixed at spawn. The context popover names the account a lane
   is spending and shows that account's own plan usage.
-- Each account row **opens** onto its usage windows and the live sessions
-  spending it. A session there can be restarted on the same account or moved
+- Each account row **opens** onto its usage windows (read under that
+  account's own CLI config dir, so they cannot show another account's
+  numbers) and the live sessions spending it. A session there can be restarted on the same account or moved
   to another; both respawn it from its session file, which is the only way an
   account can change.
 

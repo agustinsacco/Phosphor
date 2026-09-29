@@ -27,7 +27,7 @@
  * The first account is seeded with `credentialDir: null`, i.e. the CLI's own
  * default entry. Nothing migrates, and your terminal `claude` keeps sharing it.
  */
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
@@ -47,9 +47,11 @@ import {
   claudeAccountEnv,
   cooldownFromUsage,
   isCoolingDown,
+  orgIdToBackfill,
   pruneCooldowns,
   reconcileAuthIdentity,
   selectAccount,
+  usageProbeEnv,
 } from './routing'
 
 export { claudeAccountEnv }
@@ -57,6 +59,43 @@ export { claudeAccountEnv }
 /** Where per-account credential directories live. Stable across launches. */
 function accountsRoot(): string {
   return join(app.getPath('userData'), 'claude-accounts')
+}
+
+/** The private CLI config dir an account's `/usage` probe runs under. */
+function usageConfigDir(accountId: string): string {
+  return join(accountsRoot(), 'usage', accountId)
+}
+
+/** Env for one account's `/usage` probe; see `usageProbeEnv`. */
+export function accountUsageEnv(account: ClaudeAccount): Record<string, string> {
+  const dir = usageConfigDir(account.id)
+  mkdirSync(dir, { recursive: true })
+  return usageProbeEnv(account, dir)
+}
+
+/**
+ * Record the org id an account's own probe learned, when it has none.
+ *
+ * The seeded default account never recorded one, so its sessions sent
+ * whichever org last signed in (`~/.claude.json` is shared). The probe dir's
+ * `oauthAccount` comes from that account's own token, so it is the right one.
+ */
+function backfillOrgIds(prefs: ClaudeAccountPrefs): ClaudeAccountPrefs {
+  let changed = false
+  const accounts = prefs.accounts.map((account) => {
+    let identity: { emailAddress?: unknown; organizationUuid?: unknown } | undefined
+    try {
+      const raw = readFileSync(join(usageConfigDir(account.id), '.claude.json'), 'utf8')
+      identity = (JSON.parse(raw) as { oauthAccount?: typeof identity }).oauthAccount
+    } catch {
+      return account
+    }
+    const orgId = orgIdToBackfill(account, identity)
+    if (!orgId) return account
+    changed = true
+    return { ...account, orgId }
+  })
+  return changed ? { ...prefs, accounts } : prefs
 }
 
 /** Prefs with expired cooldowns and dead session bindings dropped. */
@@ -152,14 +191,14 @@ export async function refreshCooldowns(claudeOverride?: string): Promise<void> {
     prefs.accounts.map(async (account) => {
       const result = await fetchUsageSnapshot({
         cacheKey: account.id,
-        extraEnv: claudeAccountEnv(account),
+        extraEnv: accountUsageEnv(account),
         ...(claudeOverride ? { claudeOverride } : {}),
       }).catch(() => null)
       if (!result?.ok) return null
       return { id: account.id, until: cooldownFromUsage(result.snapshot.windows, now) }
     }),
   )
-  const latest = getClaudeAccountPrefs()
+  const latest = backfillOrgIds(getClaudeAccountPrefs())
   const cooldowns = { ...latest.cooldowns }
   for (const entry of results) {
     if (!entry) continue

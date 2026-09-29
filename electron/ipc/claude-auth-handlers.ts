@@ -9,6 +9,7 @@ import {
 } from '../pi/claude-login'
 import { fetchUsageSnapshot } from '../claude/usage'
 import {
+  accountUsageEnv,
   accountViews,
   beginAddAccount,
   bindSession,
@@ -80,7 +81,7 @@ export function registerClaudeAuthHandlers(): void {
     const override = claudeBinOverride()
     return fetchUsageSnapshot({
       ...(override ? { claudeOverride: override } : {}),
-      ...(accountId ? { cacheKey: accountId, extraEnv: await accountEnvFor(accountId) } : {}),
+      ...(accountId ? { cacheKey: accountId, extraEnv: await usageEnvFor(accountId) } : {}),
       ...(force ? { force: true } : {}),
     })
   })
@@ -113,6 +114,13 @@ export function registerClaudeAuthHandlers(): void {
       claudeOverride: claudeBinOverride(),
     }),
   )
+}
+
+/** `/usage` probe env for one stored account, or none when the id is unknown. */
+async function usageEnvFor(id: string): Promise<Record<string, string>> {
+  const prefs = await loadAccounts(claudeBinOverride())
+  const account = prefs.accounts.find((a) => a.id === id)
+  return account ? accountUsageEnv(account) : {}
 }
 
 /** Credential env for one stored account, or none when the id is unknown. */

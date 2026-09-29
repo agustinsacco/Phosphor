@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MaintenanceReport } from '@shared/models'
-import { combineReports } from './MaintenanceSection'
+import { combineReports, heldSummary } from './MaintenanceSection'
 
 const report = (over: Partial<MaintenanceReport> = {}): MaintenanceReport => ({
   ranAt: 0,
@@ -46,5 +46,21 @@ describe('combineReports', () => {
     expect(
       combineReports([report({ workspacePath: '/src/api', errors: ['scan: boom'] })]).errors,
     ).toEqual(['api: scan: boom'])
+  })
+})
+
+describe('heldSummary', () => {
+  it('says why lanes were kept, across workspaces, without counting the main checkout', () => {
+    const hold = (reason: MaintenanceReport['held'][number]['reason']) => ({
+      path: '/x',
+      branch: 'b',
+      reason,
+    })
+    const reports = [
+      report({ held: [hold('main-checkout'), hold('dirty'), hold('too-recent')] }),
+      report({ held: [hold('main-checkout'), hold('unmerged'), hold('dirty')] }),
+    ]
+    expect(heldSummary(reports, 24)).toBe('2 uncommitted, 1 not landed, 1 recently used (<24h)')
+    expect(heldSummary([report({ held: [hold('main-checkout')] })], 24)).toBe('')
   })
 })

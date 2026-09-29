@@ -334,10 +334,19 @@ counts as a user and holds the worktree.
 
 **A branch is deleted only when it is proven merged.** `git branch -d` tests
 ancestry, and a squash merge leaves no ancestry link, so `-d` refuses every
-squash-merged lane. `isBranchMerged` adds the squash test (`git cherry`
-against a commit built from the branch's tree), and `-D` runs only when it
-returns true. Anything unproven is kept and reported; the transcript still
-goes.
+squash-merged lane. `isBranchLanded` accepts two proofs, and `-D` runs only
+when one holds:
+
+- **The squash test** (`isBranchMerged`): `git cherry` against a commit built
+  from the branch's tree.
+- **A merged PR** (`landedViaPullRequest`, via `gh`): the squash test misses a
+  lane whose history was rewritten after merging, or whose squash was cut on
+  a newer trunk. It proved 2 of 26 merged lanes on one install. A merged PR
+  from the branch counts only if the local tip is its head, sits behind it, or
+  has the same tree, so a reused branch name or work added after the merge
+  never passes. Without `gh`, or offline, this proof answers no.
+
+Anything unproven is kept and reported; the transcript still goes.
 
 **Remote branch deletion is not offered.** A bulk flow is the worst place to
 introduce the least reversible operation.
@@ -396,9 +405,14 @@ left the rest.)
 Six conditions must all hold before a worktree is a candidate
 (`electron/maintenance/policy.ts`), and every rejection is reported with its
 reason: not the main checkout, on a branch, clean, not a live session's cwd or
-an open workspace, **proven merged** (the same squash test as manual delete),
+an open workspace, **proven landed** (the same two proofs as manual delete),
 and untouched for `minAgeHours`. Deletion goes through `removeWorktree`, which
-refuses a dirty tree on its own.
+refuses a dirty tree on its own. The PR proof runs only for clean lanes the
+squash test could not prove, four `gh` calls at a time. When nothing is
+reclaimable, the row counts why each lane was kept.
+
+A recent workspace that is not a git repository (a "No folder" sandbox) is
+skipped, not reported as a sweep error.
 
 The grace period exists because a branch can land while its lane is still
 being read. pi's session directory for that cwd counts as use, so a lane you

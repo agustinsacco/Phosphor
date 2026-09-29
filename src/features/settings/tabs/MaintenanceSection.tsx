@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, NumberField, Row, SectionTitle, Toggle } from '@/components/form'
 import { DEFAULT_MAINTENANCE_PREFS } from '@shared/models'
-import type { MaintenancePrefs, MaintenanceReport } from '@shared/models'
+import type { MaintenancePrefs, MaintenanceReport, ReclaimHoldReason } from '@shared/models'
 import { workspaceName } from '@/lib/path'
 
 /** Bytes as a short human string. `null` means the platform could not measure. */
@@ -35,6 +35,25 @@ export function combineReports(reports: MaintenanceReport[]): {
     reclaimedBytes: reports.reduce((n, r) => n + r.reclaimedBytes, 0),
     errors: reports.flatMap((r) => r.errors.map((e) => `${workspaceName(r.workspacePath)}: ${e}`)),
   }
+}
+
+/** Hold reasons in the order the policy checks them. The main checkout is never a lane. */
+const HOLD_LABELS: Array<[ReclaimHoldReason, string]> = [
+  ['no-branch', 'detached'],
+  ['dirty', 'uncommitted'],
+  ['in-use', 'in use'],
+  ['unmerged', 'not landed'],
+  ['too-recent', 'recently used'],
+]
+
+/** Why every lane that is not a candidate was kept, e.g. `4 uncommitted, 12 not landed`. */
+export function heldSummary(reports: MaintenanceReport[], minAgeHours: number): string {
+  const count = (reason: ReclaimHoldReason): number =>
+    reports.reduce((n, r) => n + r.held.filter((h) => h.reason === reason).length, 0)
+  return HOLD_LABELS.map(([reason, label]) => [count(reason), label] as const)
+    .filter(([n]) => n > 0)
+    .map(([n, label]) => `${n} ${label}${label === 'recently used' ? ` (<${minAgeHours}h)` : ''}`)
+    .join(', ')
 }
 
 /**
@@ -87,6 +106,7 @@ export function MaintenanceSection(): React.JSX.Element {
   const report = reports ? combineReports(reports) : null
   const candidates = report?.candidates ?? 0
   const withCandidates = (reports ?? []).filter((r) => r.candidates.length > 0)
+  const held = reports ? heldSummary(reports, prefs.minAgeHours) : ''
 
   return (
     <div>
@@ -144,7 +164,7 @@ export function MaintenanceSection(): React.JSX.Element {
           report
             ? candidates > 0
               ? `${formatBytes(report.reclaimableBytes)} on disk across ${withCandidates.length} workspace${withCandidates.length === 1 ? '' : 's'}. Uncommitted, unmerged and in-use lanes are never touched.`
-              : 'Nothing to reclaim. Every worktree is in use, unmerged, or holds uncommitted work.'
+              : `Nothing to reclaim.${held ? ` Kept: ${held}.` : ''}`
             : undefined
         }
       >

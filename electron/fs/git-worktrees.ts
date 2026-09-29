@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import type { AddWorktreeBranch, BranchInfo, StartPoint, WorktreeInfo } from '@shared/models'
 import { abortMergeAndCollectConflicts, dirtyCount, git, gitErrorText } from './git-exec'
 import { gitInfoCache } from './git-info-cache'
+import { ghCommitTree, ghMergedPrHeads } from './gh-cli'
 
 const execFileAsync = promisify(execFile)
 
@@ -456,6 +457,56 @@ export async function isBranchMerged(repoPath: string, branch: string): Promise<
   return false
 }
 
+/**
+ * Did this branch land through a merged GitHub PR?
+ *
+ * `isBranchMerged` can only see what git can: a squash commit whose patch still
+ * matches the branch. It misses a lane whose history was rewritten after the
+ * merge (author fixes, a local rebase), or whose squash was cut on a trunk
+ * that had moved. On one real install it proved 2 of 26 merged lanes, so the
+ * sweep reported "0 reclaimable" over tens of gigabytes.
+ *
+ * A merged PR is the proof those lanes have, but only with the local branch
+ * tied to it: the tip IS the PR head, is an ancestor of it, or has the same
+ * tree. A branch that reuses a merged PR's name, or gained commits after the
+ * merge, fails all three. gh being absent or offline answers false.
+ */
+export async function landedViaPullRequest(repoPath: string, branch: string): Promise<boolean> {
+  const heads = await ghMergedPrHeads(repoPath, branch)
+  if (!heads?.length) return false
+  const tip = await git(repoPath, ['rev-parse', '--verify', `refs/heads/${branch}^{commit}`], {
+    trim: true,
+    allowFail: true,
+  })
+  const tree =
+    tip && (await git(repoPath, ['rev-parse', `${tip}^{tree}`], { trim: true, allowFail: true }))
+  if (!tip || !tree) return false
+  for (const head of heads) {
+    if (head === tip) return true
+    if (await git(repoPath, ['cat-file', '-t', head], { trim: true, allowFail: true })) {
+      try {
+        await git(repoPath, ['merge-base', '--is-ancestor', tip, head])
+        return true
+      } catch {
+        // Not behind the PR head; the content can still be identical.
+      }
+      const headTree = await git(repoPath, ['rev-parse', `${head}^{tree}`], {
+        trim: true,
+        allowFail: true,
+      })
+      if (headTree === tree) return true
+    } else if ((await ghCommitTree(repoPath, head)) === tree) {
+      return true
+    }
+  }
+  return false
+}
+
+/** Every proof Phosphor accepts that a branch's work is already on the trunk. */
+export async function isBranchLanded(repoPath: string, branch: string): Promise<boolean> {
+  return (await isBranchMerged(repoPath, branch)) || (await landedViaPullRequest(repoPath, branch))
+}
+
 export async function removeWorktree(
   repoPath: string,
   worktreePath: string,
@@ -489,10 +540,10 @@ export async function removeWorktree(
       branchDeleted = true
     } catch (error) {
       // `-d` refuses a squash-merged branch, which is how every Phosphor lane
-      // lands. Escalate to `-D` ONLY when the squash test proves the work is
-      // already on the trunk; a genuinely unmerged branch is still kept and
-      // reported, never forced.
-      if (await isBranchMerged(repoPath, branch)) {
+      // lands. Escalate to `-D` ONLY when the squash test or a merged PR
+      // proves the work is already on the trunk; a genuinely unmerged branch
+      // is still kept and reported, never forced.
+      if (await isBranchLanded(repoPath, branch)) {
         try {
           await git(repoPath, ['branch', '-D', branch])
           branchDeleted = true

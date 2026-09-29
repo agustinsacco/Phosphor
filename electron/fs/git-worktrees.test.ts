@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -9,6 +9,7 @@ import {
   addWorktree,
   commitAll,
   isBranchMerged,
+  landedViaPullRequest,
   listBranches,
   listWorktrees,
   mergeBranch,
@@ -20,6 +21,13 @@ import {
   worktreeRootFor,
 } from './git-worktrees'
 
+// Unit tests never reach GitHub. Each test says what gh would answer.
+const gh = vi.hoisted(() => ({
+  heads: vi.fn<(repo: string, branch: string) => Promise<string[] | null>>(),
+  tree: vi.fn<(repo: string, oid: string) => Promise<string | null>>(),
+}))
+vi.mock('./gh-cli', () => ({ ghMergedPrHeads: gh.heads, ghCommitTree: gh.tree }))
+
 const execFileAsync = promisify(execFile)
 
 let repo: string
@@ -30,6 +38,8 @@ async function git(cwd: string, args: string[]): Promise<string> {
 }
 
 beforeEach(async () => {
+  gh.heads.mockReset().mockResolvedValue(null)
+  gh.tree.mockReset().mockResolvedValue(null)
   repo = await mkdtemp(join(tmpdir(), 'phosphor-wt-'))
   await git(repo, ['init', '-b', 'main'])
   await git(repo, ['config', 'user.email', 'test@phosphor.dev'])
@@ -41,6 +51,62 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(repo, { recursive: true, force: true })
+})
+
+describe('landedViaPullRequest', () => {
+  async function lane(): Promise<{ path: string; tip: string }> {
+    const { path } = await addWorktree(repo, 'task-1', { kind: 'new', base: 'main' })
+    await writeFile(join(path, 'c.txt'), 'work\n')
+    await commitAll(path, 'work on task-1')
+    return { path, tip: await git(repo, ['rev-parse', 'task-1']) }
+  }
+
+  it('accepts the PR head itself, or a tip behind it', async () => {
+    const { path, tip } = await lane()
+    gh.heads.mockResolvedValue([tip])
+    expect(await landedViaPullRequest(repo, 'task-1')).toBe(true)
+
+    await writeFile(join(path, 'd.txt'), 'pushed later\n')
+    await commitAll(path, 'more')
+    const ahead = await git(repo, ['rev-parse', 'task-1'])
+    await git(path, ['reset', '-q', '--hard', tip])
+    gh.heads.mockResolvedValue([ahead])
+    expect(await landedViaPullRequest(repo, 'task-1')).toBe(true)
+  })
+
+  it('accepts the same tree under rewritten history, asking GitHub when the head is not local', async () => {
+    const { path, tip } = await lane()
+    const tree = await git(repo, ['rev-parse', 'task-1^{tree}'])
+    await git(path, ['commit', '--amend', '--no-edit', '--author', 'Other <o@x.dev>'])
+    gh.heads.mockResolvedValue([tip])
+    expect(await landedViaPullRequest(repo, 'task-1')).toBe(true)
+    expect(gh.tree).not.toHaveBeenCalled()
+
+    const missing = 'f'.repeat(40)
+    gh.heads.mockResolvedValue([missing])
+    gh.tree.mockResolvedValue(tree)
+    expect(await landedViaPullRequest(repo, 'task-1')).toBe(true)
+    expect(gh.tree).toHaveBeenCalledWith(repo, missing)
+  })
+
+  it('refuses work added after the merge, a reused name, and gh being unavailable', async () => {
+    const { path, tip } = await lane()
+    await writeFile(join(path, 'd.txt'), 'after the merge\n')
+    await commitAll(path, 'unlanded')
+    gh.heads.mockResolvedValue([tip])
+    expect(await landedViaPullRequest(repo, 'task-1')).toBe(false)
+
+    gh.heads.mockResolvedValue(['e'.repeat(40)])
+    gh.tree.mockResolvedValue('d'.repeat(40))
+    expect(await landedViaPullRequest(repo, 'task-1')).toBe(false)
+
+    gh.heads.mockResolvedValue(null)
+    expect(await landedViaPullRequest(repo, 'task-1')).toBe(false)
+    gh.heads.mockResolvedValue([])
+    expect(await landedViaPullRequest(repo, 'task-1')).toBe(false)
+    gh.heads.mockResolvedValue([tip])
+    expect(await landedViaPullRequest(repo, 'no-such-branch')).toBe(false)
+  })
 })
 
 describe('parseWorktreeList', () => {
@@ -190,6 +256,25 @@ describe('git-worktrees (real git)', () => {
       expect(result.branchError).toMatch(/not fully merged/)
       expect(result.branchError).not.toMatch(/Command failed|hint:/)
     }
+  })
+
+  it('deletes a lane that landed as a PR after its history was rewritten', async () => {
+    // The squash on main no longer matches the branch's patch, as when trunk
+    // moved under the same lines, so only the merged PR proves it landed.
+    const created = await addWorktree(repo, 'task-1', { kind: 'new', base: 'main' })
+    await writeFile(join(created.path, 'a.txt'), 'lane\n')
+    await commitAll(created.path, 'work on task-1')
+    const prHead = await git(repo, ['rev-parse', 'task-1'])
+    await git(created.path, ['commit', '--amend', '--no-edit', '--author', 'Other <o@x.dev>'])
+    await writeFile(join(repo, 'a.txt'), 'trunk moved\n')
+    await git(repo, ['commit', '-am', 'task-1 (#1), squashed onto a newer trunk'])
+    expect(await isBranchMerged(repo, 'task-1')).toBe(false)
+
+    gh.heads.mockResolvedValue([prHead])
+    const result = await removeWorktree(repo, created.path, { deleteBranch: true })
+    expect(result).toMatchObject({ removed: true, branchDeleted: true })
+    expect(gh.heads).toHaveBeenCalledWith(repo, 'task-1')
+    expect(await git(repo, ['branch', '--list', 'task-1'])).toBe('')
   })
 
   it('prunes after a manual folder delete', async () => {

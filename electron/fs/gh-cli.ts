@@ -237,3 +237,59 @@ export function indexPrsByBranch(rows: RawPr[]): Record<string, GhPullRequest> {
   }
   return byBranch
 }
+
+const OID = /^[0-9a-f]{40}([0-9a-f]{24})?$/
+
+/**
+ * Head commits of the merged PRs opened from `branch`, or null when gh cannot
+ * answer. Read-only, and only ever used as one half of a proof: the caller
+ * still has to show the local branch holds nothing those heads did not.
+ */
+export async function ghMergedPrHeads(repoPath: string, branch: string): Promise<string[] | null> {
+  if (!branch) return null
+  const raw = await gh(repoPath, [
+    'pr',
+    'list',
+    '--head',
+    branch,
+    '--state',
+    'merged',
+    '--limit',
+    '20',
+    '--json',
+    'headRefOid',
+  ])
+  if (raw === null) return null
+  try {
+    const rows: unknown = JSON.parse(raw)
+    if (!Array.isArray(rows)) return null
+    return rows
+      .map((row: { headRefOid?: unknown }) => row?.headRefOid)
+      .filter((oid): oid is string => typeof oid === 'string' && OID.test(oid))
+  } catch {
+    return null
+  }
+}
+
+/** A commit never changes its tree, so one answer per commit is enough. */
+const commitTrees = new Map<string, string>()
+
+/**
+ * The tree of a commit that only exists on GitHub, e.g. a PR head whose
+ * branch was deleted after the merge. Null when gh cannot answer.
+ */
+export async function ghCommitTree(repoPath: string, oid: string): Promise<string | null> {
+  if (!OID.test(oid)) return null
+  const cached = commitTrees.get(oid)
+  if (cached) return cached
+  const raw = await gh(repoPath, [
+    'api',
+    `repos/{owner}/{repo}/git/commits/${oid}`,
+    '--jq',
+    '.tree.sha',
+  ])
+  const tree = raw?.trim() ?? ''
+  if (!OID.test(tree)) return null
+  commitTrees.set(oid, tree)
+  return tree
+}

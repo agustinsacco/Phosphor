@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -15,6 +15,12 @@ import { directorySize, sweep } from './sweep'
  * exhaustively against fabricated facts; what is untested without a real repo
  * is whether a sweep DELETES what the policy cleared and only that.
  */
+
+// Unit tests never reach GitHub. Each test says what gh would answer.
+const gh = vi.hoisted(() => ({
+  heads: vi.fn<(repo: string, branch: string) => Promise<string[] | null>>(),
+}))
+vi.mock('../fs/gh-cli', () => ({ ghMergedPrHeads: gh.heads, ghCommitTree: async () => null }))
 
 const execFileAsync = promisify(execFile)
 const HOUR = 60 * 60 * 1000
@@ -43,6 +49,7 @@ const prefs = { ...DEFAULT_MAINTENANCE_PREFS, reclaimMergedWorktrees: true }
 const later = (): number => Date.now() + 48 * HOUR
 
 beforeEach(async () => {
+  gh.heads.mockReset().mockResolvedValue(null)
   repo = realpathSync.native(await mkdtemp(join(tmpdir(), 'phosphor-sweep-')))
   await git(repo, ['init', '-b', 'main'])
   await git(repo, ['config', 'user.email', 'test@phosphor.dev'])
@@ -118,6 +125,51 @@ describe('sweep', () => {
     expect(reasons.get(repo)).toBe('main-checkout')
     expect(reasons.get(dirty)).toBe('dirty')
     expect(reasons.get(inUse)).toBe('in-use')
+  })
+
+  it('skips a workspace that is not a git repository, without reporting an error', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'phosphor-sandbox-'))
+    try {
+      const report = await sweep({
+        repoPath: folder,
+        prefs,
+        protectedPaths: [],
+        liveSessionCount: 0,
+        act: true,
+        now: later(),
+      })
+      expect(report.errors).toEqual([])
+      expect(report.worktreeCount).toBe(0)
+    } finally {
+      await rm(folder, { recursive: true, force: true })
+    }
+  })
+
+  it('reclaims a lane only a merged PR proves, and never asks GitHub about a dirty one', async () => {
+    const { path: landed } = await addWorktree(repo, 'landed', { kind: 'new', base: 'main' })
+    await writeFile(join(landed, 'a.txt'), 'lane\n')
+    await commitAll(landed, 'work')
+    const prHead = await git(repo, ['rev-parse', 'landed'])
+    await git(landed, ['commit', '--amend', '--no-edit', '--author', 'Other <o@x.dev>'])
+    const { path: dirty } = await addWorktree(repo, 'dirty', { kind: 'new', base: 'main' })
+    await writeFile(join(dirty, 'scratch.txt'), 'unsaved\n')
+    gh.heads.mockImplementation(async (_repo, branch) => (branch === 'landed' ? [prHead] : []))
+
+    const report = await sweep({
+      repoPath: repo,
+      prefs,
+      protectedPaths: [],
+      liveSessionCount: 0,
+      act: true,
+      now: later(),
+    })
+
+    expect(report.reclaimed.map((r) => r.path)).toEqual([landed])
+    expect(existsSync(landed)).toBe(false)
+    expect(await git(repo, ['branch', '--list', 'landed'])).toBe('')
+    expect(existsSync(dirty)).toBe(true)
+    expect(gh.heads.mock.calls.map(([, branch]) => branch)).not.toContain('dirty')
+    expect(report.errors).toEqual([])
   })
 
   it('prunes a registration whose directory was deleted by hand', async () => {

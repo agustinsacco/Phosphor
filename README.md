@@ -373,8 +373,9 @@ electron/            main process — owns every side effect
   updates/           update check + download state machine
   store.ts           app prefs (electron-store, constructed lazily)
 runtime/             Electron-free source modules, not a separate service
-  pi/                pi RPC transport, strict LF JSONL framing, activity tracking,
-                     session ownership with injected client/admission dependencies
+  pi/                pi RPC transport and its omp dialect, strict LF JSONL
+                     framing, activity tracking, session ownership with
+                     injected client/admission dependencies
   file-log.ts        injected file logging
   bundled-extensions.ts  bundled extension paths
 supabase/            isolated control-directory migrations and local RLS tests

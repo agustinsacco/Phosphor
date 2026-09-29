@@ -2,7 +2,14 @@ import { execFile } from 'node:child_process'
 import { stat } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import type { MaintenancePrefs, MaintenanceReport } from '@shared/models'
-import { isBranchMerged, listWorktrees, pruneWorktrees, removeWorktree } from '../fs/git-worktrees'
+import { git } from '../fs/git-exec'
+import {
+  isBranchMerged,
+  landedViaPullRequest,
+  listWorktrees,
+  pruneWorktrees,
+  removeWorktree,
+} from '../fs/git-worktrees'
 import { sessionDirForCwd } from '../pi/pi-paths'
 import { log } from '../debug-log'
 import { selectReclaimable, totalBytes, type WorktreeFacts } from './policy'
@@ -47,9 +54,12 @@ async function lastWrite(worktreePath: string): Promise<number> {
   return Math.max(...times)
 }
 
+/** GitHub lookups in flight at once. Each is a `gh` process and a network call. */
+const PR_LOOKUPS = 4
+
 async function gatherFacts(repoPath: string, measure: boolean): Promise<WorktreeFacts[]> {
   const worktrees = await listWorktrees(repoPath)
-  return Promise.all(
+  const facts: WorktreeFacts[] = await Promise.all(
     worktrees.map(async (w) => ({
       path: w.path,
       realPath: w.realPath,
@@ -63,6 +73,17 @@ async function gatherFacts(repoPath: string, measure: boolean): Promise<Worktree
       bytes: measure ? await directorySize(w.path) : null,
     })),
   )
+  // Git misses most lanes that landed as a PR (see `landedViaPullRequest`).
+  // Ask GitHub only where the answer can matter: a clean lane git could not
+  // prove. A dirty lane is held whatever its merge state.
+  const unproven = facts.filter((f) => f.branch && !f.isMain && !f.merged && f.dirtyCount === 0)
+  const next = async (): Promise<void> => {
+    for (let f = unproven.shift(); f; f = unproven.shift()) {
+      f.merged = await landedViaPullRequest(repoPath, f.branch!)
+    }
+  }
+  await Promise.all(Array.from({ length: PR_LOOKUPS }, next))
+  return facts
 }
 
 export interface SweepOptions {
@@ -107,6 +128,18 @@ export async function sweep({
     reclaimedBytes: 0,
     liveSessionCount,
     errors,
+  }
+
+  // A recent workspace can be a plain folder, e.g. a "No folder" sandbox.
+  // It has no lanes, and every git command below would fail with "not a git
+  // repository" and put that in front of the user as a sweep error.
+  if (
+    (await git(repoPath, ['rev-parse', '--is-inside-work-tree'], {
+      allowFail: true,
+      trim: true,
+    })) !== 'true'
+  ) {
+    return report
   }
 
   // Dropping registrations for directories that no longer exist is the one

@@ -45,8 +45,9 @@ your main checkout.
   naming which one. The default is still isolation.
 - **Nothing uncommitted is lost silently.** A dirty worktree refuses removal
   until you tick an explicit "discard N changes" box. A branch is deleted only
-  when its work is proven on the trunk, by ancestry or by squash-merge test
-  (`isBranchMerged`); anything unproven survives with the reason shown. A
+  when its work is proven on the trunk: by ancestry, by squash-merge test, or
+  by a merged PR tied to the local tip (`isBranchLanded`). Anything unproven
+  survives with the reason shown. A
   dirty tree refuses checkout, pull and update-from-main alike.
 - **Merges are guided, not magic**: commit (your message) → preflight (main
   tree clean; no auto-stash, no auto-checkout) → `git merge --no-ff`. A

@@ -367,7 +367,7 @@ export function TreeViewModal({
                 ✕
               </button>
             </div>
-            <div className="text-text-secondary mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-base">
+            <div className="text-text-secondary mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-base">
               {selected.preview ?? '(no text preview)'}
             </div>
             {selected.label && <div className="text-warning mt-2 text-sm">⚑ {selected.label}</div>}

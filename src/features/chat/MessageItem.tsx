@@ -12,6 +12,7 @@ import { branchMessageForItem, rewindToEntry } from './rewind'
 import { ActivityGroup } from './items/ActivityGroup'
 import { ChatImage } from './ChatImage'
 import { UserText } from './UserText'
+import { USER_BUBBLE_CLASS } from './userBubble'
 import type { TranscriptRow } from './items/transcriptRows'
 import { RunCommandRow } from '@/components/RunCommandRow'
 import { matchErrorRemedy } from './errorRemedies'
@@ -192,21 +193,11 @@ function UserMessage({
         </div>
       )}
       {item.text && (
-        /*
-         * `break-words` is not optional, and it lives HERE rather than on the
-         * spans inside `UserText` because `overflow-wrap` inherits: one rule
-         * covers the plain text, the list items, and anything added later.
-         * Without it a pasted URL or token is one unbreakable word, so
-         * `max-w-[85%]` caps the BOX while the text paints straight through
-         * it — out of the bubble, past the column, and into a horizontal
-         * scrollbar under the whole transcript (the scroller's `overflow-y`
-         * makes its `overflow-x` `auto`). Same failure as the wide-image cap
-         * in ChatImage, one axis over.
-         */
+        // Wrapping long tokens is the bubble class's job; see USER_BUBBLE_CLASS.
         <div
           data-testid="user-message"
           data-find-segment={SEGMENT.body}
-          className="bg-user-bubble max-w-[85%] break-words rounded-xl px-4 py-2.5 text-lg"
+          className={USER_BUBBLE_CLASS}
         >
           <UserText text={item.text} />
         </div>

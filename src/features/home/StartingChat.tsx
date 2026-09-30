@@ -1,6 +1,7 @@
 import { PhosphorLoader } from '@/components/PhosphorLoader'
 import { ChatImage } from '@/features/chat/ChatImage'
 import { UserText } from '@/features/chat/UserText'
+import { USER_BUBBLE_CLASS } from '@/features/chat/userBubble'
 import type { StartingChat as StartingChatState } from '@/stores/startingChat'
 
 /**
@@ -18,16 +19,17 @@ import type { StartingChat as StartingChatState } from '@/stores/startingChat'
  * with the real session's items a moment later. A read-only echo has none of
  * that risk.
  *
- * Layout classes are copied from `MessageList` (`mx-auto max-w-3xl px-6`) and
- * `UserMessage` (`bg-user-bubble … rounded-xl px-4 py-2.5 text-lg`) rather
- * than shared: they are two files that must agree, and a shared wrapper would
- * put a component boundary inside the transcript's virtualised list for the
- * sake of one echo.
+ * The bubble shares `USER_BUBBLE_CLASS` with `UserMessage`: a hand-copied
+ * class list here once lacked `break-words`, so a large paste overflowed only
+ * while the branch was being created. The column (`mx-auto max-w-3xl px-6`)
+ * and the scroller's `overflow-x-hidden` backstop still mirror `MessageList`
+ * by hand; a shared wrapper would put a component boundary inside the
+ * transcript's virtualised list for the sake of one echo.
  */
 export function StartingChat({ starting }: { starting: StartingChatState }): React.JSX.Element {
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto pt-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden pt-4">
         <div className="mx-auto w-full max-w-3xl px-6">
           <div className="flex flex-col items-end gap-1">
             {starting.images && starting.images.length > 0 && (
@@ -37,7 +39,7 @@ export function StartingChat({ starting }: { starting: StartingChatState }): Rea
                 ))}
               </div>
             )}
-            <div className="bg-user-bubble max-w-[85%] rounded-xl px-4 py-2.5 text-lg">
+            <div className={USER_BUBBLE_CLASS} data-testid="starting-chat-message">
               <UserText text={starting.prompt} />
             </div>
             {/* Same zero-height meta row the real bubble reserves, so the

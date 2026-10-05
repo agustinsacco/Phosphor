@@ -96,7 +96,8 @@ limit it hit and keeps what it found.
 Monaco gives you syntax highlighting, its bundled basic language services,
 open-file tabs, dirty indicators and Cmd/Ctrl+S. Saves to the same path are
 serialized and mark only the written revision clean; edits made during a save
-remain dirty. Failed saves retain the buffer and show an error. A reload that
+remain dirty. Closing a dirty tab asks Save / Don’t Save / Cancel. Save failures
+or newer edits keep the tab open; Escape cancels. Failed saves retain the buffer and show an error. A reload that
 finishes after typing preserves the newer buffer and reports a conflict.
 Clean buffers reload on external change; dirty ones show a conflict bar so an outside edit never
 silently eats your work. Clicking a file leaves keyboard focus in the explorer

@@ -25,52 +25,71 @@ function PromptSheet({ request }: { request: PromptRequest }): React.JSX.Element
 
   return (
     <ModalOverlay onClose={() => dismiss(undefined)}>
-      <ModalPanel
-        width={440}
-        title={request.title}
-        subtitle={request.message}
-        footer={
-          request.kind === 'display' ? (
-            <Button variant="primary" onClick={() => dismiss(undefined)}>
-              Close
-            </Button>
-          ) : (
-            <>
-              <Button onClick={() => dismiss(undefined)}>Cancel</Button>
-              <Button variant="primary" onClick={submit}>
-                {request.submitLabel ?? 'OK'}
+      <div role="dialog" aria-modal="true" aria-label={request.title}>
+        <ModalPanel
+          width={440}
+          title={request.title}
+          subtitle={request.message}
+          footer={
+            request.kind === 'display' ? (
+              <Button variant="primary" onClick={() => dismiss(undefined)}>
+                Close
               </Button>
-            </>
-          )
-        }
-      >
-        <div className="px-4 py-3">
-          {request.kind === 'display' ? (
-            <textarea
-              readOnly
-              autoFocus
-              onFocus={(e) => e.target.select()}
-              value={request.text}
-              rows={10}
-              className="border-border bg-code-bg text-text w-full resize-y rounded-lg border px-3 py-2 font-mono text-base outline-none focus:border-[var(--px-border-strong)]"
-            />
-          ) : (
-            <TextInput
-              size="lg"
-              data-testid="prompt-input"
-              autoFocus
-              onFocus={(e) => e.target.select()}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submit()
-              }}
-              placeholder={request.placeholder}
-              className="w-full"
-            />
+            ) : request.kind === 'choice' ? (
+              <>
+                <Button autoFocus onClick={() => dismiss(undefined)}>
+                  Cancel
+                </Button>
+                {request.choices?.map((choice) => (
+                  <Button
+                    key={choice.value}
+                    variant={choice.primary ? 'primary' : undefined}
+                    onClick={() => dismiss(choice.value)}
+                  >
+                    {choice.label}
+                  </Button>
+                ))}
+              </>
+            ) : (
+              <>
+                <Button onClick={() => dismiss(undefined)}>Cancel</Button>
+                <Button variant="primary" onClick={submit}>
+                  {request.submitLabel ?? 'OK'}
+                </Button>
+              </>
+            )
+          }
+        >
+          {request.kind !== 'choice' && (
+            <div className="px-4 py-3">
+              {request.kind === 'display' ? (
+                <textarea
+                  readOnly
+                  autoFocus
+                  onFocus={(e) => e.target.select()}
+                  value={request.text}
+                  rows={10}
+                  className="border-border bg-code-bg text-text w-full resize-y rounded-lg border px-3 py-2 font-mono text-base outline-none focus:border-[var(--px-border-strong)]"
+                />
+              ) : (
+                <TextInput
+                  size="lg"
+                  data-testid="prompt-input"
+                  autoFocus
+                  onFocus={(e) => e.target.select()}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') submit()
+                  }}
+                  placeholder={request.placeholder}
+                  className="w-full"
+                />
+              )}
+            </div>
           )}
-        </div>
-      </ModalPanel>
+        </ModalPanel>
+      </div>
     </ModalOverlay>
   )
 }

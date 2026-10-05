@@ -966,6 +966,47 @@ test('file finder reveals and highlights a nested file in the explorer', async (
   }
 })
 
+test('closing dirty editor tabs offers cancel, discard and save', async () => {
+  const harness = await launch()
+  const { page, workspace } = harness
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+  try {
+    await openWorkspace(page)
+    await page.getByPlaceholder('Describe a task or ask a question').fill('Hello')
+    await page.getByRole('button', { name: /Start session/i }).click()
+    await expect(page.getByText(/Done:\s*hello\.ts\s*updated\./)).toBeVisible({ timeout: 30_000 })
+    await page.getByTitle(/^Files pane/).click()
+    const row = page
+      .getByTestId('file-explorer')
+      .getByRole('button', { name: 'hello.ts', exact: true })
+    const editor = page.locator('.monaco-editor [role="textbox"]').first()
+    const close = page.getByRole('button', { name: 'Close hello.ts', exact: true })
+    const dialog = page.getByRole('dialog', { name: 'Save changes to hello.ts?' })
+    await row.click()
+    await editor.focus()
+    await page.keyboard.press(`${mod}+a`)
+    await page.keyboard.type('// discard me')
+    await close.click()
+    await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.monaco-editor .view-lines')).toContainText('discard me')
+    await close.click()
+    await dialog.getByRole('button', { name: 'Don’t Save', exact: true }).click()
+    await expect(page.getByText('No file open', { exact: true })).toBeVisible()
+    expect(await readFile(join(workspace, 'hello.ts'), 'utf8')).not.toContain('discard me')
+    await row.click()
+    await editor.focus()
+    await page.keyboard.press(`${mod}+a`)
+    await page.keyboard.type('// save me')
+    await close.click()
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(page.getByText('No file open', { exact: true })).toBeVisible()
+    expect(await readFile(join(workspace, 'hello.ts'), 'utf8')).toBe('// save me')
+  } finally {
+    await shutdown(harness)
+  }
+})
+
 test('explorer creates entries from empty space and keeps renamed editor buffers', async () => {
   const harness = await launch()
   const { page, workspace } = harness

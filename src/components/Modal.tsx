@@ -22,7 +22,7 @@ const escapeEntries: EscapeEntry[] = []
 let escapeListenerAttached = false
 
 function handleWindowEscape(event: KeyboardEvent): void {
-  if (event.key !== 'Escape') return
+  if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return
   let innermost: EscapeEntry | undefined
   for (const entry of escapeEntries) {
     if (!innermost || entry.depth >= innermost.depth) innermost = entry

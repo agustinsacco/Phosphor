@@ -1,6 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.stubGlobal('window', { phosphor: { invoke: vi.fn().mockResolvedValue(undefined) } })
+// Activation dismisses notices through a lazy import. Let it finish before
+// Vitest tears down the module environment.
+afterEach(async () => {
+  await vi.dynamicImportSettled()
+})
 
 const { useLayoutStore, sessionPanes, sanitizePersistedPanes } = await import('./layout')
 const { useSessionsStore } = await import('./sessions')

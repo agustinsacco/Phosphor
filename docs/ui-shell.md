@@ -21,8 +21,9 @@
   including the chords inherited from Claude Code (Esc Esc rewind, ↑/↓ prompt
   history, Tab/Shift+Tab, Ctrl+O verbose output), is Settings → Keybindings.
 
-**Shortcut scope:** New, Go to file, Find, Files and Changes work from the
-composer; Search in files works from any focus, the editor included.
+**Shortcut scope:** New, Find, Files and Changes work from the composer.
+Go to file also works from the editor and ordinary text fields; Ctrl+P remains
+shell history in terminals. Search in files works from any focus, the editor included.
 F6 moves between the composer and pane controls; in a fullscreen pane it
 focuses Exit fullscreen. Dialogs block app navigation (not zoom). IME/AltGr and
 editor-owned letter chords are never read as app commands. Bindings belong to

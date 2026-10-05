@@ -14,7 +14,9 @@ its row and scrolls it into view without taking keyboard focus. Only that path
 is loaded, and hidden/gitignore filters still apply. Cmd/Ctrl+P opens the Files
 pane on the explorer tree, replacing the content-search panel if it was open.
 Content search keeps its results visible while stepping through matches; returning
-to the explorer reveals the active file.
+to the explorer reveals the active file. The finder also works from the editor,
+accepts `file.ts:line:column`, reports index-loading failures, and restores the
+previous keyboard focus on dismissal.
 
 ## File management
 

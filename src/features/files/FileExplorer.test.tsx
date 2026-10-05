@@ -94,6 +94,73 @@ it('preserves manual multi-selection until the next file navigation', async () =
   expect(row('/repo/other')?.getAttribute('aria-pressed')).toBe('false')
 })
 
+const press = async (key: string, options: KeyboardEventInit = {}) => {
+  await act(async () =>
+    document.activeElement!.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key,
+        bubbles: true,
+        cancelable: true,
+        ...options,
+      }),
+    ),
+  )
+}
+
+it('walks to parents and first children, and collapses before moving up', async () => {
+  await open('/repo/src/nested/b.ts')
+  await act(async () => root.render(<FileExplorer workspacePath="/repo" />))
+  row('/repo/src/nested/b.ts')!.focus()
+  await press('ArrowLeft')
+  expect(document.activeElement).toBe(row('/repo/src/nested'))
+  await press('ArrowRight')
+  expect(document.activeElement).toBe(row('/repo/src/nested/b.ts'))
+  await press('ArrowLeft')
+  await press('ArrowLeft')
+  expect(row('/repo/src/nested')?.getAttribute('aria-expanded')).toBe('false')
+  expect(document.activeElement).toBe(row('/repo/src/nested'))
+  await press('ArrowLeft')
+  expect(document.activeElement).toBe(row('/repo/src'))
+})
+
+it('extends and shrinks a keyboard range from a stable anchor', async () => {
+  await act(async () => root.render(<FileExplorer workspacePath="/repo" />))
+  row('/repo/src')!.focus()
+  await press('ArrowDown', { shiftKey: true })
+  expect(container.querySelectorAll('[data-path][aria-pressed="true"]')).toHaveLength(2)
+  await press('ArrowDown', { shiftKey: true })
+  expect(container.querySelectorAll('[data-path][aria-pressed="true"]')).toHaveLength(3)
+  await press('ArrowUp', { shiftKey: true })
+  expect(container.querySelectorAll('[data-path][aria-pressed="true"]')).toHaveLength(2)
+  expect(row('/repo/src')?.getAttribute('aria-pressed')).toBe('true')
+})
+
+it('finds visible filenames by typing without opening the file', async () => {
+  await act(async () => root.render(<FileExplorer workspacePath="/repo" />))
+  container.querySelector<HTMLElement>('[data-testid="file-explorer"]')!.focus()
+  await press('s')
+  await press('r')
+  expect(document.activeElement).toBe(row('/repo/src'))
+  expect(row('/repo/src')?.getAttribute('aria-expanded')).toBe('false')
+  await press('a', { isComposing: true })
+  expect(document.activeElement).toBe(row('/repo/src'))
+})
+
+it('collapses this workspace only and explicitly reveals the active file again', async () => {
+  await open('/repo/src/nested/b.ts')
+  useFilesStore.setState({ expanded: { '/other/src': true } })
+  await act(async () => root.render(<FileExplorer workspacePath="/repo" />))
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>('[title="Collapse all folders"]')!.click(),
+  )
+  expect(row('/repo/src/nested/b.ts')).toBeNull()
+  expect(useFilesStore.getState().expanded['/other/src']).toBe(true)
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>('[title="Reveal active file"]')!.click(),
+  )
+  expect(row('/repo/src/nested/b.ts')?.getAttribute('aria-current')).toBe('true')
+})
+
 it('reveals a file opened while the explorer was unmounted', async () => {
   await open('/repo/src/nested/b.ts')
   await act(async () => root.render(<FileExplorer workspacePath="/repo" />))

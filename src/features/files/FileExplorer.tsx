@@ -4,7 +4,7 @@ import type { DirEntry } from '@shared/models'
 import { useFilesStore, workspaceFiles } from '@/stores/files'
 import { showContextMenu } from '@/components/ContextMenu'
 import { revealLabel } from '@/lib/reveal'
-import { BranchIcon, ChevronIcon, SearchIcon } from '@/components/icons'
+import { BranchIcon, ChevronIcon, CollapseAllIcon, FileIcon, SearchIcon } from '@/components/icons'
 import { formatShortcut } from '@/lib/shortcuts'
 import { createIn, renameEntry, trashEntry, runFileAction } from './fileActions'
 import { useExplorer } from './useExplorer'
@@ -85,6 +85,35 @@ export const FileExplorer = memo(function FileExplorer({
               </svg>
             </IconToggle>
           ))}
+          <IconToggle
+            title="Reveal active file"
+            active={false}
+            disabled={!controls.activePath}
+            onClick={() => {
+              if (controls.activePath)
+                useFilesStore.getState().setActive(workspacePath, controls.activePath)
+            }}
+          >
+            <FileIcon size={12} />
+          </IconToggle>
+          <IconToggle
+            title="Collapse all folders"
+            active={false}
+            onClick={() =>
+              useFilesStore.setState((s) => ({
+                expanded: Object.fromEntries(
+                  Object.entries(s.expanded).map(([path, expanded]) => [
+                    path,
+                    path.startsWith(workspacePath + '/') || path.startsWith(workspacePath + '\\')
+                      ? false
+                      : expanded,
+                  ]),
+                ),
+              }))
+            }
+          >
+            <CollapseAllIcon />
+          </IconToggle>
           <IconToggle
             title="Refresh explorer"
             active={false}
@@ -310,11 +339,13 @@ function ExplorerRow({
 export function IconToggle({
   title,
   active,
+  disabled,
   onClick,
   children,
 }: {
   title: string
   active: boolean
+  disabled?: boolean
   onClick: () => void
   children: React.ReactNode
 }): React.JSX.Element {
@@ -322,9 +353,10 @@ export function IconToggle({
     <button
       title={title}
       aria-label={title}
+      disabled={disabled}
       onClick={onClick}
       className={clsx(
-        'flex h-6 w-6 items-center justify-center rounded-sm transition-colors',
+        'flex h-6 w-6 items-center justify-center rounded-sm transition-colors disabled:opacity-40',
         active
           ? 'text-accent bg-accent-soft'
           : 'text-text-tertiary hover:text-text hover:bg-bg-secondary',

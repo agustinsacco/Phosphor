@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.stubGlobal('window', { phosphor: { invoke: vi.fn().mockResolvedValue(undefined) } })
 
@@ -12,6 +12,10 @@ beforeEach(() => {
   useLayoutStore.setState({ bySession: {}, sidebarVisible: true, page: null })
   useSessionsStore.setState({ activeSessionId: A })
 })
+
+// activate() lazily imports extensionUi to dismiss session notices. Let those
+// real imports finish before Vitest tears down this file's module environment.
+afterEach(() => vi.dynamicImportSettled())
 
 describe('layout store — global pages', () => {
   it('toggles a page open and closed, and swaps between pages', () => {

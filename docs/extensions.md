@@ -229,7 +229,7 @@ patchWebSearchConfig` (`pi-config-handlers.ts`).
 Separate from packages the user installs, Phosphor ships **six** TypeScript
 extensions in `pi-ext/`, loaded into **every** session via
 `pi --mode rpc -e <path>` (`bundledExtensions()` in
-`electron/pi/session-runtime.ts`). They are the only Phosphor code with a
+`runtime/bundled-extensions.ts`, called by `electron/pi/session-runtime.ts`). They are the only Phosphor code with a
 say inside a turn.
 
 | File                   | Why it must run inside pi                                                                    |

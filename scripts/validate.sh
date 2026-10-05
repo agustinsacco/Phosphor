@@ -25,6 +25,10 @@ step typecheck npm run typecheck
 step lint      npm run lint
 step format    npx prettier --check .
 step unit      npm test
+# Requires `npm run db:start`; CI runs this suite in its own isolated job.
+if [[ "${CONTROL_DB:-}" == "1" ]]; then
+  step control-db npm run test:control-db
+fi
 if [[ "${SKIP_E2E:-}" != "1" ]]; then
   step e2e npm run test:e2e -- --reporter=dot
 fi

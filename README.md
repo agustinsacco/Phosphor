@@ -373,6 +373,7 @@ electron/            main process — owns every side effect
   updates/           update check + download state machine
   store.ts           app prefs (electron-store, constructed lazily)
 runtime/             Electron-free execution helpers: file logging and bundled extension paths
+supabase/            isolated control-directory migrations and local RLS tests
 shared/              types and pure logic shared by main + renderer
   ipc.ts             the typed IpcInvokeMap contract
   rpc.ts             hand-mirrored copy of pi's RPC protocol + drift guards

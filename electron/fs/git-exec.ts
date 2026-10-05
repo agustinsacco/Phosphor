@@ -49,6 +49,7 @@ const READ_ONLY = new Set([
   'for-each-ref',
   'merge-base',
   'ls-files',
+  'ls-tree',
   'check-ref-format',
   'cat-file',
   // These write unreachable objects, not HEAD, refs, or the working tree.

@@ -1,10 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { shell } from 'electron'
+vi.mock('electron', () => ({ shell: { trashItem: vi.fn().mockResolvedValue(undefined) } }))
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createSessionBaseline, showFileAt } from './git-service'
+import { createSessionBaseline, restoreFileTo, showFileAt } from './git-service'
 
 /**
  * Regression cover for the session baseline.
@@ -29,6 +31,7 @@ async function git(cwd: string, args: string[]): Promise<string> {
 }
 
 beforeEach(async () => {
+  vi.mocked(shell.trashItem).mockClear()
   repo = await mkdtemp(join(tmpdir(), 'phosphor-baseline-'))
   await git(repo, ['init', '-b', 'main'])
   await git(repo, ['config', 'user.email', 'test@phosphor.dev'])
@@ -40,6 +43,57 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await rm(repo, { recursive: true, force: true })
+})
+
+describe('safe file restoration', () => {
+  it('refuses unavailable baselines without trashing or changing anything', async () => {
+    await expect(restoreFileTo(repo, 'missing-baseline', 'tracked.txt')).rejects.toThrow()
+    expect(shell.trashItem).not.toHaveBeenCalled()
+    expect(await readFile(join(repo, 'tracked.txt'), 'utf8')).toBe('committed\n')
+  })
+
+  it('trashes only a file confirmed absent from a valid baseline', async () => {
+    await writeFile(join(repo, 'new.txt'), 'new\n')
+    expect(await restoreFileTo(repo, 'HEAD', 'new.txt')).toEqual({ restored: false, deleted: true })
+    expect(shell.trashItem).toHaveBeenCalledWith(join(repo, 'new.txt'))
+  })
+
+  it('restores the working copy without changing staged content', async () => {
+    await writeFile(join(repo, 'tracked.txt'), 'staged\n')
+    await git(repo, ['add', 'tracked.txt'])
+    await writeFile(join(repo, 'tracked.txt'), 'unstaged\n')
+    await restoreFileTo(repo, 'HEAD', 'tracked.txt')
+    expect(await readFile(join(repo, 'tracked.txt'), 'utf8')).toBe('committed\n')
+    expect(await git(repo, ['show', ':tracked.txt'])).toBe('staged')
+  })
+
+  it('preserves empty files instead of treating them as absent', async () => {
+    await writeFile(join(repo, 'empty.txt'), '')
+    const ref = await createSessionBaseline(repo)
+    await writeFile(join(repo, 'empty.txt'), 'modified')
+    await restoreFileTo(repo, ref!, 'empty.txt')
+    expect(await readFile(join(repo, 'empty.txt'), 'utf8')).toBe('')
+    expect(shell.trashItem).not.toHaveBeenCalled()
+  })
+
+  it('treats filename metacharacters literally', async () => {
+    await writeFile(join(repo, 'a[1].txt'), 'original')
+    await writeFile(join(repo, 'a1.txt'), 'other')
+    const ref = await createSessionBaseline(repo)
+    await writeFile(join(repo, 'a[1].txt'), 'changed')
+    await writeFile(join(repo, 'a1.txt'), 'leave alone')
+    await restoreFileTo(repo, ref!, 'a[1].txt')
+    expect(await readFile(join(repo, 'a[1].txt'), 'utf8')).toBe('original')
+    expect(await readFile(join(repo, 'a1.txt'), 'utf8')).toBe('leave alone')
+  })
+
+  it.each(['../outside', '/outside', '.git/config', 'a/../../outside'])(
+    'refuses unsafe path %s',
+    async (path) => {
+      await expect(restoreFileTo(repo, 'HEAD', path)).rejects.toThrow('inside the workspace')
+      expect(shell.trashItem).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe('createSessionBaseline', () => {

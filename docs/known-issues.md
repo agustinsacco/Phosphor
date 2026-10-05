@@ -97,7 +97,6 @@ Found in a 2026-09-05 workbench review; all still reproduce.
 | R1  | A conflicting PR still classifies as ready/merge, and a PR with no CI reads "checks green"                         | `src/features/home/laneState.ts`                            |
 | R2  | The lane board's "Merge" is a local `--no-ff` merge, not a PR merge, and nothing in the label says so              | `src/features/home/LaneBoard.tsx`, `MergeWorktreeModal.tsx` |
 | R3  | The Changes inventory is tool-call-only: every write is marked created, and counts accumulate rather than reflect  | `src/features/files/collectTouchedFiles.ts`                 |
-| R4  | Restore trashes a file when the baseline lookup **errors**, because `showFileAt` returns `null` for any failure    | `electron/fs/git-service.ts`                                |
 | R5  | A failed worktree creation silently starts the session in the original checkout — no retry, no cancel              | `src/features/sessions/startChat.ts`                        |
 | R6  | A dirty lane with no PR classifies as idle; "Needs a push" also absorbs "changes requested" and "N checks failing" | `src/features/home/laneState.ts`                            |
 | R7  | The model picked on Home is written to the drafts store and never passed into `createSession`                      | `WorkspaceHome.tsx` → `startChat.ts`                        |

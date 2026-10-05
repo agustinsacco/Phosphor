@@ -111,6 +111,15 @@ included: a debugger, external language servers, split editors, bulk delete,
 transfer undo, previews of Office documents or archives (use Open in default
 app or Quick Look).
 
+## Reverting session changes
+
+Revert restores only the working copy, leaving staged Git content untouched.
+An unavailable baseline or a read error refuses the operation; only confirmed
+absence from a valid baseline permits moving a newly created file to Trash.
+Unsaved editor buffers must be saved or discarded first. Writes without a Git
+baseline cannot be safely reverted automatically, so that action is disabled.
+Revert failures are shown as errors rather than disappearing silently.
+
 ## Previews
 
 Images, video, audio, PDFs, HTML and markdown open in a viewer instead of

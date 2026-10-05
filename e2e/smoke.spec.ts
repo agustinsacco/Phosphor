@@ -916,6 +916,51 @@ test('workspace → session → streamed answer, diff and artifact render', asyn
   }
 })
 
+test('file finder reveals and highlights a nested file in the explorer', async () => {
+  const harness = await launch()
+  const { page, workspace } = harness
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+  try {
+    await mkdir(join(workspace, 'src', 'nested'), { recursive: true })
+    await writeFile(join(workspace, 'src', 'nested', 'target.ts'), 'export const target = 1\n')
+    await Promise.all(
+      Array.from({ length: 60 }, (_, i) =>
+        writeFile(join(workspace, 'src', 'nested', `before-${i}.ts`), ''),
+      ),
+    )
+    await openWorkspace(page)
+    await page.getByPlaceholder('Describe a task or ask a question').fill('Hello')
+    await page.getByRole('button', { name: /Start session/i }).click()
+    await expect(page.getByText(/Done:\s*hello\.ts\s*updated\./)).toBeVisible({ timeout: 30_000 })
+    // The finder must restore the tree even when content search was showing.
+    await page.keyboard.press(`${mod}+Shift+f`)
+    await expect(page.getByTestId('workspace-search')).toBeVisible()
+    await page.getByRole('textbox', { name: 'Chat message' }).focus()
+    await page.keyboard.press(`${mod}+p`)
+    const finder = page.getByPlaceholder('Go to file…')
+    await finder.fill('target.ts')
+    await expect(
+      page.locator('[data-shortcut-overlay="finder"]').getByText('target.ts', { exact: true }),
+    ).toBeVisible()
+    await finder.press('Enter')
+    const explorer = page.getByTestId('file-explorer')
+    const target = explorer.getByRole('button', { name: 'target.ts', exact: true })
+    await expect(target).toHaveAttribute('aria-current', 'true')
+    await expect(target).toHaveAttribute('aria-pressed', 'true')
+    await expect(target).toBeInViewport()
+    await expect(page.locator('.monaco-editor .view-lines')).toContainText('export const target')
+    await explorer.getByRole('button', { name: 'src', exact: true }).click()
+    await expect(target).not.toBeVisible()
+    await page.keyboard.press(`${mod}+p`)
+    await finder.fill('target.ts')
+    await finder.press('Enter')
+    await expect(target).toHaveAttribute('aria-pressed', 'true')
+    await expect(target).toBeInViewport()
+  } finally {
+    await shutdown(harness)
+  }
+})
+
 test('explorer creates entries from empty space and keeps renamed editor buffers', async () => {
   const harness = await launch()
   const { page, workspace } = harness

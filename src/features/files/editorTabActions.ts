@@ -41,7 +41,19 @@ export async function saveAllEditorFiles(workspace: string): Promise<void> {
 export function useEditorTabShortcuts(workspace: string): void {
   useEffect(() => {
     const handle = (event: KeyboardEvent): void => {
-      if (ignoreShortcut(event) || shortcutOverlayOpen()) return
+      // Save All is the one explicit Alt chord. Do not let that exception
+      // consume composition, handled keys, or AltGr-generated text.
+      const saveAll =
+        (event.metaKey || event.ctrlKey) &&
+        event.altKey &&
+        !event.shiftKey &&
+        event.code === 'KeyS' &&
+        !event.defaultPrevented &&
+        !event.isComposing &&
+        event.keyCode !== 229 &&
+        !event.getModifierState('AltGraph') &&
+        (event.metaKey || event.key.toLowerCase() === 's')
+      if ((ignoreShortcut(event) && !saveAll) || shortcutOverlayOpen()) return
       if (
         event.target !== document.body &&
         !(event.target as HTMLElement)?.closest?.('[data-testid="right-pane"]')
@@ -68,7 +80,7 @@ export function useEditorTabShortcuts(workspace: string): void {
         action = () => runFileAction(closeEditorFile(workspace, files.activePath!))
       } else if (mod && !event.altKey && event.shiftKey && event.code === 'KeyT') {
         action = () => runFileAction(store.reopenClosed(workspace))
-      } else if (mod && event.altKey && !event.shiftKey && event.code === 'KeyS') {
+      } else if (saveAll) {
         action = () => runFileAction(saveAllEditorFiles(workspace))
       }
       if (action) {

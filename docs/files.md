@@ -117,8 +117,9 @@ to reorder; their context menu offers Pin, Close others, Close to the right,
 Close saved tabs and Reopen closed tab. Bulk closing skips pinned tabs and stops
 at Cancel. Tab arrows/Home/End navigate accessibly, Ctrl+Tab cycles (Shift
 reverses), Cmd/Ctrl+W safely closes, and Cmd/Ctrl+Shift+T reopens from a bounded,
-workspace-local in-memory history. Save all is available above the editor and
-on Cmd/Ctrl+Alt+S. These shortcuts apply inside the Files pane, not other panes
+workspace-local in-memory history. Failed reopen attempts show an error and
+leave older history reachable on the next request. Save all is available above
+the editor and on Cmd/Ctrl+Alt+S; IME composition and AltGr text remain untouched. These shortcuts apply inside the Files pane, not other panes
 or dialogs.
 
 Binary files and files over 4 MB can be managed but not edited as text. Not

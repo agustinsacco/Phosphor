@@ -25,6 +25,7 @@ export interface PendingReveal extends RevealTarget {
 let revealSeq = 0
 let fileSeq = 0
 const fileWrites = new Map<string, Promise<void>>()
+const reopeningWorkspaces = new Set<string>()
 
 export interface OpenFile {
   /** Distinguishes a reopened tab from an earlier asynchronous read/save. */
@@ -367,9 +368,24 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   reopenClosed: async (workspacePath) => {
+    if (reopeningWorkspaces.has(workspacePath)) return
     const workspace = workspaceFiles(get(), workspacePath)
     const path = workspace.closedPaths?.find((p) => !workspace.openFiles.some((f) => f.path === p))
-    if (path) await get().openFile(workspacePath, path)
+    if (!path) return
+    // Consume the attempt even if disk access fails. The caller shows the
+    // error, and the next request can reach older entries instead of looping.
+    set((s) =>
+      patchWorkspace(s, workspacePath, (w) => ({
+        ...w,
+        closedPaths: w.closedPaths?.filter((p) => p !== path),
+      })),
+    )
+    reopeningWorkspaces.add(workspacePath)
+    try {
+      await get().openFile(workspacePath, path)
+    } finally {
+      reopeningWorkspaces.delete(workspacePath)
+    }
   },
 
   togglePinned: (workspacePath, path) => {

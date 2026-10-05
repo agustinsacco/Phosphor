@@ -252,7 +252,9 @@ export function useExplorer(workspace: string) {
           event.preventDefault()
           event.stopPropagation()
           if (event.shiftKey && ['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
-            const anchor = entries.findIndex((e) => e.path === rangeAnchor.current)
+            const anchor = entries.findIndex(
+              (e) => e.path === rangeAnchor.current && selected.some((s) => s.path === e.path),
+            )
             const from = anchor >= 0 ? anchor : Math.max(index, 0)
             rangeAnchor.current = entries[from]?.path ?? next.path
             const to = entries.indexOf(next)

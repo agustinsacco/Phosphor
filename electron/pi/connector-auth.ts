@@ -1,4 +1,4 @@
-import { PiRpcClient } from './rpc-client'
+import { PiRpcClient } from './desktop-rpc-client'
 import { parseAuthNotice, parseOAuthPrompt } from '@shared/connectors'
 import type { ConnectorAuthState } from '@shared/models'
 import { log } from '../debug-log'

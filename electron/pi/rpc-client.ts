@@ -2,7 +2,7 @@ import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child
 import { EventEmitter } from 'node:events'
 import { JsonlDecoder } from './jsonl'
 import { SessionActivity } from './session-activity'
-import { shutdownApproval } from '../shutdown-approval'
+import type { RuntimeLog } from '../../runtime/file-log'
 import type {
   ExtensionUIRequest,
   ExtensionUIResponse,
@@ -11,7 +11,11 @@ import type {
   RpcResponse,
   RpcResponseDataMap,
 } from '@shared/rpc'
-import { log } from '../debug-log'
+
+export interface PiRpcRuntime {
+  log: RuntimeLog
+  isClosing: () => boolean
+}
 
 export interface PiSpawnOptions {
   /** Workspace folder — becomes pi's cwd. */
@@ -90,7 +94,10 @@ export class PiRpcClient extends EventEmitter<PiRpcClientEvents> {
   private shuttingDown = false
   private killTimer: NodeJS.Timeout | null = null
 
-  constructor(private readonly options: PiSpawnOptions) {
+  constructor(
+    private readonly options: PiSpawnOptions,
+    private readonly runtime: PiRpcRuntime,
+  ) {
     super()
   }
 
@@ -137,7 +144,7 @@ export class PiRpcClient extends EventEmitter<PiRpcClientEvents> {
     // The exact argv, because reconstructing it once meant shimming the
     // binary on PATH to capture what was really passed. Env is deliberately
     // omitted — it carries API keys.
-    log('pi', 'spawn', {
+    this.runtime.log('pi', 'spawn', {
       bin: o.binaryPath ?? 'pi',
       args,
       cwd: o.cwd,
@@ -169,7 +176,7 @@ export class PiRpcClient extends EventEmitter<PiRpcClientEvents> {
 
     child.on('error', (error) => {
       // Spawn failure (e.g. binary vanished): surface as an unexpected exit.
-      log('pi', 'spawn failed', { bin: o.binaryPath ?? 'pi', message: error.message })
+      this.runtime.log('pi', 'spawn failed', { bin: o.binaryPath ?? 'pi', message: error.message })
       this.failAllPending(error)
       this.emit('exit', { code: null, signal: null, expected: false })
       this.child = null
@@ -190,7 +197,7 @@ export class PiRpcClient extends EventEmitter<PiRpcClientEvents> {
       return Promise.reject(new Error('pi process is not running'))
     }
     if (
-      shutdownApproval.closing &&
+      this.runtime.isClosing() &&
       !command.type.startsWith('get_') &&
       !['abort', 'abort_bash', 'abort_retry', 'clear_queue'].includes(command.type)
     )
@@ -203,7 +210,7 @@ export class PiRpcClient extends EventEmitter<PiRpcClientEvents> {
     // session that ended mid-work looked identical to one that finished, and
     // the sub-agents killed with it left nothing to correlate against.
     if (command.type === 'abort' || command.type === 'abort_bash') {
-      log('pi', command.type, { sessionId: this.options.sessionId, requestId: id })
+      this.runtime.log('pi', command.type, { sessionId: this.options.sessionId, requestId: id })
     }
 
     return new Promise<RpcResponse<RpcResponseDataMap[T]>>((resolve, reject) => {

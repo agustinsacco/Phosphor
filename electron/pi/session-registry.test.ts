@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({ dispose: vi.fn() }))
-vi.mock('./rpc-client', () => ({
+vi.mock('./desktop-rpc-client', () => ({
   PiRpcClient: class {
     sessionFile = '/session'
     pid = 123

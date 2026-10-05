@@ -62,7 +62,8 @@ connectors, extension-ui, files, home, palette, sessions, settings, skills,
 terminal, updates, workspaces, worktrees, routines) and `pi-ext/` has **6** modules —
 `artifacts`, `context-breakdown`, `worktree-paths`, `tool-name-guard`,
 `mcp-status`, `headroom` — **all six** loaded into every session by
-`bundledExtensions()` in `electron/pi/session-runtime.ts`. Those two
+`bundledExtensions()` in `runtime/bundled-extensions.ts`, called by
+`electron/pi/session-runtime.ts`. Those two
 numbers move; the tree in the README is the thing to re-read, not this
 paragraph.
 

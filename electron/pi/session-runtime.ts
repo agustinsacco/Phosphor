@@ -1,5 +1,6 @@
 import { app } from 'electron'
-import { basename, join as joinPath } from 'node:path'
+import { basename } from 'node:path'
+import { bundledExtensions } from '../../runtime/bundled-extensions'
 import { registry } from '../registry'
 import { trimForRenderer } from '../ipc/event-trim'
 import { checkPiHealth } from './health'
@@ -29,39 +30,6 @@ import { log } from '../debug-log'
 import { broadcast } from '../broadcast'
 
 let cachedHealth: PiHealth | null = null
-
-/** Bundled Phosphor pi extension (dev: repo path; packaged: resources). */
-function bundledExtensionPath(file: string): string {
-  if (app.isPackaged) {
-    return joinPath(process.resourcesPath, 'pi-ext', file)
-  }
-  return joinPath(app.getAppPath(), 'pi-ext', file)
-}
-
-/**
- * Extensions Phosphor loads into EVERY session, regardless of provider:
- * artifacts (tools the model can call), context-breakdown (context composition
- * and the session-local window cap used by pi's native compaction),
- * worktree-paths (refuses a file read that has escaped into the main
- * checkout of a worktree session), tool-name-guard (keeps a malformed
- * tool call out of the session file, where it would brick every later turn),
- * mcp-status (per-server MCP state for the connectors UI), and headroom
- * (compresses large tool results through the local Headroom proxy as they
- * are produced; inert unless PHOSPHOR_HEADROOM_URL is set at spawn).
- *
- * All six files in pi-ext/ are listed here — keep this comment and the array
- * in step, since nothing else records why a given one is loaded.
- */
-function bundledExtensions(): string[] {
-  return [
-    bundledExtensionPath('artifacts.ts'),
-    bundledExtensionPath('context-breakdown.ts'),
-    bundledExtensionPath('worktree-paths.ts'),
-    bundledExtensionPath('tool-name-guard.ts'),
-    bundledExtensionPath('mcp-status.ts'),
-    bundledExtensionPath('headroom.ts'),
-  ]
-}
 
 /**
  * Spawn a live session and wire its push channels.
@@ -120,7 +88,7 @@ export async function spawnSession(
         ...claudeProviderSpawnEnv(),
       }
 
-  const extensions = [...bundledExtensions()]
+  const extensions = bundledExtensions(app.isPackaged ? process.resourcesPath : app.getAppPath())
 
   // Worktree sessions get an explicit working-directory block: pi's own
   // `Current working directory:` line is correct but has been observed to

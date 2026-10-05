@@ -372,6 +372,7 @@ electron/            main process — owns every side effect
                      does the git and the disk, a scheduler that rate-limits it
   updates/           update check + download state machine
   store.ts           app prefs (electron-store, constructed lazily)
+runtime/             Electron-free execution helpers: file logging and bundled extension paths
 shared/              types and pure logic shared by main + renderer
   ipc.ts             the typed IpcInvokeMap contract
   rpc.ts             hand-mirrored copy of pi's RPC protocol + drift guards

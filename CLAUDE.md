@@ -166,7 +166,7 @@ you want to watch.
 
 - **Phosphor ships six extensions that run inside pi's process** (`pi-ext/`,
   loaded with `-e` into every session; listed in `bundledExtensions()` in
-  `electron/pi/session-runtime.ts`). They are the only Phosphor code with a
+  `runtime/bundled-extensions.ts`). They are the only Phosphor code with a
   say inside a turn. The context extension caps the session window for native
   compaction; two others can change or refuse what the model did:
   - **`worktree-paths.ts` can refuse a tool call.** It blocks a

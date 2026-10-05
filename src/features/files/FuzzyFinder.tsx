@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { ModalOverlay } from '@/components/Modal'
+import { errorText } from '@shared/errors'
 import { create } from 'zustand'
 import { fuzzyFilter } from '@/lib/fuzzy'
 import { openFileInWorkspace } from '@/stores/layout'
 import { MenuRow } from '@/components/PopupMenu'
 import { ignoreShortcut } from '@/lib/shortcutContext'
 import { useWorkspaceSearchStore } from './workspaceSearchStore'
+import { parseFileQuery } from './fileQuery'
+import { runFileAction } from './fileActions'
 
 interface FinderState {
   open: boolean
@@ -25,19 +28,47 @@ export function FuzzyFinder({
 }): React.JSX.Element | null {
   const open = useFinderStore((s) => s.open)
   const [query, setQuery] = useState('')
-  const [files, setFiles] = useState<string[]>([])
+  const [index, setIndex] = useState({
+    workspacePath,
+    files: [] as string[],
+    loading: false,
+    error: '',
+  })
   const [activeIndex, setActiveIndex] = useState(0)
+  const listId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
+    let cancelled = false
+    const previousFocus = document.activeElement
     setQuery('')
     setActiveIndex(0)
-    void window.phosphor.invoke('fs:listFiles', workspacePath).then(setFiles)
-    setTimeout(() => inputRef.current?.focus(), 30)
+    setIndex({ workspacePath, files: [], loading: true, error: '' })
+    inputRef.current?.focus()
+    void window.phosphor.invoke('fs:listFiles', workspacePath).then(
+      (files) => {
+        if (!cancelled) setIndex({ workspacePath, files, loading: false, error: '' })
+      },
+      (error) => {
+        if (!cancelled)
+          setIndex({ workspacePath, files: [], loading: false, error: errorText(error) })
+      },
+    )
+    return () => {
+      cancelled = true
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus()
+    }
   }, [open, workspacePath])
 
-  const matches = useMemo(() => fuzzyFilter(query, files, (f) => f, 14), [query, files])
+  const parsed = parseFileQuery(query)
+  const matches = useMemo(
+    () =>
+      index.workspacePath === workspacePath
+        ? fuzzyFilter(parsed.path, index.files, (f) => f, 14)
+        : [],
+    [parsed.path, index, workspacePath],
+  )
 
   if (!open) return null
   const close = (): void => useFinderStore.getState().setOpen(false)
@@ -45,13 +76,12 @@ export function FuzzyFinder({
   const pick = (file: string): void => {
     close()
     useWorkspaceSearchStore.getState().closeSearch(workspacePath)
-    void openFileInWorkspace(workspacePath, file)
+    runFileAction(openFileInWorkspace(workspacePath, file, parsed.target))
   }
 
   const onKeyDown = (event: React.KeyboardEvent): void => {
     if (ignoreShortcut(event.nativeEvent)) return
-    if (event.key === 'Escape') close()
-    else if (event.key === 'ArrowDown') {
+    if (event.key === 'ArrowDown') {
       event.preventDefault()
       setActiveIndex((i) => (i + 1) % Math.max(1, matches.length))
     } else if (event.key === 'ArrowUp') {
@@ -64,18 +94,29 @@ export function FuzzyFinder({
     }
   }
 
-  return createPortal(
-    <div
-      data-shortcut-overlay="finder"
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 pt-[18vh] backdrop-blur-[2px]"
-      onClick={close}
-    >
+  return (
+    <ModalOverlay onClose={close} align="top" className="pt-[18vh]">
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="border-border bg-surface-raised w-[560px] overflow-hidden rounded-xl border shadow-2xl"
+        data-shortcut-overlay="finder"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Go to file"
+        onKeyDown={(event) => {
+          if (event.key === 'Tab') {
+            event.preventDefault()
+            inputRef.current?.focus()
+          }
+        }}
+        className="border-border bg-surface-raised w-[560px] max-w-[92vw] overflow-hidden rounded-xl border shadow-2xl"
       >
         <input
           ref={inputRef}
+          role="combobox"
+          aria-label="Go to file"
+          aria-expanded="true"
+          aria-autocomplete="list"
+          aria-controls={listId}
+          aria-activedescendant={matches[activeIndex] ? `${listId}-${activeIndex}` : undefined}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
@@ -85,7 +126,12 @@ export function FuzzyFinder({
           placeholder="Go to file…"
           className="text-text placeholder:text-text-tertiary border-border block w-full border-b bg-transparent px-4 py-3 text-lg outline-none"
         />
-        <div className="max-h-80 overflow-y-auto py-1">
+        <div
+          id={listId}
+          role="listbox"
+          aria-label="Matching files"
+          className="max-h-80 overflow-y-auto py-1"
+        >
           {matches.map((file, index) => {
             const slash = file.lastIndexOf('/')
             const dir = slash === -1 ? '' : file.slice(0, slash + 1)
@@ -93,6 +139,9 @@ export function FuzzyFinder({
             return (
               <MenuRow
                 key={file}
+                id={`${listId}-${index}`}
+                role="option"
+                ariaSelected={index === activeIndex}
                 active={index === activeIndex}
                 onHover={() => setActiveIndex(index)}
                 onClick={() => pick(file)}
@@ -104,14 +153,20 @@ export function FuzzyFinder({
               </MenuRow>
             )
           })}
-          {matches.length === 0 && (
-            <div className="text-text-tertiary px-4 py-4 text-center text-base">
-              No matching files
-            </div>
-          )}
+        </div>
+        {(index.loading || index.error || matches.length === 0) && (
+          <div role="status" className="text-text-tertiary px-4 py-4 text-center text-base">
+            {index.loading
+              ? 'Loading files…'
+              : index.error
+                ? `Could not list files: ${index.error}`
+                : 'No matching files'}
+          </div>
+        )}
+        <div className="border-border text-text-tertiary border-t px-4 py-2 text-xs">
+          Add :line or :line:column to jump to a location.
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalOverlay>
   )
 }

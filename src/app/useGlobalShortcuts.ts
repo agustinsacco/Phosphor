@@ -165,7 +165,17 @@ export function useGlobalShortcuts(enabled = true): void {
         return
       }
 
-      // Explicit app navigation works from the composer; Monaco, terminals and
+      // File navigation belongs to the app even while Monaco has focus. Keep
+      // Ctrl+P in terminals, where shells use it for previous history.
+      if (event.code === 'KeyP' && !event.shiftKey) {
+        if (event.ctrlKey && !event.metaKey && (event.target as HTMLElement)?.closest?.('.xterm'))
+          return
+        event.preventDefault()
+        if (getActiveWorkspace()) useFinderStore.getState().setOpen(true)
+        return
+      }
+
+      // Other app navigation works from the composer; Monaco, terminals and
       // other text fields keep their own letter chords. Bold is owned by the field.
       const composer = isComposerInput(event.target)
       if (isEditableTarget(event.target) && !composer) return
@@ -180,13 +190,6 @@ export function useGlobalShortcuts(enabled = true): void {
           if (event.shiftKey) return
           event.preventDefault()
           useSessionsStore.getState().activate(null)
-          break
-        case 'KeyP':
-          if (event.shiftKey) return
-          event.preventDefault()
-          if (getActiveWorkspace()) {
-            useFinderStore.getState().setOpen(true)
-          }
           break
         // ⌘F — find in whatever surface the reader is in: the artifact they
         // clicked into, else the session transcript. From the composer too,

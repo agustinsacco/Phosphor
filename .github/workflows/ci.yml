@@ -43,6 +43,25 @@ jobs:
       - name: Build (main · preload · renderer)
         run: npm run build
 
+  control-schema:
+    name: Control schema · local Supabase · RLS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # A dedicated local project, never linked to a hosted database. Suppress
+      # the CLI's development-key output; startup errors still reach stderr.
+      - name: Start isolated Supabase
+        run: npm run db:start --silent > /dev/null
+      - name: Database authorization tests
+        run: npm run test:control-db
+      - name: Remove only this test stack
+        if: always()
+        run: npm run db:stop
+
   site:
     # phosphor.saccolabs.com is deployed from main by deploy-site.yml, which
     # only runs after a merge — this catches a broken page on the PR instead.

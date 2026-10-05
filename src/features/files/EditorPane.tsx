@@ -8,6 +8,7 @@ import { basename } from '@/lib/path'
 import { CloseIcon } from '@/components/icons'
 import { formatShortcut } from '@/lib/shortcuts'
 import { runFileAction } from './fileActions'
+import { closeEditorFile } from './closeEditorFile'
 
 export const EditorPane = memo(function EditorPane({
   workspacePath,
@@ -131,9 +132,10 @@ function Tab({
       <span className="max-w-40 truncate">{name}</span>
       {file.dirty && <span className="bg-accent h-1.5 w-1.5 shrink-0 rounded-full" />}
       <button
+        aria-label={`Close ${file.relativePath}`}
         onClick={(event) => {
           event.stopPropagation()
-          useFilesStore.getState().closeFile(workspacePath, file.path)
+          runFileAction(closeEditorFile(workspacePath, file.path))
         }}
         className={clsx(
           'text-text-tertiary hover:text-text -mr-1 rounded p-0.5 transition-opacity',

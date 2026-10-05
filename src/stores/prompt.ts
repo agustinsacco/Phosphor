@@ -29,7 +29,8 @@ export interface PromptOptions {
 
 export interface PromptRequest extends PromptOptions {
   id: number
-  kind: 'input' | 'display'
+  kind: 'input' | 'display' | 'choice'
+  choices?: readonly { value: string; label: string; primary?: boolean }[]
   /** Display dialogs show this read-only instead of an input. */
   text?: string
   resolve: (value: string | undefined) => void
@@ -62,6 +63,15 @@ function enqueue(request: Omit<PromptRequest, 'id' | 'resolve'>): Promise<string
 /** Ask for a line of text. Resolves `undefined` when cancelled. */
 export function promptText(options: PromptOptions): Promise<string | undefined> {
   return enqueue({ ...options, kind: 'input' })
+}
+
+/** Ask for an explicit choice. Escape, backdrop and Cancel resolve undefined. */
+export function promptChoice<T extends string>(options: {
+  title: string
+  message?: string
+  choices: readonly { value: T; label: string; primary?: boolean }[]
+}): Promise<T | undefined> {
+  return enqueue({ ...options, kind: 'choice' }) as Promise<T | undefined>
 }
 
 /** Show selectable text the clipboard was denied (the old prompt fallback). */

@@ -23,8 +23,12 @@ export interface PendingReveal extends RevealTarget {
 }
 
 let revealSeq = 0
+let fileSeq = 0
+const fileWrites = new Map<string, Promise<void>>()
 
 export interface OpenFile {
+  /** Distinguishes a reopened tab from an earlier asynchronous read/save. */
+  instanceId?: number
   path: string
   relativePath: string
   language: string
@@ -309,6 +313,7 @@ export const useFilesStore = create<FilesState>((set, get) => ({
           }
         }
         const openFile: OpenFile = {
+          instanceId: ++fileSeq,
           path,
           relativePath: relativeTo(workspacePath, path),
           language: languageForPath(path),
@@ -452,24 +457,36 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   saveFile: async (workspacePath, path) => {
     const file = workspaceFiles(get(), workspacePath).openFiles.find((f) => f.path === path)
     if (!file || !file.dirty) return
-    const { mtimeMs } = await window.phosphor.invoke('fs:writeFile', path, file.content)
-    set((s) =>
-      patchWorkspace(s, workspacePath, (w) => ({
-        ...w,
-        openFiles: w.openFiles.map((f) =>
-          f.path === path
-            ? {
-                ...f,
-                savedContent: f.content,
-                dirty: false,
-                mtimeMs,
-                size: new TextEncoder().encode(f.content).length,
-                diskConflict: false,
-              }
-            : f,
-        ),
-      })),
-    )
+    // Serialize writes to the same disk path, but capture each requested revision
+    // now. A later keystroke must never be marked saved by an earlier write.
+    const write = (fileWrites.get(path) ?? Promise.resolve())
+      .catch(() => {})
+      .then(async () => {
+        const { mtimeMs } = await window.phosphor.invoke('fs:writeFile', path, file.content)
+        set((s) =>
+          patchWorkspace(s, workspacePath, (w) => ({
+            ...w,
+            openFiles: w.openFiles.map((f) =>
+              f.path === path && f.instanceId === file.instanceId
+                ? {
+                    ...f,
+                    savedContent: file.content,
+                    dirty: f.content !== file.content,
+                    mtimeMs,
+                    size: new TextEncoder().encode(file.content).length,
+                    diskConflict: false,
+                  }
+                : f,
+            ),
+          })),
+        )
+      })
+    fileWrites.set(path, write)
+    try {
+      await write
+    } finally {
+      if (fileWrites.get(path) === write) fileWrites.delete(path)
+    }
   },
 
   handleExternalChanges: async (workspacePath, paths) => {
@@ -489,26 +506,44 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   reloadFromDisk: async (workspacePath, path) => {
+    const original = workspaceFiles(get(), workspacePath).openFiles.find((f) => f.path === path)
+    if (!original) return
     try {
       const file = await window.phosphor.invoke('fs:readFile', path)
       set((s) =>
-        patchWorkspace(s, workspacePath, (w) =>
-          patchFile(w, path, {
-            savedContent: file.content,
-            content: file.content,
-            mtimeMs: file.mtimeMs,
-            size: file.size,
-            binary: file.binary,
-            tooLarge: file.tooLarge,
-            dirty: false,
-            diskConflict: false,
+        patchWorkspace(s, workspacePath, (w) => ({
+          ...w,
+          openFiles: w.openFiles.map((f) => {
+            if (f.path !== path || f.instanceId !== original.instanceId) return f
+            // A watcher read may finish after typing or a save. Keep that newer
+            // revision and ask the user to resolve the conflict instead.
+            if (f.content !== original.content || f.savedContent !== original.savedContent)
+              return { ...f, diskConflict: true }
+            return {
+              ...f,
+              savedContent: file.content,
+              content: file.content,
+              mtimeMs: file.mtimeMs,
+              size: file.size,
+              binary: file.binary,
+              tooLarge: file.tooLarge,
+              dirty: false,
+              diskConflict: false,
+            }
           }),
-        ),
+        })),
       )
     } catch {
       // Deleted externally — keep the buffer, flag the conflict.
       set((s) =>
-        patchWorkspace(s, workspacePath, (w) => patchFile(w, path, { diskConflict: true })),
+        patchWorkspace(s, workspacePath, (w) => ({
+          ...w,
+          openFiles: w.openFiles.map((f) =>
+            f.path === path && f.instanceId === original.instanceId
+              ? { ...f, diskConflict: true }
+              : f,
+          ),
+        })),
       )
     }
   },

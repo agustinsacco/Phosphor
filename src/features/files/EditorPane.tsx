@@ -7,6 +7,7 @@ import { FileFallback, FileViewer } from './FileViewer'
 import { basename } from '@/lib/path'
 import { CloseIcon } from '@/components/icons'
 import { formatShortcut } from '@/lib/shortcuts'
+import { runFileAction } from './fileActions'
 
 export const EditorPane = memo(function EditorPane({
   workspacePath,
@@ -101,7 +102,7 @@ function ActiveEditor({
       value={file.content}
       reveal={file.pendingReveal}
       onChange={(value) => useFilesStore.getState().updateBuffer(workspacePath, file.path, value)}
-      onSave={() => void useFilesStore.getState().saveFile(workspacePath, file.path)}
+      onSave={() => runFileAction(useFilesStore.getState().saveFile(workspacePath, file.path))}
     />
   )
 }

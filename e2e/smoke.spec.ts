@@ -938,6 +938,7 @@ test('file finder reveals and highlights a nested file in the explorer', async (
     await page.getByRole('textbox', { name: 'Chat message' }).focus()
     await page.keyboard.press(`${mod}+p`)
     const finder = page.getByPlaceholder('Go to file…')
+    await expect(finder).toBeFocused()
     await finder.fill('target.ts')
     await expect(
       page.locator('[data-shortcut-overlay="finder"]').getByText('target.ts', { exact: true }),
@@ -952,7 +953,11 @@ test('file finder reveals and highlights a nested file in the explorer', async (
     await explorer.getByRole('button', { name: 'src', exact: true }).click()
     await expect(target).not.toBeVisible()
     await page.keyboard.press(`${mod}+p`)
+    await expect(finder).toBeFocused()
     await finder.fill('target.ts')
+    await expect(
+      page.locator('[data-shortcut-overlay="finder"]').getByText('target.ts', { exact: true }),
+    ).toBeVisible()
     await finder.press('Enter')
     await expect(target).toHaveAttribute('aria-pressed', 'true')
     await expect(target).toBeInViewport()

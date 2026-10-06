@@ -239,7 +239,7 @@ packaged. Details: [docs/updates.md](docs/updates.md).
 
 One `pi --mode rpc` subprocess per live session, spoken to over JSONL on stdio.
 Phosphor never imports pi's code. The protocol is hand-mirrored in
-[`shared/rpc.ts`](shared/rpc.ts) with compile-time drift guards, so a protocol
+[`libs/shared/src/rpc.ts`](libs/shared/src/rpc.ts) with compile-time drift guards, so a protocol
 change this file has not caught will not compile.
 
 ```mermaid
@@ -248,7 +248,7 @@ flowchart LR
   M["Main · electron/<br/>registry, pi client, fs, pty, updates"]
   P["pi --mode rpc<br/>one subprocess per session"]
   S[("~/.pi — sessions, models, MCP")]
-  R -- "typed IPC (shared/ipc.ts)" --> M
+  R -- "typed IPC (libs/shared/src/ipc.ts)" --> M
   M -- "JSONL over stdio" --> P
   P -- "providers, tools, files" --> S
 ```
@@ -258,7 +258,7 @@ Six facts that explain the rest:
 1. **The main process owns all side effects.** The renderer runs sandboxed
    (`contextIsolation`, no Node) and is pure UI over typed IPC. Disk, network
    or a subprocess means `electron/`, not `src/`.
-2. **IPC is a typed contract.** A new channel is an entry in `shared/ipc.ts`'s
+2. **IPC is a typed contract.** A new channel is an entry in `libs/shared/src/ipc.ts`'s
    `IpcInvokeMap`, a handler in the matching `electron/ipc/<prefix>-handlers.ts`,
    and a case in `src/dev/mockPhosphor.ts`.
 3. **Stores (`src/stores/`) are projections of main-process state**, not a
@@ -302,7 +302,7 @@ npm run dev
 | `npm run shots`      | Deterministic screenshots against the e2e pi stub (see below)  |
 | `npm run shots:live` | Re-shoot this README against a real pi instance (see below)    |
 
-Tests live beside their subject as `*.test.ts`, in `electron/`, `shared/` and
+Tests live beside their subject as `*.test.ts`, in `electron/`, `libs/shared/src/` and
 `pi-ext/` included.
 
 ### Nx task orchestration
@@ -328,7 +328,7 @@ the same full unit suites without running them.
 | --------------- | -------------------------------------------------------------------------- |
 | `desktop`       | Root app configuration, `electron/`, `src/`, `e2e/`, `build/`, `docs/img/` |
 | `runtime`       | `runtime/`, including plain-Node and fake-pi tests                         |
-| `shared`        | `shared/`                                                                  |
+| `shared`        | `libs/shared/`                                                             |
 | `pi-extensions` | `pi-ext/`, including optional extension tests                              |
 | `site`          | `site/`, with its independent install and lockfile                         |
 | `schema`        | `supabase/`, with explicit start/test/stop lifecycle                       |
@@ -350,8 +350,16 @@ renderer helper, and tooling checks consume all projects while Desktop uses
 tooling scripts. These real back-edges are retained. Targets have no recursive
 `^test`/`^build` task dependencies, so their executable task graphs remain
 acyclic. `scripts/nx-projects.test.ts` checks the effective graph and targets,
-including missing-edge/target fixtures. Source paths, output `out/`, packaging
+including missing-edge/target fixtures. Output `out/`, packaging
 and the native postinstall are unchanged.
+
+`@phosphor/shared` is a private source-only package at `libs/shared`. Its
+explicit subpath exports cover the complete shared module set, with adjacent
+tests excluded from exports. Electron main/preload and renderer/browser builds
+bundle its sources, rather than requiring workspace TypeScript at runtime.
+The existing `@shared/*` spelling is the sole compatibility alias, mapped to
+`libs/shared/src` in TypeScript, Vitest and both Vite configurations. Its removal
+belongs to installation closure, not a semantic split of the shared modules.
 
 Conventions (IPC channels, the `piCall` rule, modals, and the sharp edges worth
 knowing before touching pi's session files) are in [CLAUDE.md](CLAUDE.md). It
@@ -397,7 +405,7 @@ electron/            main process — owns every side effect
                       maintenance, mcp, optimization, packages, pi-auth,
                       pi-config, pi-session, pty, routines, sessions, skills,
                       updates) plus handle.ts, the
-                      envelope unwrapper. The contract lives in shared/ipc.ts;
+                      envelope unwrapper. The contract lives in libs/shared/src/ipc.ts;
                       ipc.ts is the composition root, so a handler module
                       never imports it back.
   registry.ts        the live pi session registry
@@ -427,7 +435,7 @@ runtime/             Electron-free source modules, not a separate service
   file-log.ts        injected file logging
   bundled-extensions.ts  bundled extension paths
 supabase/            isolated control-directory migrations and local RLS tests
-shared/              types and pure logic shared by main + renderer
+libs/shared/src/     types and pure logic shared by main + renderer
   ipc.ts             the typed IpcInvokeMap contract
   rpc.ts             hand-mirrored copy of pi's RPC protocol + drift guards
   models.ts          model catalogue and shared app types

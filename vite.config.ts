@@ -19,7 +19,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      '@shared': resolve(import.meta.dirname, 'shared'),
+      '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
+      '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
       '@': resolve(import.meta.dirname, 'src'),
     },
   },

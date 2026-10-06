@@ -1,7 +1,8 @@
 {
-  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "name": "shared",
-  "root": "shared",
+  "root": "libs/shared",
+  "sourceRoot": "libs/shared/src",
   "projectType": "library",
   "tags": ["scope:shared"],
   "implicitDependencies": [],
@@ -11,7 +12,7 @@
       "cache": false,
       "inputs": ["workspace"],
       "options": {
-        "command": "vitest run shared",
+        "command": "vitest run libs/shared",
         "cwd": "."
       }
     }

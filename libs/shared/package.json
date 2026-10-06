@@ -1,0 +1,119 @@
+{
+  "name": "@phosphor/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./agent-directives": {
+      "types": "./src/agent-directives.ts",
+      "default": "./src/agent-directives.ts"
+    },
+    "./ansi": {
+      "types": "./src/ansi.ts",
+      "default": "./src/ansi.ts"
+    },
+    "./branchName": {
+      "types": "./src/branchName.ts",
+      "default": "./src/branchName.ts"
+    },
+    "./claude-limits": {
+      "types": "./src/claude-limits.ts",
+      "default": "./src/claude-limits.ts"
+    },
+    "./claude-paths": {
+      "types": "./src/claude-paths.ts",
+      "default": "./src/claude-paths.ts"
+    },
+    "./connectors": {
+      "types": "./src/connectors.ts",
+      "default": "./src/connectors.ts"
+    },
+    "./context-budget": {
+      "types": "./src/context-budget.ts",
+      "default": "./src/context-budget.ts"
+    },
+    "./errors": {
+      "types": "./src/errors.ts",
+      "default": "./src/errors.ts"
+    },
+    "./feedback": {
+      "types": "./src/feedback.ts",
+      "default": "./src/feedback.ts"
+    },
+    "./file-kinds": {
+      "types": "./src/file-kinds.ts",
+      "default": "./src/file-kinds.ts"
+    },
+    "./glob": {
+      "types": "./src/glob.ts",
+      "default": "./src/glob.ts"
+    },
+    "./ipc": {
+      "types": "./src/ipc.ts",
+      "default": "./src/ipc.ts"
+    },
+    "./mcp": {
+      "types": "./src/mcp.ts",
+      "default": "./src/mcp.ts"
+    },
+    "./models": {
+      "types": "./src/models.ts",
+      "default": "./src/models.ts"
+    },
+    "./paths": {
+      "types": "./src/paths.ts",
+      "default": "./src/paths.ts"
+    },
+    "./remote-host": {
+      "types": "./src/remote-host.ts",
+      "default": "./src/remote-host.ts"
+    },
+    "./routines": {
+      "types": "./src/routines.ts",
+      "default": "./src/routines.ts"
+    },
+    "./rpc": {
+      "types": "./src/rpc.ts",
+      "default": "./src/rpc.ts"
+    },
+    "./session-order": {
+      "types": "./src/session-order.ts",
+      "default": "./src/session-order.ts"
+    },
+    "./skillBundleFiles": {
+      "types": "./src/skillBundleFiles.ts",
+      "default": "./src/skillBundleFiles.ts"
+    },
+    "./skills": {
+      "types": "./src/skills.ts",
+      "default": "./src/skills.ts"
+    },
+    "./skillsCatalog": {
+      "types": "./src/skillsCatalog.ts",
+      "default": "./src/skillsCatalog.ts"
+    },
+    "./text-search": {
+      "types": "./src/text-search.ts",
+      "default": "./src/text-search.ts"
+    },
+    "./thinking": {
+      "types": "./src/thinking.ts",
+      "default": "./src/thinking.ts"
+    },
+    "./version": {
+      "types": "./src/version.ts",
+      "default": "./src/version.ts"
+    },
+    "./workspace-search": {
+      "types": "./src/workspace-search.ts",
+      "default": "./src/workspace-search.ts"
+    }
+  },
+  "dependencies": {
+    "cron-parser": "^5.10.1",
+    "luxon": "^3.7.2"
+  },
+  "nx": {
+    "includedScripts": []
+  }
+}

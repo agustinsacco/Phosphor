@@ -133,7 +133,7 @@ are not queued behind the display-query concurrency limit.
   main-tree checkout. Result unions, not throws, for expected refusals.
 - IPC: `git:listWorktrees / listBranches / addWorktree / removeWorktree /
 pruneWorktrees / commitAll / mergeBranch / fetch / pull / updateFromMain /
-checkoutBranch` (`shared/ipc.ts`, `electron/ipc/git-handlers.ts`).
+checkoutBranch` (`libs/shared/src/ipc.ts`, `electron/ipc/git-handlers.ts`).
 - `src/stores/worktrees.ts` — per-repo cache of worktrees and branches, plus
   the global `preferWorktree` checkbox state.
 - UI: `src/features/worktrees/BranchControl.tsx`, `BranchPicker.tsx`,

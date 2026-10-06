@@ -64,7 +64,7 @@ adapter inside a live session, so with nothing open a row can only say
 `state unknown`. **Test** runs the adapter's own `/mcp-adapter reconnect <server>` in
 a throwaway `pi --mode rpc --no-session` (`electron/pi/connector-check.ts`),
 which closes the connection, opens a fresh one, and reports the outcome.
-`parseReconnectNotice` (`shared/connectors.ts`) turns that into a verdict:
+`parseReconnectNotice` (`libs/shared/src/connectors.ts`) turns that into a verdict:
 `Up · N tools`, `Needs sign-in`, `Down`, `Disabled`, `Not in config`. It fails
 closed: anything unrecognised or timed out is `Inconclusive`, never a
 wrong up-or-down. No model runs, so a test spends no tokens.
@@ -234,14 +234,14 @@ extension above**, and that requires a live session. Without one the tab shows:
 
 ## Code map
 
-- Types: `shared/mcp.ts`. Main: `electron/pi/mcp-config.ts` (injectable dirs
+- Types: `libs/shared/src/mcp.ts`. Main: `electron/pi/mcp-config.ts` (injectable dirs
   for hermetic tests).
 - IPC: `mcp:readConfigs / upsertServer / removeServer / setDisabled /
 readCache / readFile / writeFile`, plus `mcp:authorize /
 mcp:submitAuthCallback / mcp:cancelAuth / mcp:checkServer` and the
   `mcp:authState` broadcast (`electron/ipc/mcp-handlers.ts`). The in-session
   route adds no IPC; it drives pi over `piCommand` and `app:openExternal`.
-- Connectors: `shared/connectors.ts` (prompt/verdict parsers, shared by main
+- Connectors: `libs/shared/src/connectors.ts` (prompt/verdict parsers, shared by main
   and renderer), `src/features/connectors/` (`catalog.ts`, `mcpStatus.ts`,
   `FlowCard.tsx`, `ServerEditor.tsx`), `src/stores/connectors.ts`,
   `electron/pi/connector-auth.ts`, `electron/pi/connector-check.ts`,

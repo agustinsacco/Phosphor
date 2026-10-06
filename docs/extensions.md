@@ -394,13 +394,13 @@ in `stores/extensionUi.ts`. Five keys are load-bearing, and the key strings are
 **case-sensitive literals on both sides**; nothing fails to compile when they
 disagree.
 
-| Key                          | Emitter                             | Consumer                                                                                                          |
-| ---------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `phosphor-context-breakdown` | `pi-ext/context-breakdown.ts`       | `chat/composer/contextBreakdown.ts` → ContextMeter                                                                |
-| `phosphor-mcp-status`        | `pi-ext/mcp-status.ts`              | `connectors/mcpStatus.ts` → Connectors, footer                                                                    |
-| `phosphor-headroom`          | `pi-ext/headroom.ts`                | `chat/composer/headroomStatus.ts` → ContextMeter (Optimization section)                                           |
-| `claude-rate-limit`          | `@saccolabs/pi-claude-cli` ≥ 0.4.5  | `chat/composer/rateLimit.ts` → ContextMeter, RateLimitBanner; `shared/claude-limits.ts` → account routing in main |
-| `claude-subagents`           | `@saccolabs/pi-claude-cli` ≥ 0.4.13 | `chat/subagentStatus.ts` → the status strip's agent chip, for sessions recorded before 0.9.0 (see below)          |
+| Key                          | Emitter                             | Consumer                                                                                                                   |
+| ---------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `phosphor-context-breakdown` | `pi-ext/context-breakdown.ts`       | `chat/composer/contextBreakdown.ts` → ContextMeter                                                                         |
+| `phosphor-mcp-status`        | `pi-ext/mcp-status.ts`              | `connectors/mcpStatus.ts` → Connectors, footer                                                                             |
+| `phosphor-headroom`          | `pi-ext/headroom.ts`                | `chat/composer/headroomStatus.ts` → ContextMeter (Optimization section)                                                    |
+| `claude-rate-limit`          | `@saccolabs/pi-claude-cli` ≥ 0.4.5  | `chat/composer/rateLimit.ts` → ContextMeter, RateLimitBanner; `libs/shared/src/claude-limits.ts` → account routing in main |
+| `claude-subagents`           | `@saccolabs/pi-claude-cli` ≥ 0.4.13 | `chat/subagentStatus.ts` → the status strip's agent chip, for sessions recorded before 0.9.0 (see below)                   |
 
 The two `claude-*` keys cross a repo boundary; their shape is documented on the
 emitting side in that repo's `docs/ARCHITECTURE.md`. Rules for all five: the
@@ -565,7 +565,7 @@ resume; glob `<projectDir>/*/subagents/agent-<taskId>.jsonl` instead), and
 `@saccolabs/pi-claude-cli` (our fork of `rchern/pi-claude-cli`) makes Claude
 Pro/Max subscription models available inside pi's own agent loop by driving the
 Claude Code CLI as a model server. Phosphor treats it as an ordinary package;
-`shared/rpc.ts` needed no changes. Its internals are documented in that repo's
+`libs/shared/src/rpc.ts` needed no changes. Its internals are documented in that repo's
 `docs/ARCHITECTURE.md`; the Phosphor-side contract is
 [cli-providers.md](cli-providers.md).
 

@@ -200,7 +200,7 @@ pending run workspaces are protected from automatic maintenance reclamation.
 
 ## Code map and tests
 
-- `shared/routines.ts`: schema validation, cron/timezone calculations, reporting
+- `libs/shared/src/routines.ts`: schema validation, cron/timezone calculations, reporting
   periods, deterministic execution prompt. Uses cron-parser and Luxon.
 - `electron/routines/`: SQLite repository, routine-only scheduler, runner,
   ownership guard, startup wiring, and background tray. `preflight.ts` holds
@@ -209,7 +209,7 @@ pending run workspaces are protected from automatic maintenance reclamation.
 - `electron/pi/session-runtime.ts`: Desktop bindings for `runtime/pi/` startup
   and session admission. Routine startup and interactive IPC use the same
   provider-guarded service; routine scheduling/execution remains local.
-- `electron/ipc/routines-handlers.ts`, `shared/ipc.ts`, `electron/preload.ts`:
+- `electron/ipc/routines-handlers.ts`, `libs/shared/src/ipc.ts`, `electron/preload.ts`:
   typed operations and snapshot invalidations. `src/dev/mockRoutines.ts` is a
   clearly labelled browser simulation with no model execution.
 - `useRoutineLaneIndex` (`src/stores/routines.ts`) keeps the lane index fresh

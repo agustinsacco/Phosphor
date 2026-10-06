@@ -101,7 +101,7 @@ screen.
   path. An exact path compare therefore let a live lane through both the rename
   and the delete guard, and the transcript move covered only the root — so
   renaming a sandbox moved the folder out from under a running pi and orphaned
-  every lane chat at once. Containment is `isWithinFolder` (`shared/paths.ts`,
+  every lane chat at once. Containment is `isWithinFolder` (`libs/shared/src/paths.ts`,
   shared because main guards on it and the renderer picks the chats to close
   with it), and the cwd list is `sandboxCwds` (`electron/sandbox.ts`). That
   list is enumerated from DISK rather than by prefix-matching pi's mangled

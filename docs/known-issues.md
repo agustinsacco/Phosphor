@@ -149,16 +149,16 @@ jump.
 
 ## Code health
 
-| #   | Issue                                                                                                        | Where                                                                               |
-| --- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| H1  | `errorText` (`shared/errors.ts`) is not enforced; 18 hand-rolled `err instanceof Error ? …` sites regressed  | across `src/features/settings/`, `electron/pi/`                                     |
-| H2  | `ChatImage.tsx` does `(error as Error).message` on an `unknown` — a thrown string renders an empty failure   | `src/features/chat/ChatImage.tsx`                                                   |
-| H3  | One raw `piCommand` site carries no exemption comment, so nobody can tell if it is deliberate (CLAUDE.md #3) | `src/features/chat/composer/queueActions.ts`                                        |
-| H4  | `useAsyncAction` is not adopted by `MessageItem`, `ForkPickerModal`, `TreeViewModal`                         | those three files                                                                   |
-| H5  | Five symbols are exported but used in exactly one file                                                       | `agent-settings.ts`, `useGlobalShortcuts.ts`, `CommandPalette.tsx`, `shared/mcp.ts` |
-| H6  | Three separate banner implementations that a single `Notice` primitive would replace                         | `RetryStrip.tsx`, `banners.tsx`, `composer/RateLimitBanner.tsx`                     |
-| H7  | Two hover-action implementations in one file                                                                 | `src/features/chat/MessageItem.tsx`                                                 |
-| H8  | Per-component cost rows are still missing from the usage popover                                             | `src/features/chat/composer/` — `ContextMeter`                                      |
+| #   | Issue                                                                                                                | Where                                                                                        |
+| --- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| H1  | `errorText` (`libs/shared/src/errors.ts`) is not enforced; 18 hand-rolled `err instanceof Error ? …` sites regressed | across `src/features/settings/`, `electron/pi/`                                              |
+| H2  | `ChatImage.tsx` does `(error as Error).message` on an `unknown` — a thrown string renders an empty failure           | `src/features/chat/ChatImage.tsx`                                                            |
+| H3  | One raw `piCommand` site carries no exemption comment, so nobody can tell if it is deliberate (CLAUDE.md #3)         | `src/features/chat/composer/queueActions.ts`                                                 |
+| H4  | `useAsyncAction` is not adopted by `MessageItem`, `ForkPickerModal`, `TreeViewModal`                                 | those three files                                                                            |
+| H5  | Five symbols are exported but used in exactly one file                                                               | `agent-settings.ts`, `useGlobalShortcuts.ts`, `CommandPalette.tsx`, `libs/shared/src/mcp.ts` |
+| H6  | Three separate banner implementations that a single `Notice` primitive would replace                                 | `RetryStrip.tsx`, `banners.tsx`, `composer/RateLimitBanner.tsx`                              |
+| H7  | Two hover-action implementations in one file                                                                         | `src/features/chat/MessageItem.tsx`                                                          |
+| H8  | Per-component cost rows are still missing from the usage popover                                                     | `src/features/chat/composer/` — `ContextMeter`                                               |
 
 H1 would hold better as an ESLint rule than as another conversion pass. H2 is
 the only correctness bug in this section; fix it first.

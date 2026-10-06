@@ -5,18 +5,24 @@ import { resolve } from 'node:path'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@phosphor/shared'] })],
     resolve: {
-      alias: { '@shared': resolve(import.meta.dirname, 'shared') },
+      alias: {
+        '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
+        '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
+      },
     },
     build: {
       lib: { entry: 'electron/main.ts' },
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@phosphor/shared'] })],
     resolve: {
-      alias: { '@shared': resolve(import.meta.dirname, 'shared') },
+      alias: {
+        '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
+        '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
+      },
     },
     build: {
       lib: { entry: 'electron/preload.ts' },
@@ -34,7 +40,8 @@ export default defineConfig({
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@shared': resolve(import.meta.dirname, 'shared'),
+        '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
+        '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
         '@': resolve(import.meta.dirname, 'src'),
       },
     },

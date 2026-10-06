@@ -10,7 +10,7 @@ const readJson = (path: string) => JSON.parse(readFileSync(join(root, path), 'ut
 const projects = {
   desktop: '.',
   runtime: 'runtime',
-  shared: 'shared',
+  shared: 'libs/shared',
   'pi-extensions': 'pi-ext',
   site: 'site',
   schema: 'supabase',
@@ -19,7 +19,7 @@ const projects = {
 const commands = {
   desktop: { build: 'electron-vite build', 'test:e2e': 'npm run build && ./scripts/e2e.sh' },
   runtime: { test: 'vitest run runtime' },
-  shared: { test: 'vitest run shared' },
+  shared: { test: 'vitest run libs/shared' },
   'pi-extensions': { test: 'vitest run pi-ext' },
   site: {
     dev: 'npm run dev',
@@ -188,7 +188,7 @@ describe('explicit Nx project contract', () => {
     expect(config.parallel).toBe(1)
     expect(config.targetDefaults['nx:run-commands'].cache).toBe(false)
     const vitest = readFileSync(join(root, 'vitest.config.ts'), 'utf8')
-    for (const path of ['electron', 'runtime', 'shared', 'pi-ext', 'src', 'scripts']) {
+    for (const path of ['electron', 'runtime', 'libs/shared/src', 'pi-ext', 'src', 'scripts']) {
       expect(vitest).toContain(`'${path}/**/*.test.ts'`)
     }
     expect(vitest).toContain("'src/**/*.test.tsx'")

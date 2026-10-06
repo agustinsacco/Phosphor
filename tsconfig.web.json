@@ -6,5 +6,5 @@
     // "node" is needed because renderer test files read fixtures from disk.
     "types": ["vite/client", "node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "shared/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "libs/shared/src/**/*.ts"]
 }

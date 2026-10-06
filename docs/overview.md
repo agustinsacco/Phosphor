@@ -40,7 +40,7 @@ manager, no orchestration agent, and the board spends nothing to render.
    (`electron/pi/login-flow.ts`; see [settings.md](settings.md)), with a hosted
    pi terminal as the escape hatch. Still unreached: `get_tree` (the tree view
    reads the `.jsonl` instead) and `get_fork_messages` (rewind reads the
-   current branch from `get_entries`), both mirrored in `shared/rpc.ts`.
+   current branch from `get_entries`), both mirrored in `libs/shared/src/rpc.ts`.
 5. **Claude Desktop craft level.** A light theme, a dark theme and "system",
    selectable in settings, sharing one component vocabulary.
 

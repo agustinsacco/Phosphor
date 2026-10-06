@@ -23,6 +23,13 @@ it('trims renderer payloads without mutating the full event', () => {
   expect(broadcast).not.toHaveBeenCalled()
 })
 
+it('does not copy envelopes on the untrimmed streaming path', () => {
+  const target = { isDestroyed: () => false, send: vi.fn() }
+  const payload = { kind: 'event' as const, event: { type: 'agent_start' as const } }
+  desktopSessionSink('session', target)(payload)
+  expect(target.send.mock.calls[0]![1]).toBe(payload)
+})
+
 it('broadcasts only without a target and never falls back for a destroyed window', () => {
   const payload = { kind: 'stderr' as const, text: 'diagnostic' }
   desktopSessionSink('broadcast')(payload)

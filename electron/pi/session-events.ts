@@ -17,8 +17,11 @@ export function desktopSessionSink(
       ['input', 'confirm', 'select', 'editor'].includes(payload.request.method)
     )
       return
-    const push =
-      payload.kind === 'event' ? { ...payload, event: trimForRenderer(payload.event) } : payload
+    let push = payload
+    if (payload.kind === 'event') {
+      const event = trimForRenderer(payload.event)
+      if (event !== payload.event) push = { kind: 'event', event }
+    }
     if (target) {
       if (!target.isDestroyed()) target.send(channel, push)
     } else broadcast(channel, push)

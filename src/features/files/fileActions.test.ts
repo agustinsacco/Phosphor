@@ -3,8 +3,11 @@ vi.mock('@/lib/monaco', () => ({ languageForPath: () => 'typescript' }))
 vi.mock('@/features/files/MonacoEditor', () => ({ releaseFileModel: vi.fn() }))
 import { entryPath, trashEntry } from './fileActions'
 import { useFilesStore } from '@/stores/files'
+import { releaseFileModel } from '@/features/files/MonacoEditor'
 
-afterEach(() => {
+afterEach(async () => {
+  // reconcilePath lazily releases Monaco models; finish before removing mocks.
+  await vi.dynamicImportSettled()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -35,7 +38,7 @@ it('accepts file names, not traversal or absolute paths', () => {
   expect(entryPath('C:\\repo', 'notes.md')).toBe('C:\\repo\\notes.md')
 })
 
-it('retargets dirty descendants without losing buffers, and closes them after trash', () => {
+it('retargets dirty descendants without losing buffers, and closes them after trash', async () => {
   const file = (path: string) => ({
     path,
     relativePath: path.slice(6),
@@ -60,6 +63,7 @@ it('retargets dirty descendants without losing buffers, and closes them after tr
   })
   const store = useFilesStore.getState()
   store.reconcilePath('/repo', '/repo/src', '/repo/lib')
+  await vi.dynamicImportSettled()
   const slice = useFilesStore.getState().byWorkspace['/repo']!
   expect(slice.activePath).toBe('/repo/lib/a.ts')
   expect(slice.openFiles[0]).toMatchObject({
@@ -73,4 +77,7 @@ it('retargets dirty descendants without losing buffers, and closes them after tr
     '/repo/src-other.ts',
   ])
   expect(useFilesStore.getState().byWorkspace['/other']!.activePath).toBe('/other/a.ts')
+  await vi.dynamicImportSettled()
+  expect(releaseFileModel).toHaveBeenCalledWith('/repo/src/a.ts')
+  expect(releaseFileModel).toHaveBeenCalledWith('/repo/lib/a.ts')
 })

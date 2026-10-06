@@ -47,7 +47,8 @@ no SessionManager class — filesystem and git are plain function modules
 users, `electron/fs/workspace-watcher.ts` for the file tree and
 `electron/pi/session-watcher.ts` for the sessions dir.
 
-The RPC transport, strict JSONL decoder and activity tracker live in `runtime/pi/`.
+The RPC transport, its omp dialect (`omp-dialect.ts`), strict JSONL decoder and
+activity tracker live in `runtime/pi/`.
 The transport accepts explicit logging and shutdown ports and does not import
 Electron. Desktop callers use `electron/pi/desktop-rpc-client.ts` to bind those
 ports to the existing app logger and shutdown approval. Session ownership lives

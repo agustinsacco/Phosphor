@@ -35,9 +35,12 @@ to the explorer reveals the active file.
   Internal drags move; Option/Ctrl-drag copies. The destination highlights.
 - **Import:** right-click → Import files / Import folders opens a native
   picker.
-- **Navigate:** Up/Down and Home/End move focus, Left/Right collapse and
-  expand, Enter opens. Reveal and copy-path stay in the menu. Refresh preserves
-  a selected entry that still exists and clears the selection when it was removed.
+- **Navigate:** Up/Down and Home/End move focus; Shift extends or shrinks the
+  selection. Left collapses an expanded folder, otherwise moves to the parent.
+  Right expands a folder, then enters its first child. Typing selects a visible
+  filename by prefix without opening it; Enter opens. The toolbar can collapse
+  all folders or reveal the active file again. Refresh preserves a selected
+  entry that still exists and clears the selection when it was removed.
 
 Existing destinations are refused, never merged or replaced. Transfers report
 partial failures, and a completed move retargets its open editors at once.

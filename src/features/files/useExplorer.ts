@@ -4,6 +4,7 @@ import type { ContextMenuItem } from '@/components/ContextMenu'
 import { useFilesStore, workspaceFiles } from '@/stores/files'
 import { dirname } from '@/lib/path'
 import { formatShortcut } from '@/lib/shortcuts'
+import { ignoreShortcut } from '@/lib/shortcutContext'
 import { renameEntry, runFileAction, trashEntry } from './fileActions'
 import { entryDirectory, FILE_DRAG, importFiles, pasteFiles, transferFiles } from './fileTransfers'
 
@@ -18,6 +19,8 @@ export function useExplorer(workspace: string) {
   })
   const setSelected = (entries: DirEntry[]): void =>
     setSelectionState({ workspace, activePath, activeRequest, entries })
+  const rangeAnchor = useRef<string | null>(null)
+  const typeahead = useRef({ text: '', time: 0, workspace })
   const listings = useFilesStore((s) => s.entries)
   const activeEntry = activePath
     ? listings[dirname(activePath)]?.find((entry) => entry.path === activePath)
@@ -125,12 +128,14 @@ export function useExplorer(workspace: string) {
     })),
   ]
   return {
+    activePath,
     selected,
     dropDir,
     busy,
     menu,
     select: (entry: DirEntry, event: React.MouseEvent): boolean => {
-      const anchor = selected[0]
+      const anchor = selected.find((e) => e.path === rangeAnchor.current) ?? selected[0]
+      if (!event.shiftKey) rangeAnchor.current = entry.path
       if (event.shiftKey && anchor) {
         const entries = entriesFor(
           event.currentTarget.closest<HTMLElement>('[data-testid="file-explorer"]')!,
@@ -212,6 +217,7 @@ export function useExplorer(workspace: string) {
         })
       },
       onKeyDown: (event: React.KeyboardEvent<HTMLElement>): void => {
+        if (ignoreShortcut(event.nativeEvent)) return
         const entry = selected.at(-1)
         const mod = event.metaKey || event.ctrlKey
         let action: (() => Promise<unknown>) | undefined
@@ -241,6 +247,23 @@ export function useExplorer(workspace: string) {
             e.path ===
             (event.target as HTMLElement).closest<HTMLElement>('[data-path]')?.dataset.path,
         )
+        const focused = entries[index]
+        const focusEntry = (next: DirEntry): void => {
+          event.preventDefault()
+          event.stopPropagation()
+          if (event.shiftKey && ['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+            const anchor = entries.findIndex((e) => e.path === rangeAnchor.current)
+            const from = anchor >= 0 ? anchor : Math.max(index, 0)
+            rangeAnchor.current = entries[from]?.path ?? next.path
+            const to = entries.indexOf(next)
+            setSelected(entries.slice(Math.min(from, to), Math.max(from, to) + 1))
+          } else {
+            rangeAnchor.current = next.path
+            setSelected([next])
+          }
+          const rows = event.currentTarget.querySelectorAll<HTMLElement>('[data-path]')
+          rows[entries.indexOf(next)]?.focus()
+        }
         const next =
           event.key === 'Home'
             ? entries[0]
@@ -251,17 +274,37 @@ export function useExplorer(workspace: string) {
                 : event.key === 'ArrowUp'
                   ? entries[Math.max(index - 1, 0)]
                   : undefined
-        if (next) {
-          event.preventDefault()
-          setSelected([next])
-          const rows = event.currentTarget.querySelectorAll<HTMLElement>('[data-path]')
-          rows[entries.indexOf(next)]?.focus()
-        }
-        if (entry?.isDirectory && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        if (next) focusEntry(next)
+        if (focused && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
           event.preventDefault()
           const store = useFilesStore.getState()
-          if (!!store.expanded[entry.path] !== (event.key === 'ArrowRight'))
-            run(() => store.toggleDir(workspace, entry.path))
+          const expanded = focused.isDirectory && store.expanded[focused.path]
+          if (
+            (event.key === 'ArrowLeft' && expanded) ||
+            (event.key === 'ArrowRight' && focused.isDirectory && !expanded)
+          ) {
+            run(() => store.toggleDir(workspace, focused.path))
+          } else {
+            const target =
+              event.key === 'ArrowLeft'
+                ? entries.find((e) => e.path === dirname(focused.path))
+                : expanded
+                  ? entries[index + 1]
+                  : undefined
+            if (target && (event.key === 'ArrowLeft' || dirname(target.path) === focused.path))
+              focusEntry(target)
+          }
+        }
+        if (!mod && !event.altKey && event.key.length === 1 && event.key !== ' ') {
+          const previous = typeahead.current
+          const key = event.key.toLocaleLowerCase()
+          const continued = previous.workspace === workspace && Date.now() - previous.time < 800
+          const text = continued && previous.text !== key ? previous.text + key : key
+          typeahead.current = { text, time: Date.now(), workspace }
+          const start = text.length > 1 ? Math.max(index, 0) : index + 1
+          const ordered = [...entries.slice(start), ...entries.slice(0, start)]
+          const match = ordered.find((e) => e.name.toLocaleLowerCase().startsWith(text))
+          if (match) focusEntry(match)
         }
       },
     },

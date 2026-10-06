@@ -36,7 +36,8 @@ export async function prepareSessionLaunch(
     sessionPath = await runtime.forkSession(forkFrom)
     forkFrom = undefined
   }
-  const env = await runtime.readEnvironment(executable)
+  // Account/provider overlays must never mutate a cached environment from the adapter.
+  const env = { ...(await runtime.readEnvironment(executable)) }
   const extensions = bundledExtensions(runtime.resourceRoot())
   return { ...executable, sessionPath, forkFrom, env, extensions }
 }

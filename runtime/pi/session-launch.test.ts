@@ -65,11 +65,14 @@ it('leaves pi forks to the CLI, but copies omp forks before reading the environm
 
 it('reads dependencies anew and does not share mutable launch environments', async () => {
   const runtime = ports()
+  const cachedEnv = { PATH: '/tools', CONFIG: 'host-local' }
+  runtime.readEnvironment.mockResolvedValue(cachedEnv)
   const first = await prepareSessionLaunch({}, runtime)
   first.env.ACCOUNT = 'first-session-only'
   runtime.resourceRoot.mockReturnValue('/new/resources')
   const second = await prepareSessionLaunch({}, runtime)
   expect(second.env).not.toHaveProperty('ACCOUNT')
+  expect(cachedEnv).not.toHaveProperty('ACCOUNT')
   expect(second.extensions[0]).toBe(join('/new/resources', 'pi-ext', 'artifacts.ts'))
   expect(runtime.resolveExecutable).toHaveBeenCalledTimes(2)
   expect(runtime.readEnvironment).toHaveBeenCalledTimes(2)

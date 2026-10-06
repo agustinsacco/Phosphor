@@ -64,6 +64,11 @@ PATH, provider environment and packaged-resource selection. The test stub still
 uses the single unpackaged-only gate in `stub.ts`. Preference policy, session
 startup and command guards remain in the desktop runtime.
 
+Directive composition, provider detection, pi path rules and safe session-header
+repair also live in `runtime/pi/`. The same-named Desktop modules re-export them
+for existing callers. `boundary.test.ts` bundles every runtime entry for Node
+and rejects Electron or `electron/` dependencies.
+
 Context-budget enforcement and command serialization live in
 `runtime/pi/context-budget.ts`. Each runtime instance owns its gates and receives
 a logger; budget and routine-pause callbacks are still read live. The existing

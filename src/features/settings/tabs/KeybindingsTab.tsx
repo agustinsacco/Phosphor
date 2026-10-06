@@ -48,6 +48,10 @@ const CHAT: Binding[] = [
 
 const EDITOR: Binding[] = [
   [['mod', 'S'], 'Save file in editor'],
+  [['mod', 'alt', 'S'], 'Save all open files (Files pane)'],
+  [['mod', 'W'], 'Close editor tab (Files pane)'],
+  [['mod', 'shift', 'T'], 'Reopen closed editor tab (Files pane)'],
+  [['ctrl', 'Tab'], 'Next editor tab (Shift reverses)'],
   [['mod', 'F'], 'Find in editor / terminal'],
 ]
 
@@ -68,8 +72,8 @@ export function KeybindingsTab(): React.JSX.Element {
   return (
     <div className="space-y-5">
       <p className="text-text-secondary text-base">
-        App navigation works from the composer. Other editors keep their own letter chords. Dialogs
-        block app navigation; zoom still works. In a fullscreen pane, F6 focuses its exit control.
+        App navigation works from the composer; Go to file also works from the editor. Dialogs block
+        app navigation; zoom still works. In a fullscreen pane, F6 focuses its exit control.
       </p>
       <Group title="App" bindings={APP} />
       <Group title="Chat" bindings={CHAT} />

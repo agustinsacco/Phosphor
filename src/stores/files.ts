@@ -25,6 +25,7 @@ export interface PendingReveal extends RevealTarget {
 let revealSeq = 0
 let fileSeq = 0
 const fileWrites = new Map<string, Promise<void>>()
+const reopeningWorkspaces = new Set<string>()
 
 export interface OpenFile {
   /** Distinguishes a reopened tab from an earlier asynchronous read/save. */
@@ -40,6 +41,7 @@ export interface OpenFile {
   /** Bytes on disk at load/save time. */
   size: number
   dirty: boolean
+  pinned?: boolean
   binary?: boolean
   tooLarge?: boolean
   /** Set when the file changed on disk while dirty (conflict bar). */
@@ -64,6 +66,7 @@ interface WorkspaceFiles {
   activePath: string | null
   /** Changes on navigation, including reopening the current file. */
   activeRequest?: number
+  closedPaths?: string[]
   gitStatus: Record<string, string>
 }
 
@@ -103,6 +106,9 @@ interface FilesState {
   /** Open (or switch to) a file; a target line or range is revealed in the editor. */
   openFile: (workspacePath: string, path: string, target?: number | RevealTarget) => Promise<void>
   closeFile: (workspacePath: string, path: string) => void
+  reopenClosed: (workspacePath: string) => Promise<void>
+  togglePinned: (workspacePath: string, path: string) => void
+  moveTab: (workspacePath: string, path: string, before: string) => void
   /** Retarget open buffers after a move, or close descendants after trash. */
   reconcilePath: (workspacePath: string, from: string, to?: string) => void
   /** Drop a workspace's editors/explorer state and release its Monaco models. */
@@ -339,12 +345,17 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   closeFile: (workspacePath, path) => {
     set((s) =>
       patchWorkspace(s, workspacePath, (w) => {
+        const index = w.openFiles.findIndex((f) => f.path === path)
+        if (index === -1) return w
         const openFiles = w.openFiles.filter((f) => f.path !== path)
         return {
           ...w,
           openFiles,
+          closedPaths: [path, ...(w.closedPaths ?? []).filter((p) => p !== path)].slice(0, 20),
           activePath:
-            w.activePath === path ? (openFiles[openFiles.length - 1]?.path ?? null) : w.activePath,
+            w.activePath === path
+              ? (openFiles[Math.min(index, openFiles.length - 1)]?.path ?? null)
+              : w.activePath,
         }
       }),
     )
@@ -353,6 +364,52 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     // a dependency on the editor chunk.
     void import('@/features/files/MonacoEditor').then(({ releaseFileModel }) =>
       releaseFileModel(path),
+    )
+  },
+
+  reopenClosed: async (workspacePath) => {
+    if (reopeningWorkspaces.has(workspacePath)) return
+    const workspace = workspaceFiles(get(), workspacePath)
+    const path = workspace.closedPaths?.find((p) => !workspace.openFiles.some((f) => f.path === p))
+    if (!path) return
+    // Consume the attempt even if disk access fails. The caller shows the
+    // error, and the next request can reach older entries instead of looping.
+    set((s) =>
+      patchWorkspace(s, workspacePath, (w) => ({
+        ...w,
+        closedPaths: w.closedPaths?.filter((p) => p !== path),
+      })),
+    )
+    reopeningWorkspaces.add(workspacePath)
+    try {
+      await get().openFile(workspacePath, path)
+    } finally {
+      reopeningWorkspaces.delete(workspacePath)
+    }
+  },
+
+  togglePinned: (workspacePath, path) => {
+    set((s) =>
+      patchWorkspace(s, workspacePath, (w) => ({
+        ...w,
+        openFiles: w.openFiles.map((f) => (f.path === path ? { ...f, pinned: !f.pinned } : f)),
+      })),
+    )
+  },
+
+  moveTab: (workspacePath, path, before) => {
+    set((s) =>
+      patchWorkspace(s, workspacePath, (w) => {
+        const file = w.openFiles.find((f) => f.path === path)
+        if (!file || path === before || !w.openFiles.some((f) => f.path === before)) return w
+        const openFiles = w.openFiles.filter((f) => f.path !== path)
+        openFiles.splice(
+          openFiles.findIndex((f) => f.path === before),
+          0,
+          file,
+        )
+        return { ...w, openFiles }
+      }),
     )
   },
 
@@ -381,6 +438,9 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         return {
           ...w,
           openFiles,
+          closedPaths: w.closedPaths?.flatMap((path) =>
+            matches(path) ? (to ? [to + path.slice(from.length)] : []) : [path],
+          ),
           activePath:
             w.activePath && matches(w.activePath)
               ? to

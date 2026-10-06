@@ -27,11 +27,16 @@ export function FuzzyFinder({
   workspacePath: string
 }): React.JSX.Element | null {
   const open = useFinderStore((s) => s.open)
+  // A new opening starts with fresh state before focus or typing can occur.
+  return open ? <FinderDialog key={workspacePath} workspacePath={workspacePath} /> : null
+}
+
+function FinderDialog({ workspacePath }: { workspacePath: string }): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState({
     workspacePath,
     files: [] as string[],
-    loading: false,
+    loading: true,
     error: '',
   })
   const [activeIndex, setActiveIndex] = useState(0)
@@ -39,12 +44,8 @@ export function FuzzyFinder({
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (!open) return
     let cancelled = false
     const previousFocus = document.activeElement
-    setQuery('')
-    setActiveIndex(0)
-    setIndex({ workspacePath, files: [], loading: true, error: '' })
     inputRef.current?.focus()
     void window.phosphor.invoke('fs:listFiles', workspacePath).then(
       (files) => {
@@ -59,7 +60,7 @@ export function FuzzyFinder({
       cancelled = true
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus()
     }
-  }, [open, workspacePath])
+  }, [workspacePath])
 
   const parsed = parseFileQuery(query)
   const matches = useMemo(
@@ -70,7 +71,6 @@ export function FuzzyFinder({
     [parsed.path, index, workspacePath],
   )
 
-  if (!open) return null
   const close = (): void => useFinderStore.getState().setOpen(false)
 
   const pick = (file: string): void => {

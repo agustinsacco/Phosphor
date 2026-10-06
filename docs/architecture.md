@@ -64,8 +64,12 @@ PATH, provider environment and packaged-resource selection. The test stub still
 uses the single unpackaged-only gate in `stub.ts`. `runtime/pi/session-policy.ts`
 selects project directives, validates the predicted provider and prepares account
 and compression overlays before compaction repair. Its Desktop adapter supplies
-machine-local preferences, Git, packages, accounts and Headroom state. Session
-startup and command guards remain in the desktop runtime.
+machine-local preferences, Git, packages, accounts and Headroom state.
+`runtime/pi/session-startup.ts` owns cwd normalization/repair, preparation,
+allocation, event binding, readiness, cancellation and failure disposal. Desktop
+supplies live budget/routine callbacks, account bookkeeping, recents and a sink.
+Failure while binding the sink or recording startup metadata also stops the
+child. Command and resume admission remain in the Desktop handlers.
 
 Directive composition, provider detection, pi path rules and safe session-header
 repair also live in `runtime/pi/`. The same-named Desktop modules re-export them

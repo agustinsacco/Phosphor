@@ -17,13 +17,22 @@ on:
       - 'site/**'
       - '.infra/phosphor-site/**'
       - '.github/workflows/deploy-site.yml'
+      - 'scripts/site-deploy-policy.mjs'
+      - 'scripts/should-skip-release.sh'
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: Deploy current main after exact-SHA CI and hold checks
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: phosphor-site-production
+  # Rejected manual refs must not cancel main. PR CI does not trigger this workflow.
+  group: phosphor-site-${{ (github.event_name == 'push' || (github.ref == 'refs/heads/main' && inputs.confirm == true)) && 'production' || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -31,14 +40,80 @@ env:
   KUBECTL_VERSION: v1.30.3
 
 jobs:
+  guard:
+    name: Verify exact main SHA and successful CI
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.confirm == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      should_deploy: ${{ steps.decide.outputs.should_deploy }}
+      sha: ${{ steps.decide.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for CI and check deployment holds
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SITE_DEPLOY_HOLD: ${{ vars.SITE_DEPLOY_HOLD }}
+        run: |
+          set -euo pipefail
+          echo 'should_deploy=false' >> "$GITHUB_OUTPUT"
+          # Read only. Never dispatch or rerun CI, and never trust a PR run.
+          for attempt in $(seq 1 40); do
+            MAIN_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+            export MAIN_SHA
+            decision=$(node scripts/site-deploy-policy.mjs) || { echo "$decision"; exit 1; }
+            if [ "$(jq -r '.state' <<< "$decision")" = skip ]; then
+              echo "$decision"
+              exit 0
+            fi
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml" > "$RUNNER_TEMP/site-ci-workflow.json"
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&event=push&head_sha=$GITHUB_SHA&per_page=100" > "$RUNNER_TEMP/site-ci-runs.json"
+            decision=$(node scripts/site-deploy-policy.mjs "$RUNNER_TEMP/site-ci-workflow.json" "$RUNNER_TEMP/site-ci-runs.json") || { echo "$decision"; exit 1; }
+            echo "$decision"
+            if [ "$(jq -r '.state' <<< "$decision")" = deploy ]; then
+              echo 'should_deploy=true' >> "$GITHUB_OUTPUT"
+              echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ "$attempt" -lt 40 ]; then sleep 15; fi
+          done
+          echo '::error::Cannot verify successful exact-SHA main CI within the polling window.'
+          exit 1
+
   build-and-deploy:
     name: Build immutable image and deploy
+    needs: guard
+    if: needs.guard.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: site-production
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+          persist-credentials: false
+
+      - name: Recheck current main before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ needs.guard.outputs.sha }}
+          SITE_DEPLOY_HOLD: ${{ vars.SITE_DEPLOY_HOLD }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$DEPLOY_SHA"
+          test -z "$SITE_DEPLOY_HOLD" || test "$SITE_DEPLOY_HOLD" = false
 
       # Keep the real full-IDE source capture in the self-contained image context.
       - name: Require the IDE capture
@@ -60,7 +135,7 @@ jobs:
           context: ./site
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:${{ needs.guard.outputs.sha }}
             ${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -84,6 +159,16 @@ jobs:
           printf '%s' "$KUBE_CONFIG_BASE64" | base64 --decode > "$RUNNER_TEMP/phosphor-kube/config"
           chmod 600 "$RUNNER_TEMP/phosphor-kube/config"
           echo "KUBECONFIG=$RUNNER_TEMP/phosphor-kube/config" >> "$GITHUB_ENV"
+
+      - name: Recheck current main before rollout
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ needs.guard.outputs.sha }}
+          SITE_DEPLOY_HOLD: ${{ vars.SITE_DEPLOY_HOLD }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$DEPLOY_SHA"
+          test -z "$SITE_DEPLOY_HOLD" || test "$SITE_DEPLOY_HOLD" = false
 
       - name: Apply and verify deployment
         env:

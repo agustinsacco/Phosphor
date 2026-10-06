@@ -356,8 +356,8 @@ electron/            main process — owns every side effect
   routines/          local scheduler, SQLite run ledger, unattended execution,
                      background tray; never manages interactive lanes
   broadcast.ts       send a push to every open window
-  pi/                RPC client (strict LF JSONL framing), session scanner,
-                     writer, paths, print mode, model catalogue, login flow
+  pi/                desktop RPC adapter, session scanner, writer, paths,
+                     print mode, model catalogue, login flow
   claude/            pi-claude-cli: several Claude Code logins side by side,
                      which one bills a session (decided once, at spawn), and
                      live subscription usage
@@ -372,7 +372,10 @@ electron/            main process — owns every side effect
                      does the git and the disk, a scheduler that rate-limits it
   updates/           update check + download state machine
   store.ts           app prefs (electron-store, constructed lazily)
-runtime/             Electron-free execution helpers: file logging and bundled extension paths
+runtime/             Electron-free source modules, not a separate service
+  pi/                pi RPC transport, strict LF JSONL framing, activity tracking
+  file-log.ts        injected file logging
+  bundled-extensions.ts  bundled extension paths
 supabase/            isolated control-directory migrations and local RLS tests
 shared/              types and pure logic shared by main + renderer
   ipc.ts             the typed IpcInvokeMap contract

@@ -40,17 +40,22 @@
 
 The main-side names are literal: `SessionRegistry` (`electron/pi/session-registry.ts`,
 single instance exported as `registry` from `electron/registry.ts`) holds every
-live session ↔ `PiRpcClient` (`electron/pi/rpc-client.ts`) pair; `ptyManager`
+live session ↔ `PiRpcClient` (`runtime/pi/rpc-client.ts`) pair; `ptyManager`
 (`electron/pty/pty-manager.ts`) owns the PTYs. There is no WorkspaceManager and
 no SessionManager class — filesystem and git are plain function modules
 (`electron/fs/fs-service.ts`, `git-service.ts`), and watching is two chokidar
 users, `electron/fs/workspace-watcher.ts` for the file tree and
 `electron/pi/session-watcher.ts` for the sessions dir.
 
-The RPC transport accepts explicit logging and shutdown ports and does not
-import Electron. Desktop callers use `electron/pi/desktop-rpc-client.ts` to bind
-those ports to the existing app logger and shutdown approval. This separation
-does not enable a remote listener or change local session ownership.
+The RPC transport, strict JSONL decoder and activity tracker live in `runtime/pi/`.
+The transport accepts explicit logging and shutdown ports and does not import
+Electron. Desktop callers use `electron/pi/desktop-rpc-client.ts` to bind those
+ports to the existing app logger and shutdown approval.
+
+`runtime/` is shared source code, not an extra running service. Phosphor Desktop
+still starts one pi subprocess per live local session. Moving these modules does
+not install Phosphor Host on the local machine, enable a listener, require login,
+or change session ownership, pi arguments or on-disk formats.
 
 - **Main process owns all side effects**: pi subprocesses, PTYs, filesystem, git, watchers, dialogs, app prefs.
 - **Renderer is pure UI** over typed IPC. `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true` (`electron/main.ts`), strict CSP in `src/index.html`. Model-authored HTML renders only in the sandboxed iframe — and only via a `phosphor-artifact://` URL, because a `srcdoc` document inherits the embedder's policy container and the app's own `script-src 'self'` would silently refuse every inline script (`src/components/SandboxedHtml.tsx`). Workspace files reach the Files pane's viewers over a second scheme, `phosphor-file://`, which serves only token-granted files and gives HTML the same sandbox and no-network policy (`electron/fs/file-protocol.ts`, [files.md](files.md#previews)). Both schemes are registered in one `registerSchemesAsPrivileged` call — Electron honours only one. A frame navigating itself to http(s) or `file:` is refused twice: by the app's `frame-src`, and by a `will-frame-navigate` guard that does not depend on that policy.

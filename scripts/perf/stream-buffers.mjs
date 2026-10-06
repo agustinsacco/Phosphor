@@ -12,7 +12,7 @@ async function load(path) {
   })
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
 }
-const { JsonlDecoder } = await load('electron/pi/jsonl.ts')
+const { JsonlDecoder } = await load('runtime/pi/jsonl.ts')
 const { ScrollbackBuffer } = await load('electron/pty/scrollback-buffer.ts')
 const samples = 5
 function measure(run) {

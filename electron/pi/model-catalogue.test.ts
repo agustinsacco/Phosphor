@@ -10,7 +10,7 @@ import {
 } from './model-catalogue'
 import type { Model } from '@shared/rpc'
 
-const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '__fixtures__')
+const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), '../../runtime/pi/__fixtures__')
 const fakePi = join(fixtureDir, 'fake-pi.cjs')
 
 const clients: PiRpcClient[] = []

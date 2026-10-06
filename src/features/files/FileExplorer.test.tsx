@@ -135,6 +135,18 @@ it('extends and shrinks a keyboard range from a stable anchor', async () => {
   expect(row('/repo/src')?.getAttribute('aria-pressed')).toBe('true')
 })
 
+it('starts a keyboard range at the new file after editor navigation', async () => {
+  await act(async () => root.render(<FileExplorer workspacePath="/repo" />))
+  await act(async () => row('/repo/a.ts')!.click())
+  await open('/repo/src/nested/b.ts')
+  row('/repo/src/nested/b.ts')!.focus()
+  await press('ArrowDown', { shiftKey: true })
+  expect(row('/repo/src/nested/b.ts')?.getAttribute('aria-pressed')).toBe('true')
+  expect(row('/repo/other')?.getAttribute('aria-pressed')).toBe('true')
+  expect(row('/repo/a.ts')?.getAttribute('aria-pressed')).toBe('false')
+  expect(container.querySelectorAll('[data-path][aria-pressed="true"]')).toHaveLength(2)
+})
+
 it('finds visible filenames by typing without opening the file', async () => {
   await act(async () => root.render(<FileExplorer workspacePath="/repo" />))
   container.querySelector<HTMLElement>('[data-testid="file-explorer"]')!.focus()

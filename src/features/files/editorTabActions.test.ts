@@ -56,6 +56,33 @@ it('reopens closed files in most-recent order and keeps histories workspace-loca
   expect(workspaceFiles(store(), '/repo').activePath).toBe('/repo/unique.ts')
 })
 
+it('a failed reopen reports the error but does not block older history entries', async () => {
+  store().closeFile('/repo', '/repo/src/a/index.ts')
+  store().closeFile('/repo', '/repo/unique.ts')
+  invoke.mockRejectedValueOnce(new Error('ENOENT: file was deleted'))
+  await expect(store().reopenClosed('/repo')).rejects.toThrow('file was deleted')
+  expect(workspaceFiles(store(), '/repo').closedPaths).not.toContain('/repo/unique.ts')
+  await store().reopenClosed('/repo')
+  expect(workspaceFiles(store(), '/repo').activePath).toBe('/repo/src/a/index.ts')
+})
+
+it('does not advance history twice while a reopen is still loading', async () => {
+  store().closeFile('/repo', '/repo/src/a/index.ts')
+  store().closeFile('/repo', '/repo/unique.ts')
+  let finish!: (file: { content: string; size: number; mtimeMs: number }) => void
+  invoke.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = resolve
+    }),
+  )
+  const pending = store().reopenClosed('/repo')
+  await store().reopenClosed('/repo')
+  expect(workspaceFiles(store(), '/repo').closedPaths).toContain('/repo/src/a/index.ts')
+  finish({ content: 'disk', size: 4, mtimeMs: 1 })
+  await pending
+  expect(workspaceFiles(store(), '/repo').activePath).toBe('/repo/unique.ts')
+})
+
 it('Save All writes each dirty file but not clean files', async () => {
   store().updateBuffer('/repo', '/repo/src/a/index.ts', 'first')
   store().updateBuffer('/repo', '/repo/unique.ts', 'second')

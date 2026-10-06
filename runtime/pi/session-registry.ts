@@ -47,10 +47,17 @@ export class SessionRegistry extends EventEmitter<SessionRegistryEvents> {
     // No 'exit' listener on purpose: the entry outlives the child process so the
     // renderer can observe a crash and offer resume. dispose() removes it.
 
-    client.spawn()
-    // After spawn, so a listener that immediately sends RPC has a live process.
-    this.emit('created', session)
-    return session
+    try {
+      client.spawn()
+      // After spawn, so a listener that immediately sends RPC has a live process.
+      this.emit('created', session)
+      return session
+    } catch (error) {
+      // Allocation is already owned, even when spawn or an observer throws.
+      // Keep it visible until disposal finishes; a failed stop remains retryable.
+      void this.dispose(sessionId).catch(() => client.killNow())
+      throw error
+    }
   }
 
   get(sessionId: string): LiveSession | undefined {

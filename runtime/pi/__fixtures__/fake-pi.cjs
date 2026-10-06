@@ -47,7 +47,7 @@ function handle(cmd) {
           steeringMode: 'all',
           followUpMode: 'one-at-a-time',
           sessionId: 'fake-session',
-          sessionFile: '/fake/session.jsonl',
+          sessionFile: process.env.FAKE_PI_SESSION_FILE ?? '/fake/session.jsonl',
           autoCompactionEnabled: true,
           messageCount: 0,
           pendingMessageCount: 0,
@@ -57,6 +57,9 @@ function handle(cmd) {
 
     case 'prompt': {
       out({ id: cmd.id, type: 'response', command: 'prompt', success: true })
+      // The service stages this extension command during readiness/preflight.
+      // It is not a model turn and must not emit artificial overlapping turns.
+      if (cmd.message.startsWith('/phosphor-context-budget ')) break
       out({ type: 'agent_start' })
       out({ type: 'message_start', message: { role: 'assistant', content: [] } })
       // Delta containing U+2028 — must arrive inside one record.

@@ -58,8 +58,8 @@ only live desktop registry. Creation/disposal events, crash retention and
 ownership until process exit are unchanged.
 
 Launch preparation lives in `runtime/pi/session-launch.ts`, with explicit
-executable, fork-copy, environment and resource-root dependencies. The desktop
-adapter in `electron/pi/session-launch.ts` keeps existing agent discovery, shell
+executable, environment and resource-root dependencies. The desktop adapter
+in `electron/pi/session-launch.ts` keeps existing pi discovery and caching, shell
 PATH, provider environment and packaged-resource selection. The test stub still
 uses the single unpackaged-only gate in `stub.ts`. Preference policy, session
 startup, command guards and event delivery remain in the desktop runtime.

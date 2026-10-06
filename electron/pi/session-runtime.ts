@@ -6,10 +6,7 @@ import { composeDirectives } from './directives'
 import { accountForSpawn, claudeAccountEnv, holdAccount } from '../claude/accounts'
 import { RATE_LIMIT_STATUS_KEY, accountExhaustedUntil } from '@shared/claude-limits'
 import { rememberSpawnAccount } from './session-accounts'
-import {
-  assertClaudeContextProvider,
-  usesClaudeCliProvider,
-} from './provider-detect'
+import { assertClaudeContextProvider, usesClaudeCliProvider } from './provider-detect'
 import { readAgentSettings } from './agent-settings'
 import { healMissingSessionCwd } from './session-cwd'
 import { ensureCompactionReset } from './compaction-reset'
@@ -57,8 +54,13 @@ export async function spawnSession(
     if (healed) log('pi', 'repointed session cwd', { path: options.sessionPath })
   }
 
-  const { stub, binaryPath, prefixArgs, env: spawnEnv, extensions } =
-    await prepareDesktopSessionLaunch()
+  const {
+    stub,
+    binaryPath,
+    prefixArgs,
+    env: spawnEnv,
+    extensions,
+  } = await prepareDesktopSessionLaunch()
 
   // Worktree sessions get an explicit working-directory block: pi's own
   // `Current working directory:` line is correct but has been observed to

@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "neverConnectToCloud": true,
+  "analytics": false,
+  "useDaemonProcess": false,
+  "useInferencePlugins": false,
+  "plugins": [],
+  "parallel": 1,
+  "tui": {
+    "enabled": false
+  },
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*"],
+    "workspace": ["{workspaceRoot}/**/*", "!{workspaceRoot}/.nx/**/*"]
+  },
+  "targetDefaults": {
+    "nx:run-commands": {
+      "cache": false,
+      "inputs": ["workspace"]
+    }
+  }
+}

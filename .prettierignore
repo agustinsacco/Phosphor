@@ -19,3 +19,6 @@ site/dist/
 site/shots-raw/
 site/src/assets/shots/
 site/public/fonts/
+
+# Per-worktree Nx state (never shared or committed).
+.nx/

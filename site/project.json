@@ -1,0 +1,110 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "site",
+  "root": "site",
+  "projectType": "application",
+  "tags": ["scope:site"],
+  "implicitDependencies": ["desktop", "tooling"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run build",
+        "cwd": "site"
+      },
+      "outputs": ["{projectRoot}/dist", "{projectRoot}/public/og.png"]
+    },
+    "check": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run check",
+        "cwd": "site"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm test",
+        "cwd": "site"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run dev",
+        "cwd": "site"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run start",
+        "cwd": "site"
+      }
+    },
+    "prebuild": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run prebuild",
+        "cwd": "site"
+      }
+    },
+    "preview": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run preview",
+        "cwd": "site"
+      }
+    },
+    "shots": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run shots",
+        "cwd": "site"
+      }
+    },
+    "shots:guides": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run shots:guides",
+        "cwd": "site"
+      }
+    },
+    "audit:links": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run audit:links",
+        "cwd": "site"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run format",
+        "cwd": "site"
+      }
+    }
+  }
+}

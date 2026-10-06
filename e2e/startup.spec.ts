@@ -480,7 +480,7 @@ test('startup errors offer recovery instead of an endless loading screen', async
     await expect(h.page.getByRole('button', { name: 'Try again' })).toBeVisible()
     await h.app.evaluate(({ ipcMain }) => {
       ipcMain.removeHandler('pi:health')
-      ipcMain.handle('pi:health', () => ({ ok: false, agent: 'pi', reason: 'not-found' }))
+      ipcMain.handle('pi:health', () => ({ ok: false, reason: 'not-found' }))
     })
     await h.page.getByRole('button', { name: 'Try again' }).click()
     await expect(h.page.getByTestId('startup-screen')).toHaveCount(0)

@@ -11,11 +11,6 @@ import { isWithinFolder, rebaseWithinFolder } from '@shared/paths'
 import { access, readdir, rename } from 'node:fs/promises'
 import { claudeProjectDirForCwd, sessionDirForCwd } from '../pi/pi-paths'
 import { repointSessionCwd } from '../pi/session-cwd'
-import { setActiveAgent } from '../pi/agent'
-import { invalidateAgentHealth } from '../pi/health'
-import { unwatchAll } from '../pi/session-watcher'
-import { invalidateCatalogueModels, invalidatePiCommands } from './pi-config-handlers'
-import type { AgentPrefs } from '@shared/models'
 import { registry } from '../registry'
 import { syncContextBudget, withBudgetCompaction } from '../pi/context-budget'
 import { piStubPath } from '../pi/stub'
@@ -51,7 +46,6 @@ import {
   setAgentDirectives,
   setWorktreePrefs,
   setContextBudget,
-  setAgentPrefs,
   setDraft,
   clearDraft,
   setDrafts,
@@ -302,19 +296,6 @@ export function registerAppHandlers(): void {
         }),
       ),
     )
-  })
-
-  // Each reset below was derived from the previous agent: its health, its
-  // `/` commands and models, and the session directories being watched (omp
-  // keeps sessions in another tree). Live sessions keep the process they
-  // spawned; only new ones use the new agent.
-  handle('app:setAgent', async (_event, value: AgentPrefs) => {
-    const stored = setActiveAgent(setAgentPrefs(value))
-    invalidateAgentHealth()
-    invalidateCatalogueModels()
-    invalidatePiCommands()
-    await unwatchAll()
-    return stored
   })
 
   handle('app:markSessionSeen', (_event, sessionPath: string) => {

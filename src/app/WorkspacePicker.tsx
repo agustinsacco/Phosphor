@@ -1,15 +1,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/form'
 import { useWorkspacesStore } from '@/stores/workspaces'
-import type { AgentKind } from '@shared/models'
 
-export function WorkspacePicker({
-  agent = 'pi',
-  piVersion,
-}: {
-  agent?: AgentKind
-  piVersion?: string
-}): React.JSX.Element {
+export function WorkspacePicker({ piVersion }: { piVersion?: string }): React.JSX.Element {
   const { recents, pickAndOpen, openWorkspace, openSandbox } = useWorkspacesStore()
   // The native folder dialog takes a beat to appear; without this the button
   // gives no feedback and a second click queues a second dialog.
@@ -34,7 +27,7 @@ export function WorkspacePicker({
         <div className="text-center">
           <h1 className="text-4xl font-semibold tracking-tight">What are we building today?</h1>
           <p className="text-text-secondary mt-2 text-lg">
-            Open a project folder to start a coding session with {agent}
+            Open a project folder to start a coding session with pi
             {piVersion ? ` ${piVersion}` : ''}.
           </p>
         </div>

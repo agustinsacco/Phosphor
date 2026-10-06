@@ -24,7 +24,8 @@ Start with [overview.md](overview.md) for what Phosphor is, or
 | [pi-integration.md](pi-integration.md) | pi's RPC protocol and session format                         |
 
 The [remote-access foundation](remote-access.md) documents the control-directory
-schema and its isolated local tests. It does not enable remote connections.
+schema, isolated local tests and an opt-in private-transport probe. It does not
+enable remote execution.
 
 ## The surfaces
 

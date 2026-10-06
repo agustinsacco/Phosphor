@@ -47,6 +47,43 @@ client writes and server-role access. CI starts/tests/stops its own stack and
 never receives hosted database credentials. Local CLI output includes test
 keys; do not publish it as production setup information.
 
+## Opt-in transport probe
+
+`scripts/run-remote-probe.mjs` is a disposable diagnostic server, not a host daemon.
+It binds only `127.0.0.1`, requires one exact HTTPS Origin and a random 32-byte
+hex token, and stops after five minutes, terminating existing streams. It exposes
+only `/probe`: authenticated GET and WebSocket diagnostic messages. No pi,
+commands, files, cookies or durable state are accessible. Unit tests exercise
+preflights, rejected origins/tokens, streaming, reconnect and expiry.
+
+With Node and this repo's development dependencies installed, supply `PROBE_TOKEN`
+through a protected environment, not command arguments or a URL, then run:
+
+```bash
+PROBE_ORIGIN=https://phosphor.saccolabs.com PROBE_PORT=18591 node scripts/run-remote-probe.mjs
+```
+
+For a real host, inspect `tailscale serve status --json` first. Only on an unused
+port, run foreground `tailscale serve --https=8443 http://127.0.0.1:18591` (sudo
+may be required). Never use Funnel or overwrite another route. Wait for certificate
+issuance; do not disable TLS verification. Stop the foreground Serve command and
+remove the probe files after testing. Tailscale owns its certificate cache.
+
+The browser runner uses a fresh, isolated Playwright profile. Set `PROBE_CONFIG`
+to a mode-0600 JSON file containing `pageUrl`, `endpoint` and `token`; use the
+public page URL and the host's HTTPS `/probe` endpoint. Never commit this file.
+Run `node scripts/probe-browser.mjs` after installing the desired Playwright
+browser. `PROBE_BROWSER` selects `chromium` (default), `webkit` or `firefox`.
+It tests real cross-origin fetch, token rejection, streaming and reconnect.
+
+Chromium requires local-network permission. Test the default refusal first;
+`PROBE_LOCAL_NETWORK_CONSENT=1` explicitly grants that permission in the test
+profile, without disabling browser security. This does not test an onboarding
+permission prompt. Automated WebKit is not real Safari or an iPhone. Real mobile
+Safari/Chrome, suspension, network switching and installed-PWA tests are still
+required before choosing the public-origin PWA approach. Neither this probe nor
+its browser runner is loaded by Electron or deployed with the public website.
+
 ## Hosted directory
 
 The provisioned `phosphor` project is `bzdbiswndlqvviiywsvj` in `us-west-1`.

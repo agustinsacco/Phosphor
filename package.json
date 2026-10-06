@@ -60,7 +60,8 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0",
     "vite": "^7.3.6",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "ws": "8.21.0"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.9",

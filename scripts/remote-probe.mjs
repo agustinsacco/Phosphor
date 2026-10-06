@@ -72,7 +72,10 @@ export async function createProbe({ origin, token, port = 0, ttlMs = 300_000 }) 
       protocols[0] !== 'phosphor-probe' ||
       !accepts(protocols[1])
     ) {
-      socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n')
+      socket.end(
+        'HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n',
+        () => socket.destroy(),
+      )
       return
     }
     sockets.handleUpgrade(req, socket, head, (ws) => {

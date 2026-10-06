@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { randomBytes } from 'node:crypto'
 import { once } from 'node:events'
+import { connect } from 'node:net'
 import { WebSocket } from 'ws'
 import { createProbe } from './remote-probe.mjs'
 
@@ -117,6 +118,32 @@ describe('temporary remote transport probe', () => {
     await once(ws, 'close')
     await probe.close()
     await expect(fetch(probe.url, { headers })).rejects.toThrow()
+  })
+
+  it('cannot be kept alive by a rejected half-open upgrade', async () => {
+    const probe = await start()
+    const peer = connect({
+      host: '127.0.0.1',
+      port: Number(new URL(probe.url).port),
+      allowHalfOpen: true,
+    })
+    let deadline: ReturnType<typeof setTimeout> | undefined
+    try {
+      await once(peer, 'connect')
+      peer.write(
+        'GET /probe HTTP/1.1\r\nHost: localhost\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n',
+      )
+      expect(String((await once(peer, 'data'))[0])).toContain('401 Unauthorized')
+      await Promise.race([
+        probe.close(),
+        new Promise((_, reject) => {
+          deadline = setTimeout(() => reject(new Error('Rejected peer prevented shutdown')), 500)
+        }),
+      ])
+    } finally {
+      clearTimeout(deadline)
+      peer.destroy()
+    }
   })
 
   it('rejects unsafe configuration', async () => {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { join } from 'node:path'
-import type { PiHealth } from '@shared/models'
+import { MIN_PI_VERSION, type PiHealth } from '@shared/models'
 
 const h = vi.hoisted(() => ({
   app: { isPackaged: false, getAppPath: vi.fn(() => '/desktop/source') },
@@ -19,7 +19,12 @@ beforeEach(() => {
   vi.resetModules()
   vi.clearAllMocks()
   h.app.isPackaged = false
-  h.health.mockResolvedValue({ ok: true, binaryPath: '/tools/node', prefixArgs: ['/tools/pi.js'] })
+  h.health.mockResolvedValue({
+    ok: true,
+    minVersion: MIN_PI_VERSION,
+    binaryPath: '/tools/node',
+    prefixArgs: ['/tools/pi.js'],
+  })
   vi.stubEnv('PHOSPHOR_PI_STUB', '')
   Object.defineProperty(process, 'resourcesPath', {
     configurable: true,
@@ -74,7 +79,7 @@ it.each([
   ['Custom failure', 'Custom failure'],
   [undefined, 'pi is not available'],
 ])('preserves health errors and retries discovery (%s)', async (message, expected) => {
-  h.health.mockResolvedValueOnce({ ok: false, message })
+  h.health.mockResolvedValueOnce({ ok: false, minVersion: MIN_PI_VERSION, message })
   await expect(prepare()).rejects.toThrow(expected!)
   expect(h.environment).not.toHaveBeenCalled()
   expect(h.app.getAppPath).not.toHaveBeenCalled()

@@ -61,7 +61,10 @@ Launch preparation lives in `runtime/pi/session-launch.ts`, with explicit
 executable, environment and resource-root dependencies. The desktop adapter
 in `electron/pi/session-launch.ts` keeps existing pi discovery and caching, shell
 PATH, provider environment and packaged-resource selection. The test stub still
-uses the single unpackaged-only gate in `stub.ts`. Preference policy, session
+uses the single unpackaged-only gate in `stub.ts`. `runtime/pi/session-policy.ts`
+selects project directives, validates the predicted provider and prepares account
+and compression overlays before compaction repair. Its Desktop adapter supplies
+machine-local preferences, Git, packages, accounts and Headroom state. Session
 startup and command guards remain in the desktop runtime.
 
 Directive composition, provider detection, pi path rules and safe session-header

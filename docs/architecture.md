@@ -50,7 +50,12 @@ users, `electron/fs/workspace-watcher.ts` for the file tree and
 The RPC transport, strict JSONL decoder and activity tracker live in `runtime/pi/`.
 The transport accepts explicit logging and shutdown ports and does not import
 Electron. Desktop callers use `electron/pi/desktop-rpc-client.ts` to bind those
-ports to the existing app logger and shutdown approval.
+ports to the existing app logger and shutdown approval. Session ownership lives
+in `runtime/pi/session-registry.ts`, which receives a client factory and an
+admission check. `electron/pi/session-registry.ts` binds both to the same desktop
+client and shutdown approval as before; `electron/registry.ts` still creates the
+only live desktop registry. Creation/disposal events, crash retention and
+ownership until process exit are unchanged.
 
 `runtime/` is shared source code, not an extra running service. Phosphor Desktop
 still starts one pi subprocess per live local session. Moving these modules does

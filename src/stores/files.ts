@@ -58,6 +58,8 @@ export interface OpenFile {
 interface WorkspaceFiles {
   openFiles: OpenFile[]
   activePath: string | null
+  /** Changes on navigation, including reopening the current file. */
+  activeRequest?: number
   gitStatus: Record<string, string>
 }
 
@@ -287,6 +289,7 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         patchWorkspace(s, workspacePath, (w) => ({
           ...patchFile(w, path, reveal),
           activePath: path,
+          activeRequest: (w.activeRequest ?? 0) + 1,
         })),
       )
       return
@@ -299,7 +302,11 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         const opened = w.openFiles.find((f) => f.path === path)
         if (opened) {
           const newer = (reveal.pendingReveal?.seq ?? 0) > (opened.pendingReveal?.seq ?? 0)
-          return { ...(newer ? patchFile(w, path, reveal) : w), activePath: path }
+          return {
+            ...(newer ? patchFile(w, path, reveal) : w),
+            activePath: path,
+            activeRequest: (w.activeRequest ?? 0) + 1,
+          }
         }
         const openFile: OpenFile = {
           path,
@@ -314,7 +321,12 @@ export const useFilesStore = create<FilesState>((set, get) => ({
           tooLarge: file.tooLarge,
           ...reveal,
         }
-        return { ...w, openFiles: [...w.openFiles, openFile], activePath: path }
+        return {
+          ...w,
+          openFiles: [...w.openFiles, openFile],
+          activePath: path,
+          activeRequest: (w.activeRequest ?? 0) + 1,
+        }
       }),
     )
   },
@@ -413,7 +425,13 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   setActive: (workspacePath, path) => {
-    set((s) => patchWorkspace(s, workspacePath, (w) => ({ ...w, activePath: path })))
+    set((s) =>
+      patchWorkspace(s, workspacePath, (w) => ({
+        ...w,
+        activePath: path,
+        activeRequest: (w.activeRequest ?? 0) + 1,
+      })),
+    )
   },
 
   setView: (workspacePath, path, view) => {

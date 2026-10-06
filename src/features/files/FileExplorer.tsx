@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import clsx from 'clsx'
 import type { DirEntry } from '@shared/models'
 import { useFilesStore, workspaceFiles } from '@/stores/files'
@@ -168,6 +168,11 @@ function ExplorerRow({
   const children = useFilesStore((s) => s.entries[entry.path])
   const gitStatus = useFilesStore((s) => workspaceFiles(s, workspacePath).gitStatus)
   const isActive = useFilesStore((s) => workspaceFiles(s, workspacePath).activePath === entry.path)
+  const activeRequest = useFilesStore((s) => workspaceFiles(s, workspacePath).activeRequest)
+  const rowRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (isActive) rowRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [isActive, activeRequest])
 
   const status = gitStatus[entry.relativePath]
   const statusChar = status?.trim()?.[0]
@@ -235,6 +240,8 @@ function ExplorerRow({
   return (
     <>
       <button
+        ref={rowRef}
+        aria-current={isActive ? 'true' : undefined}
         data-path={entry.path}
         data-directory={entry.isDirectory}
         aria-pressed={controls.selected.some((e) => e.path === entry.path)}
@@ -245,11 +252,11 @@ function ExplorerRow({
         onContextMenu={onContextMenu}
         className={clsx(
           'group flex w-full items-center gap-1.5 py-[3px] pr-2 text-left text-base transition-colors',
-          controls.selected.some((e) => e.path === entry.path) || controls.dropDir === entry.path
+          isActive ||
+            controls.selected.some((e) => e.path === entry.path) ||
+            controls.dropDir === entry.path
             ? 'bg-accent-soft text-text'
-            : isActive
-              ? 'bg-bg-secondary text-text'
-              : 'text-text-secondary hover:bg-bg-secondary/60 hover:text-text',
+            : 'text-text-secondary hover:bg-bg-secondary/60 hover:text-text',
         )}
         style={{ paddingLeft: 10 + depth * 14 }}
       >

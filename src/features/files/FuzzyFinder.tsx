@@ -5,6 +5,7 @@ import { fuzzyFilter } from '@/lib/fuzzy'
 import { openFileInWorkspace } from '@/stores/layout'
 import { MenuRow } from '@/components/PopupMenu'
 import { ignoreShortcut } from '@/lib/shortcutContext'
+import { useWorkspaceSearchStore } from './workspaceSearchStore'
 
 interface FinderState {
   open: boolean
@@ -43,6 +44,7 @@ export function FuzzyFinder({
 
   const pick = (file: string): void => {
     close()
+    useWorkspaceSearchStore.getState().closeSearch(workspacePath)
     void openFileInWorkspace(workspacePath, file)
   }
 

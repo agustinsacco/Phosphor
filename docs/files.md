@@ -9,6 +9,13 @@ and the toolbar refresh button re-reads the visible lazy tree on demand.
 It exists so you can read and fix the thing the agent just touched without
 leaving the conversation.
 
+Opening a file or switching editor tabs expands its ancestor folders, highlights
+its row and scrolls it into view without taking keyboard focus. Only that path
+is loaded, and hidden/gitignore filters still apply. Cmd/Ctrl+P opens the Files
+pane on the explorer tree, replacing the content-search panel if it was open.
+Content search keeps its results visible while stepping through matches; returning
+to the explorer reveals the active file.
+
 ## File management
 
 - **Create:** toolbar buttons create inside the selected folder (or beside a

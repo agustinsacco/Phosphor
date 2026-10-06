@@ -1,19 +1,65 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DirEntry } from '@shared/models'
 import type { ContextMenuItem } from '@/components/ContextMenu'
-import { useFilesStore } from '@/stores/files'
+import { useFilesStore, workspaceFiles } from '@/stores/files'
 import { dirname } from '@/lib/path'
 import { formatShortcut } from '@/lib/shortcuts'
 import { renameEntry, runFileAction, trashEntry } from './fileActions'
 import { entryDirectory, FILE_DRAG, importFiles, pasteFiles, transferFiles } from './fileTransfers'
 
 export function useExplorer(workspace: string) {
-  const [selectionState, setSelectionState] = useState({ workspace, entries: [] as DirEntry[] })
-  const setSelected = (entries: DirEntry[]): void => setSelectionState({ workspace, entries })
+  const activePath = useFilesStore((s) => workspaceFiles(s, workspace).activePath)
+  const activeRequest = useFilesStore((s) => workspaceFiles(s, workspace).activeRequest)
+  const [selectionState, setSelectionState] = useState({
+    workspace,
+    activePath: null as string | null,
+    activeRequest: undefined as number | undefined,
+    entries: [] as DirEntry[],
+  })
+  const setSelected = (entries: DirEntry[]): void =>
+    setSelectionState({ workspace, activePath, activeRequest, entries })
   const listings = useFilesStore((s) => s.entries)
-  const selected = (selectionState.workspace === workspace ? selectionState.entries : []).filter(
-    (entry) => listings[dirname(entry.path)]?.some((e) => e.path === entry.path),
-  )
+  const activeEntry = activePath
+    ? listings[dirname(activePath)]?.find((entry) => entry.path === activePath)
+    : undefined
+  const selected = (
+    selectionState.workspace === workspace &&
+    selectionState.activePath === activePath &&
+    selectionState.activeRequest === activeRequest
+      ? selectionState.entries
+      : activeEntry
+        ? [activeEntry]
+        : []
+  ).filter((entry) => listings[dirname(entry.path)]?.some((e) => e.path === entry.path))
+
+  useEffect(() => {
+    if (!activePath) return
+    let cancelled = false
+    // Walk only the active file's ancestors through the filtered listings.
+    // Never scan unrelated subtrees or undo a user's hidden/gitignore filters.
+    const reveal = async (): Promise<void> => {
+      let dir = workspace
+      while (!cancelled) {
+        if (!useFilesStore.getState().entries[dir])
+          await useFilesStore.getState().refreshDir(workspace, dir)
+        if (cancelled) return
+        const ancestor = useFilesStore
+          .getState()
+          .entries[dir]?.find(
+            (entry) =>
+              entry.isDirectory &&
+              (activePath.startsWith(entry.path + '/') || activePath.startsWith(entry.path + '\\')),
+          )
+        if (!ancestor) return
+        dir = ancestor.path
+        useFilesStore.setState((s) => ({ expanded: { ...s.expanded, [dir]: true } }))
+      }
+    }
+    void reveal()
+    return () => {
+      cancelled = true
+    }
+  }, [workspace, activePath, activeRequest])
   const [dropDir, setDropDir] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const running = useRef(false)

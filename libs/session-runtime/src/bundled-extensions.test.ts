@@ -3,7 +3,7 @@ import { readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { BUNDLED_EXTENSION_FILES, bundledExtensions } from './bundled-extensions'
 
-const root = resolve(import.meta.dirname, '..')
+const root = resolve(import.meta.dirname, '../../..')
 
 describe('bundledExtensions', () => {
   it('includes production extension entry points, without helpers, tests or optional packages', () => {

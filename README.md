@@ -327,7 +327,7 @@ the same full unit suites without running them.
 | Project         | Current paths / ownership                                                  |
 | --------------- | -------------------------------------------------------------------------- |
 | `desktop`       | Root app configuration, `electron/`, `src/`, `e2e/`, `build/`, `docs/img/` |
-| `runtime`       | `runtime/`, including plain-Node and fake-pi tests                         |
+| `runtime`       | `libs/session-runtime/src/`, including plain-Node and fake-pi tests        |
 | `shared`        | `libs/shared/`                                                             |
 | `pi-extensions` | `pi-ext/`, including optional extension tests                              |
 | `site`          | `site/`, with its independent install and lockfile                         |
@@ -360,6 +360,13 @@ bundle its sources, rather than requiring workspace TypeScript at runtime.
 The existing `@shared/*` spelling is the sole compatibility alias, mapped to
 `libs/shared/src` in TypeScript, Vitest and both Vite configurations. Its removal
 belongs to installation closure, not a semantic split of the shared modules.
+`@phosphor/session-runtime` exports the Electron-free modules from
+`libs/session-runtime/src`, with a standalone Node TypeScript configuration.
+Desktop main/preload and the plain-Node acceptance fixtures bundle these source
+exports. Tests and fake-pi fixtures remain adjacent but are not package exports.
+Core Nx derives a static runtime-to-shared edge from the private package manifest;
+the explicit implicit edge remains too. Graph checks require both edge types,
+while comparing unique targets for reachability. No import-inference plugin is enabled.
 
 Conventions (IPC channels, the `piCall` rule, modals, and the sharp edges worth
 knowing before touching pi's session files) are in [CLAUDE.md](CLAUDE.md). It
@@ -428,7 +435,7 @@ electron/            main process — owns every side effect
                      does the git and the disk, a scheduler that rate-limits it
   updates/           update check + download state machine
   store.ts           app prefs (electron-store, constructed lazily)
-runtime/             Electron-free source modules, not a separate service
+libs/session-runtime/src/  Electron-free source modules, not a separate service
   pi/                pi RPC transport, strict LF JSONL framing, activity tracking,
                      session ownership, startup/policy preparation, command/resume
                      admission and deletion coordination with machine-local ports

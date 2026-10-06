@@ -1,1 +1,1 @@
-export * from '../../runtime/pi/provider-detect'
+export * from '@phosphor/session-runtime/pi/provider-detect'

@@ -1,1 +1,1 @@
-export * from '../../runtime/pi/session-cwd'
+export * from '@phosphor/session-runtime/pi/session-cwd'

@@ -1,6 +1,9 @@
 import { app } from 'electron'
 import type { PiHealth } from '@shared/models'
-import { prepareSessionLaunch, type SessionLaunchRuntime } from '../../runtime/pi/session-launch'
+import {
+  prepareSessionLaunch,
+  type SessionLaunchRuntime,
+} from '@phosphor/session-runtime/pi/session-launch'
 import { checkPiHealth } from './health'
 import { piStubPath } from './stub'
 import { piProcessEnv } from './shell-env'

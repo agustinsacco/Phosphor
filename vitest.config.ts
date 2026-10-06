@@ -6,13 +6,14 @@ export default defineConfig({
     alias: {
       '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
       '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
+      '@phosphor/session-runtime': resolve(import.meta.dirname, 'libs/session-runtime/src'),
       '@': resolve(import.meta.dirname, 'src'),
     },
   },
   test: {
     include: [
       'electron/**/*.test.ts',
-      'runtime/**/*.test.ts',
+      'libs/session-runtime/src/**/*.test.ts',
       'libs/shared/src/**/*.test.ts',
       // Bundled pi extensions: pure rule logic lives beside the extension it
       // guards, because pi loads each `-e` file standalone (no local imports).

@@ -206,7 +206,7 @@ pending run workspaces are protected from automatic maintenance reclamation.
   ownership guard, startup wiring, and background tray. `preflight.ts` holds
   the folder-task gates so the runner and `routines:check` cannot disagree
   about what blocks a run.
-- `electron/pi/session-runtime.ts`: Desktop bindings for `runtime/pi/` startup
+- `electron/pi/session-runtime.ts`: Desktop bindings for `libs/session-runtime/src/pi/` startup
   and session admission. Routine startup and interactive IPC use the same
   provider-guarded service; routine scheduling/execution remains local.
 - `electron/ipc/routines-handlers.ts`, `libs/shared/src/ipc.ts`, `electron/preload.ts`:

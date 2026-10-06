@@ -1,0 +1,90 @@
+{
+  "name": "@phosphor/session-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./bundled-extensions": {
+      "types": "./src/bundled-extensions.ts",
+      "default": "./src/bundled-extensions.ts"
+    },
+    "./file-log": {
+      "types": "./src/file-log.ts",
+      "default": "./src/file-log.ts"
+    },
+    "./pi/context-budget": {
+      "types": "./src/pi/context-budget.ts",
+      "default": "./src/pi/context-budget.ts"
+    },
+    "./pi/directives": {
+      "types": "./src/pi/directives.ts",
+      "default": "./src/pi/directives.ts"
+    },
+    "./pi/jsonl": {
+      "types": "./src/pi/jsonl.ts",
+      "default": "./src/pi/jsonl.ts"
+    },
+    "./pi/pi-paths": {
+      "types": "./src/pi/pi-paths.ts",
+      "default": "./src/pi/pi-paths.ts"
+    },
+    "./pi/provider-detect": {
+      "types": "./src/pi/provider-detect.ts",
+      "default": "./src/pi/provider-detect.ts"
+    },
+    "./pi/rpc-client": {
+      "types": "./src/pi/rpc-client.ts",
+      "default": "./src/pi/rpc-client.ts"
+    },
+    "./pi/session-activity": {
+      "types": "./src/pi/session-activity.ts",
+      "default": "./src/pi/session-activity.ts"
+    },
+    "./pi/session-cwd": {
+      "types": "./src/pi/session-cwd.ts",
+      "default": "./src/pi/session-cwd.ts"
+    },
+    "./pi/session-deletion": {
+      "types": "./src/pi/session-deletion.ts",
+      "default": "./src/pi/session-deletion.ts"
+    },
+    "./pi/session-events": {
+      "types": "./src/pi/session-events.ts",
+      "default": "./src/pi/session-events.ts"
+    },
+    "./pi/session-launch": {
+      "types": "./src/pi/session-launch.ts",
+      "default": "./src/pi/session-launch.ts"
+    },
+    "./pi/session-path-lock": {
+      "types": "./src/pi/session-path-lock.ts",
+      "default": "./src/pi/session-path-lock.ts"
+    },
+    "./pi/session-policy": {
+      "types": "./src/pi/session-policy.ts",
+      "default": "./src/pi/session-policy.ts"
+    },
+    "./pi/session-registry": {
+      "types": "./src/pi/session-registry.ts",
+      "default": "./src/pi/session-registry.ts"
+    },
+    "./pi/session-service": {
+      "types": "./src/pi/session-service.ts",
+      "default": "./src/pi/session-service.ts"
+    },
+    "./pi/session-startup": {
+      "types": "./src/pi/session-startup.ts",
+      "default": "./src/pi/session-startup.ts"
+    },
+    "./pi/workspace-prompt": {
+      "types": "./src/pi/workspace-prompt.ts",
+      "default": "./src/pi/workspace-prompt.ts"
+    }
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@phosphor/shared": "0.0.0"
+  }
+}

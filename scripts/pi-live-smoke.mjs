@@ -5,7 +5,7 @@
  * `npm run validate` cannot do this: the e2e suite speaks to
  * `e2e/fixtures/pi-stub.cjs`, which answers a fixed script and therefore
  * cannot notice that pi's real protocol moved. This spawns a REAL
- * `pi --mode rpc` the way `runtime/pi/rpc-client.ts` spawns one — same argv
+ * `pi --mode rpc` the way `libs/session-runtime/src/pi/rpc-client.ts` spawns one — same argv
  * shape, all six bundled `pi-ext/` extensions, the Claude provider on pi's
  * context (`PI_CLAUDE_CLI_CONTEXT=pi`) — and drives the commands, events and
  * response fields Phosphor actually reads.

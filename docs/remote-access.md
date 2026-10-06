@@ -6,7 +6,7 @@ running control plane or an exposed host API.
 
 ## Portable session service
 
-`runtime/pi/` contains the Electron-free session service: launch/policy preparation,
+`libs/session-runtime/src/pi/` contains the Electron-free session service: launch/policy preparation,
 startup/readiness, event binding, command/provider/budget admission, resume reuse,
 per-owner path locks and stop-before-delete coordination. Desktop binds its existing
 preferences, accounts, package discovery, Headroom, recents, window delivery and

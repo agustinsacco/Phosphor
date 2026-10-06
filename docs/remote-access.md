@@ -47,5 +47,16 @@ client writes and server-role access. CI starts/tests/stops its own stack and
 never receives hosted database credentials. Local CLI output includes test
 keys; do not publish it as production setup information.
 
-Hosted migrations require separate deployment approval and an explicitly
-verified project reference. Local test success does not imply deployment.
+## Hosted directory
+
+The provisioned `phosphor` project is `bzdbiswndlqvviiywsvj` in `us-west-1`.
+Its directory tables have RLS enabled, no anonymous access and no direct client
+mutation privileges. Provisioning the schema does not enroll users, hosts or clients.
+Brigades is a separate product and is never a deployment target.
+
+The checked-in migration version matches Supabase's migration ledger. MCP
+assigns its own timestamp during application, so the initial migration filename
+uses that returned version without changing its SQL. Later deployments must
+reconcile the ledger before applying anything; do not replay an existing schema
+under a second version. Hosted changes require explicit target verification.
+Local test success does not imply deployment.

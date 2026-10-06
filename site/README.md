@@ -110,7 +110,7 @@ computer awake.
 The existing Docker/nginx image and `.infra/phosphor-site/` manifests serve this
 one site on port 5015. Deploy Site retains path-filtered main pushes for
 `site/**`, `.infra/phosphor-site/**`, its workflow and deployment-policy helpers.
-It waits up to ten minutes for successful CI from this repository's main push
+It waits up to thirty minutes for successful CI from this repository's main push
 at the exact checked-out SHA. Missing, failed, cancelled or unverifiable CI
 cannot deploy. GitHub's push-range path filter includes multi-commit pushes;
 PR CI completions never trigger or cancel production deployment.

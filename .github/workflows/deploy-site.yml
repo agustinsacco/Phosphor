@@ -44,7 +44,7 @@ jobs:
     name: Verify exact main SHA and successful CI
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.confirm == true)
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 35
     permissions:
       contents: read
       actions: read
@@ -68,7 +68,7 @@ jobs:
           set -euo pipefail
           echo 'should_deploy=false' >> "$GITHUB_OUTPUT"
           # Read only. Never dispatch or rerun CI, and never trust a PR run.
-          for attempt in $(seq 1 40); do
+          for attempt in $(seq 1 120); do
             MAIN_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
             export MAIN_SHA
             decision=$(node scripts/site-deploy-policy.mjs) || { echo "$decision"; exit 1; }
@@ -85,7 +85,7 @@ jobs:
               echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            if [ "$attempt" -lt 40 ]; then sleep 15; fi
+            if [ "$attempt" -lt 120 ]; then sleep 15; fi
           done
           echo '::error::Cannot verify successful exact-SHA main CI within the polling window.'
           exit 1

@@ -57,6 +57,13 @@ client and shutdown approval as before; `electron/registry.ts` still creates the
 only live desktop registry. Creation/disposal events, crash retention and
 ownership until process exit are unchanged.
 
+Launch preparation lives in `runtime/pi/session-launch.ts`, with explicit
+executable, fork-copy, environment and resource-root dependencies. The desktop
+adapter in `electron/pi/session-launch.ts` keeps existing agent discovery, shell
+PATH, provider environment and packaged-resource selection. The test stub still
+uses the single unpackaged-only gate in `stub.ts`. Preference policy, session
+startup, command guards and event delivery remain in the desktop runtime.
+
 `runtime/` is shared source code, not an extra running service. Phosphor Desktop
 still starts one pi subprocess per live local session. Moving these modules does
 not install Phosphor Host on the local machine, enable a listener, require login,
@@ -78,7 +85,7 @@ terminal, updates, workspaces, worktrees, routines) and `pi-ext/` has **6** modu
 `artifacts`, `context-breakdown`, `worktree-paths`, `tool-name-guard`,
 `mcp-status`, `headroom` — **all six** loaded into every session by
 `bundledExtensions()` in `runtime/bundled-extensions.ts`, called by
-`electron/pi/session-runtime.ts`. Those two
+`runtime/pi/session-launch.ts`. Those two
 numbers move; the tree in the README is the thing to re-read, not this
 paragraph.
 

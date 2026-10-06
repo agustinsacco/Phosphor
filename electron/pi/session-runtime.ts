@@ -1,17 +1,12 @@
-import { app } from 'electron'
 import { basename } from 'node:path'
-import { bundledExtensions } from '../../runtime/bundled-extensions'
 import { registry } from '../registry'
 import { trimForRenderer } from '../ipc/event-trim'
-import { checkPiHealth } from './health'
-import { piStubPath } from './stub'
-import { piProcessEnv } from './shell-env'
+import { prepareDesktopSessionLaunch } from './session-launch'
 import { composeDirectives } from './directives'
 import { accountForSpawn, claudeAccountEnv, holdAccount } from '../claude/accounts'
 import { RATE_LIMIT_STATUS_KEY, accountExhaustedUntil } from '@shared/claude-limits'
 import { rememberSpawnAccount } from './session-accounts'
 import {
-  claudeProviderSpawnEnv,
   assertClaudeContextProvider,
   usesClaudeCliProvider,
 } from './provider-detect'
@@ -25,11 +20,9 @@ import { headroomSupervisor } from '../headroom/proxy'
 import { sessionEventChannel } from '@shared/ipc'
 import { getPrefs, recordWorkspace, realPathOrNull } from '../store'
 import { gitInfoBatch } from '../fs/git-info'
-import type { CreateSessionOptions, LiveSessionInfo, PiHealth, SessionPush } from '@shared/models'
+import type { CreateSessionOptions, LiveSessionInfo, SessionPush } from '@shared/models'
 import { log } from '../debug-log'
 import { broadcast } from '../broadcast'
-
-let cachedHealth: PiHealth | null = null
 
 /**
  * Spawn a live session and wire its push channels.
@@ -64,31 +57,8 @@ export async function spawnSession(
     if (healed) log('pi', 'repointed session cwd', { path: options.sessionPath })
   }
 
-  const stub = piStubPath()
-  let binaryPath: string | undefined
-  let prefixArgs: string[] | undefined
-
-  if (stub) {
-    binaryPath = process.execPath
-    prefixArgs = [stub]
-  } else {
-    const health = cachedHealth?.ok ? cachedHealth : (cachedHealth = await checkPiHealth())
-    if (!health.ok) throw new Error(health.message ?? 'pi is not available')
-    binaryPath = health.binaryPath
-    // Windows: node.exe + pi's entry script (see shared/models.ts PiHealth).
-    prefixArgs = health.prefixArgs
-  }
-
-  // pi is a `#!/usr/bin/env node` script: it needs the login shell's PATH
-  // to find node under a version manager, not the GUI-inherited one.
-  const spawnEnv: Record<string, string> = stub
-    ? { ELECTRON_RUN_AS_NODE: '1' }
-    : {
-        ...(await piProcessEnv()),
-        ...claudeProviderSpawnEnv(),
-      }
-
-  const extensions = bundledExtensions(app.isPackaged ? process.resourcesPath : app.getAppPath())
+  const { stub, binaryPath, prefixArgs, env: spawnEnv, extensions } =
+    await prepareDesktopSessionLaunch()
 
   // Worktree sessions get an explicit working-directory block: pi's own
   // `Current working directory:` line is correct but has been observed to

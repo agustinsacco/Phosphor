@@ -931,7 +931,7 @@ export function installMockPhosphor(): void {
             'src/main.tsx',
             'src/app/App.tsx',
             'electron/main.ts',
-            'electron/pi/rpc-client.ts',
+            'runtime/pi/rpc-client.ts',
             'package.json',
             'README.md',
           ])

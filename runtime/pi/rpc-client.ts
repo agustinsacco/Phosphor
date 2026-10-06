@@ -2,7 +2,7 @@ import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child
 import { EventEmitter } from 'node:events'
 import { JsonlDecoder } from './jsonl'
 import { SessionActivity } from './session-activity'
-import type { RuntimeLog } from '../../runtime/file-log'
+import type { RuntimeLog } from '../file-log'
 import type {
   ExtensionUIRequest,
   ExtensionUIResponse,

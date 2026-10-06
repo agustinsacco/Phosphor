@@ -1,5 +1,5 @@
 import { contextBudgetTokens, sessionContextBudget } from '@shared/context-budget'
-import type { PiRpcClient } from './rpc-client'
+import type { PiRpcClient } from '../../runtime/pi/rpc-client'
 import type { RpcCommand } from '@shared/rpc'
 import { log } from '../debug-log'
 

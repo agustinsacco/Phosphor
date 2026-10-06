@@ -1,6 +1,7 @@
 import { basename } from 'node:path'
 import { registry } from '../registry'
-import { trimForRenderer } from '../ipc/event-trim'
+import { bindSessionEvents } from '../../runtime/pi/session-events'
+import { desktopSessionSink } from './session-events'
 import { prepareDesktopSessionLaunch } from './session-launch'
 import { composeDirectives } from './directives'
 import { accountForSpawn, claudeAccountEnv, holdAccount } from '../claude/accounts'
@@ -14,12 +15,10 @@ import { syncContextBudget, watchContextBudget } from './context-budget'
 import { isRoutineSession } from '../routines/ownership'
 import { listPackages } from './packages'
 import { headroomSupervisor } from '../headroom/proxy'
-import { sessionEventChannel } from '@shared/ipc'
 import { getPrefs, recordWorkspace, realPathOrNull } from '../store'
 import { gitInfoBatch } from '../fs/git-info'
-import type { CreateSessionOptions, LiveSessionInfo, SessionPush } from '@shared/models'
+import type { CreateSessionOptions, LiveSessionInfo } from '@shared/models'
 import { log } from '../debug-log'
-import { broadcast } from '../broadcast'
 
 /**
  * Spawn a live session and wire its push channels.
@@ -139,69 +138,27 @@ export async function spawnSession(
     env: spawnEnv,
   })
 
-  const channel = sessionEventChannel(session.sessionId)
-  const push = (payload: SessionPush): void => {
-    // Unattended dialogs belong to the runner's blocking policy, never the
-    // renderer's OAuth auto-open flow. Display-only status still streams.
-    if (
-      execution.unattended &&
-      payload.kind === 'extension-ui' &&
-      ['input', 'confirm', 'select', 'editor'].includes(payload.request.method)
-    )
-      return
-    if (target) {
-      if (!target.isDestroyed()) target.send(channel, payload)
-    } else broadcast(channel, payload)
-  }
-
-  // Trimmed, not forwarded whole: two of pi's events restate the entire run
-  // after it has already streamed, and the renderer reads neither.
-  session.client.on('event', (ev) => push({ kind: 'event', event: trimForRenderer(ev) }))
-  // Hold every interactive session to the context budget, Claude Code ones
-  // included (electron/pi/context-budget.ts). Paused while a routine owns the
-  // session: its runner prompts pi directly, past the `pi:command` gate that
-  // keeps a prompt out of a compaction in progress, and a check after its one
-  // turn would only compact a finished run. A lane kept open for review is an
-  // ordinary session once the routine releases it, and is held like one.
-  // Registered for the stub too, which is how the e2e suite exercises it.
-  watchContextBudget(
-    session.sessionId,
-    session.client,
-    () => getPrefs().contextBudget,
-    () => isRoutineSession(session.sessionId),
-  )
-  session.client.on('extension-ui', (request) => {
-    // The Claude provider reports its account's rate-limit state here, once
-    // per change, for free. Routing listens because this is the only signal
-    // that names the state `/usage` polling cannot: allowance gone, requests
-    // still served, every token now billed as overage. Holding the account
-    // here is what makes the NEXT lane pick a different one — this session's
-    // credential was fixed when it spawned and cannot move (routing.ts).
-    if (
-      claudeAccount &&
-      request.method === 'setStatus' &&
-      request.statusKey === RATE_LIMIT_STATUS_KEY
-    ) {
-      const until = accountExhaustedUntil(request.statusText)
-      if (until !== null) void holdAccount(claudeAccount.id, until).catch(() => undefined)
-    }
-    push({ kind: 'extension-ui', request })
-  })
-  session.client.on('stderr', (text) => {
-    // Persist as well as forward. pi's stderr is where a provider prints the
-    // reason a turn failed, and forwarding it to the renderer alone means it
-    // is gone the moment the view unmounts — which is exactly what made
-    // `Error: Claude CLI returned success` so expensive to diagnose.
-    log('pi', 'stderr', { sessionId: session.sessionId, text })
-    push({ kind: 'stderr', text })
-  })
-  session.client.on('exit', ({ code, signal, expected }) => {
-    // An unexpected exit is what the user sees as "pi crashed"; without this
-    // the code and signal behind that banner are never written down.
-    if (!expected) {
-      log('pi', 'exited unexpectedly', { sessionId: session.sessionId, code, signal })
-    }
-    push({ kind: 'exit', code, signal: signal ?? null, expected })
+  bindSessionEvents(session, {
+    emit: desktopSessionSink(session.sessionId, target, () => execution.unattended ?? false),
+    log,
+    budget: {
+      watch: watchContextBudget,
+      read: () => getPrefs().contextBudget,
+      // A routine owns its prompts; resume idle checks once it releases the lane.
+      paused: () => isRoutineSession(session.sessionId),
+    },
+    onExtensionUI: (request) => {
+      // A rate-limit signal holds the account for the NEXT lane. This session's
+      // credential was fixed at spawn and cannot change (claude/routing.ts).
+      if (
+        claudeAccount &&
+        request.method === 'setStatus' &&
+        request.statusKey === RATE_LIMIT_STATUS_KEY
+      ) {
+        const until = accountExhaustedUntil(request.statusText)
+        if (until !== null) void holdAccount(claudeAccount.id, until).catch(() => undefined)
+      }
+    },
   })
 
   // Wait for pi to answer before handing the session over; the renderer

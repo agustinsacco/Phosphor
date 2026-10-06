@@ -62,13 +62,19 @@ executable, environment and resource-root dependencies. The desktop adapter
 in `electron/pi/session-launch.ts` keeps existing pi discovery and caching, shell
 PATH, provider environment and packaged-resource selection. The test stub still
 uses the single unpackaged-only gate in `stub.ts`. Preference policy, session
-startup, command guards and event delivery remain in the desktop runtime.
+startup and command guards remain in the desktop runtime.
 
 Context-budget enforcement and command serialization live in
 `runtime/pi/context-budget.ts`. Each runtime instance owns its gates and receives
 a logger; budget and routine-pause callbacks are still read live. The existing
 `electron/pi/context-budget.ts` exports bind one instance for all Desktop callers.
 The compaction policy, cancellation behavior and RPC messages are unchanged.
+
+`runtime/pi/session-events.ts` binds whole session events to an injected sink,
+logger, budget observer and extension-UI policy. Listener order is preserved.
+`electron/pi/session-events.ts` owns Desktop delivery: renderer-only trimming,
+unattended dialog suppression, target-window delivery and broadcast fallback.
+This is an in-process boundary, not a network subscription or replay service.
 
 `runtime/` is shared source code, not an extra running service. Phosphor Desktop
 still starts one pi subprocess per live local session. Moving these modules does

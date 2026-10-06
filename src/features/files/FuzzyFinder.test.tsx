@@ -55,6 +55,32 @@ it('focuses the combobox, exposes selected results and restores focus on Escape'
   expect(document.activeElement).toBe(origin)
 })
 
+it('resets the query before focusing a reopened finder', async () => {
+  await show()
+  const input = document.querySelector<HTMLInputElement>('[role="combobox"]')!
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'a.ts')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  expect(input.value).toBe('a.ts')
+  act(() => useFinderStore.getState().setOpen(false))
+  const focusedValues: string[] = []
+  const onFocus = (event: FocusEvent) => {
+    if (
+      event.target instanceof HTMLInputElement &&
+      event.target.getAttribute('role') === 'combobox'
+    )
+      focusedValues.push(event.target.value)
+  }
+  document.addEventListener('focusin', onFocus)
+  try {
+    await show()
+    expect(focusedValues).toEqual([''])
+  } finally {
+    document.removeEventListener('focusin', onFocus)
+  }
+})
+
 it('shows index failures instead of reporting no matching files', async () => {
   invoke.mockRejectedValue(new Error('Permission denied'))
   await show()

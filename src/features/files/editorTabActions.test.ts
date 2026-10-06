@@ -1,9 +1,10 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { useFilesStore, workspaceFiles } from '@/stores/files'
 import { usePromptStore } from '@/stores/prompt'
 import { closeEditorFiles, editorTabLabel, saveAllEditorFiles } from './editorTabActions'
+import { releaseFileModel } from '@/features/files/MonacoEditor'
 vi.mock('@/lib/monaco', () => ({ languageForPath: () => 'plaintext' }))
-vi.mock('./MonacoEditor', () => ({ releaseFileModel: () => {} }))
+vi.mock('@/features/files/MonacoEditor', () => ({ releaseFileModel: vi.fn() }))
 const invoke = vi.fn().mockResolvedValue({ content: 'disk', size: 4, mtimeMs: 1 })
 const store = () => useFilesStore.getState()
 const files = () => workspaceFiles(store(), '/repo').openFiles
@@ -15,6 +16,12 @@ beforeEach(async () => {
   usePromptStore.setState({ requests: [] })
   for (const path of ['src/a/index.ts', 'src/b/index.ts', 'unique.ts'])
     await store().openFile('/repo', '/repo/' + path)
+})
+
+afterEach(async () => {
+  // Closing tabs releases models through a lazy import, including in these tests.
+  await vi.dynamicImportSettled()
+  vi.unstubAllGlobals()
 })
 
 it('uses the shortest distinguishing tab names', () => {
@@ -47,7 +54,10 @@ it('bulk close skips pinned tabs and stops at Cancel', async () => {
 
 it('reopens closed files in most-recent order and keeps histories workspace-local', async () => {
   store().closeFile('/repo', '/repo/unique.ts')
+  await vi.dynamicImportSettled()
   store().closeFile('/repo', '/repo/src/b/index.ts')
+  await vi.dynamicImportSettled()
+  expect(releaseFileModel).toHaveBeenCalledWith('/repo/unique.ts')
   await store().reopenClosed('/other')
   expect(workspaceFiles(store(), '/other').openFiles).toHaveLength(0)
   await store().reopenClosed('/repo')
@@ -58,6 +68,7 @@ it('reopens closed files in most-recent order and keeps histories workspace-loca
 
 it('a failed reopen reports the error but does not block older history entries', async () => {
   store().closeFile('/repo', '/repo/src/a/index.ts')
+  await vi.dynamicImportSettled()
   store().closeFile('/repo', '/repo/unique.ts')
   invoke.mockRejectedValueOnce(new Error('ENOENT: file was deleted'))
   await expect(store().reopenClosed('/repo')).rejects.toThrow('file was deleted')
@@ -68,6 +79,7 @@ it('a failed reopen reports the error but does not block older history entries',
 
 it('does not advance history twice while a reopen is still loading', async () => {
   store().closeFile('/repo', '/repo/src/a/index.ts')
+  await vi.dynamicImportSettled()
   store().closeFile('/repo', '/repo/unique.ts')
   let finish!: (file: { content: string; size: number; mtimeMs: number }) => void
   invoke.mockReturnValueOnce(

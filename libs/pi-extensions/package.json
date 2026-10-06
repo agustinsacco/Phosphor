@@ -1,0 +1,46 @@
+{
+  "name": "@phosphor/pi-extensions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./artifacts": {
+      "types": "./pi-ext/artifacts.ts",
+      "default": "./pi-ext/artifacts.ts"
+    },
+    "./context-breakdown": {
+      "types": "./pi-ext/context-breakdown.ts",
+      "default": "./pi-ext/context-breakdown.ts"
+    },
+    "./context-budget": {
+      "types": "./pi-ext/context-budget.ts",
+      "default": "./pi-ext/context-budget.ts"
+    },
+    "./headroom": {
+      "types": "./pi-ext/headroom.ts",
+      "default": "./pi-ext/headroom.ts"
+    },
+    "./mcp-status": {
+      "types": "./pi-ext/mcp-status.ts",
+      "default": "./pi-ext/mcp-status.ts"
+    },
+    "./optional/permission-gate": {
+      "types": "./pi-ext/optional/permission-gate.ts",
+      "default": "./pi-ext/optional/permission-gate.ts"
+    },
+    "./tool-name-guard": {
+      "types": "./pi-ext/tool-name-guard.ts",
+      "default": "./pi-ext/tool-name-guard.ts"
+    },
+    "./worktree-paths": {
+      "types": "./pi-ext/worktree-paths.ts",
+      "default": "./pi-ext/worktree-paths.ts"
+    }
+  },
+  "dependencies": {
+    "typebox": "^1.3.10"
+  },
+  "nx": {
+    "includedScripts": []
+  }
+}

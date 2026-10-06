@@ -140,7 +140,7 @@ starts with `danger`.
 
 ### Optional permission gate and scratch cleanup
 
-`pi-ext/optional/permission-gate.ts` is an opt-in, standalone global gate,
+`libs/pi-extensions/pi-ext/optional/permission-gate.ts` is an opt-in, standalone global gate,
 not one of Phosphor's six loaded extensions. To install it, review the file,
 back up any existing `~/.pi/agent/extensions/permission-gate.ts`, then copy it
 there. Use `/reload` in pi or start a new Phosphor session to load the change.
@@ -172,7 +172,7 @@ authorization is left to the machine's AWS credentials and IAM policies. Other
 checks still examine the whole script, including commands alongside AWS calls.
 Install this policy only where that AWS access is intentional.
 
-For prompt-free cleanup, copy `pi-ext/optional/pi-scratch.py` to
+For prompt-free cleanup, copy `libs/pi-extensions/pi-ext/optional/pi-scratch.py` to
 `~/.pi/agent/bin/pi-scratch.py`. It requires POSIX and Python 3.11+ with
 symlink-resistant `shutil.rmtree`. It creates private, randomly named jobs in
 `~/.pi/agent/scratch`, and only deletes a named job inside that root:
@@ -227,10 +227,17 @@ patchWebSearchConfig` (`pi-config-handlers.ts`).
 ## Bundled extensions (Phosphor's own)
 
 Separate from packages the user installs, Phosphor ships **six** TypeScript
-extensions in `pi-ext/`, loaded into **every** session via
+extensions in `libs/pi-extensions/pi-ext/`, loaded into **every** session via
 `pi --mode rpc -e <path>` (`bundledExtensions()` in
 `libs/session-runtime/src/bundled-extensions.ts`, called by `electron/pi/session-runtime.ts`). They are the only Phosphor code with a
 say inside a turn.
+
+The private `@phosphor/pi-extensions` source package keeps these standalone
+files and adjacent tests together. Development resolves the resource root at
+`libs/pi-extensions`; packaged apps still read `resources/pi-ext`, outside the
+asar. The builder copies the same non-test TypeScript inventory, including
+`context-budget.ts` imported by `context-breakdown.ts` and the optional gate.
+Optional Python helpers remain in the source tree, not the shipped resource filter.
 
 | File                   | Why it must run inside pi                                                                    |
 | ---------------------- | -------------------------------------------------------------------------------------------- |
@@ -394,13 +401,13 @@ in `stores/extensionUi.ts`. Five keys are load-bearing, and the key strings are
 **case-sensitive literals on both sides**; nothing fails to compile when they
 disagree.
 
-| Key                          | Emitter                             | Consumer                                                                                                                   |
-| ---------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `phosphor-context-breakdown` | `pi-ext/context-breakdown.ts`       | `chat/composer/contextBreakdown.ts` → ContextMeter                                                                         |
-| `phosphor-mcp-status`        | `pi-ext/mcp-status.ts`              | `connectors/mcpStatus.ts` → Connectors, footer                                                                             |
-| `phosphor-headroom`          | `pi-ext/headroom.ts`                | `chat/composer/headroomStatus.ts` → ContextMeter (Optimization section)                                                    |
-| `claude-rate-limit`          | `@saccolabs/pi-claude-cli` ≥ 0.4.5  | `chat/composer/rateLimit.ts` → ContextMeter, RateLimitBanner; `libs/shared/src/claude-limits.ts` → account routing in main |
-| `claude-subagents`           | `@saccolabs/pi-claude-cli` ≥ 0.4.13 | `chat/subagentStatus.ts` → the status strip's agent chip, for sessions recorded before 0.9.0 (see below)                   |
+| Key                          | Emitter                                          | Consumer                                                                                                                   |
+| ---------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `phosphor-context-breakdown` | `libs/pi-extensions/pi-ext/context-breakdown.ts` | `chat/composer/contextBreakdown.ts` → ContextMeter                                                                         |
+| `phosphor-mcp-status`        | `libs/pi-extensions/pi-ext/mcp-status.ts`        | `connectors/mcpStatus.ts` → Connectors, footer                                                                             |
+| `phosphor-headroom`          | `libs/pi-extensions/pi-ext/headroom.ts`          | `chat/composer/headroomStatus.ts` → ContextMeter (Optimization section)                                                    |
+| `claude-rate-limit`          | `@saccolabs/pi-claude-cli` ≥ 0.4.5               | `chat/composer/rateLimit.ts` → ContextMeter, RateLimitBanner; `libs/shared/src/claude-limits.ts` → account routing in main |
+| `claude-subagents`           | `@saccolabs/pi-claude-cli` ≥ 0.4.13              | `chat/subagentStatus.ts` → the status strip's agent chip, for sessions recorded before 0.9.0 (see below)                   |
 
 The two `claude-*` keys cross a repo boundary; their shape is documented on the
 emitting side in that repo's `docs/ARCHITECTURE.md`. Rules for all five: the

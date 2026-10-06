@@ -109,7 +109,7 @@ to cut it.
 
 - **Enforced by pi before prompts and between tool cycles**, not just after
   the entire agent run. The bundled context extension loads
-  `pi-ext/context-budget.ts`, which uses `pi.setModel` with cloned metadata to
+  `libs/pi-extensions/pi-ext/context-budget.ts`, which uses `pi.setModel` with cloned metadata to
   cap the session window. pi retains its normal response reserve: a 400k budget
   with the default reserve compacts above 383,616 tokens. Catalogue models and
   global pi settings are unchanged. Phosphor requires pi 0.87.1 or newer.

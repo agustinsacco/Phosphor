@@ -17,7 +17,7 @@ export default defineConfig({
       'libs/shared/src/**/*.test.ts',
       // Bundled pi extensions: pure rule logic lives beside the extension it
       // guards, because pi loads each `-e` file standalone (no local imports).
-      'pi-ext/**/*.test.ts',
+      'libs/pi-extensions/pi-ext/**/*.test.ts',
       'src/**/*.test.ts',
       'src/**/*.test.tsx',
       // Release-pipeline shell helpers that CI depends on.

@@ -11,7 +11,7 @@ const projects = {
   desktop: '.',
   runtime: 'libs/session-runtime',
   shared: 'libs/shared',
-  'pi-extensions': 'pi-ext',
+  'pi-extensions': 'libs/pi-extensions',
   site: 'site',
   schema: 'supabase',
   tooling: 'scripts',
@@ -20,7 +20,7 @@ const commands = {
   desktop: { build: 'electron-vite build', 'test:e2e': 'npm run build && ./scripts/e2e.sh' },
   runtime: { test: 'vitest run libs/session-runtime' },
   shared: { test: 'vitest run libs/shared' },
-  'pi-extensions': { test: 'vitest run pi-ext' },
+  'pi-extensions': { test: 'vitest run libs/pi-extensions' },
   site: {
     dev: 'npm run dev',
     start: 'npm run start',
@@ -169,13 +169,18 @@ describe('explicit Nx project contract', () => {
         expect(() => assertEdges(name as keyof typeof dependencies, removed)).toThrow()
       }
     }
-    expect(readFileSync(join(root, 'pi-ext/optional/permission-gate.test.ts'), 'utf8')).toContain(
-      '../../src/features/extension-ui/commandApproval',
+    expect(
+      readFileSync(
+        join(root, 'libs/pi-extensions/pi-ext/optional/permission-gate.test.ts'),
+        'utf8',
+      ),
+    ).toContain('../../../../src/features/extension-ui/commandApproval')
+    expect(readFileSync(join(root, 'electron-builder.yml'), 'utf8')).toContain(
+      'from: libs/pi-extensions/pi-ext',
     )
-    expect(readFileSync(join(root, 'electron-builder.yml'), 'utf8')).toContain('from: pi-ext')
     expect(
       readFileSync(join(root, 'libs/session-runtime/src/bundled-extensions.test.ts'), 'utf8'),
-    ).toContain("join(root, 'pi-ext')")
+    ).toContain("join(root, 'libs/pi-extensions/pi-ext')")
   })
 
   it('rejects missing required target fixtures and Nx alias recursion', () => {
@@ -209,7 +214,7 @@ describe('explicit Nx project contract', () => {
       'electron',
       'libs/session-runtime/src',
       'libs/shared/src',
-      'pi-ext',
+      'libs/pi-extensions/pi-ext',
       'src',
       'scripts',
     ]) {

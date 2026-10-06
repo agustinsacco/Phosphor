@@ -45,7 +45,9 @@ it('retains shell PATH, provider overrides, Windows prefix arguments and dev res
     stub: false,
     env: { PATH: '/login-shell/bin', PI_CLAUDE_CLI_CONTEXT: 'pi' },
   })
-  expect(launch.extensions[0]).toBe(join('/desktop/source', 'pi-ext', 'artifacts.ts'))
+  expect(launch.extensions[0]).toBe(
+    join('/desktop/source', 'libs/pi-extensions/pi-ext', 'artifacts.ts'),
+  )
   await prepare()
   expect(h.health).toHaveBeenCalledOnce() // Successful discovery stays cached.
   expect(h.environment).toHaveBeenCalledTimes(2)

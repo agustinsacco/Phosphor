@@ -7,10 +7,11 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs'
 import { isBuiltin } from 'node:module'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { build } from 'esbuild'
 import { getFileMatchers } from 'app-builder-lib/out/fileMatcher'
@@ -102,16 +103,16 @@ describe('standalone pi extension resources', () => {
           [],
         )
       }
+      // Bundles can exceed Linux's per-argument limit, so execute files rather than node -e.
       for (const output of bundle.outputFiles) {
-        const { stdout } = await promisify(execFile)(
-          process.execPath,
-          [
-            '--input-type=commonjs',
-            '-e',
-            `${output.text}\nprocess.stdout.write(typeof module.exports.default)`,
-          ],
-          { cwd: temporary },
+        const executable = join(temporary, `${basename(output.path, '.js')}.cjs`)
+        writeFileSync(
+          executable,
+          `${output.text}\nprocess.stdout.write(typeof module.exports.default)`,
         )
+        const { stdout } = await promisify(execFile)(process.execPath, [executable], {
+          cwd: temporary,
+        })
         expect(stdout).toBe('function')
       }
     } finally {

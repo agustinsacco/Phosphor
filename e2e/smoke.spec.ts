@@ -966,6 +966,39 @@ test('file finder reveals and highlights a nested file in the explorer', async (
   }
 })
 
+test('Changes revert restores working content without changing staged edits', async () => {
+  const harness = await launch()
+  const { page, workspace } = harness
+  const { execFile } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const run = promisify(execFile)
+  try {
+    await run('git', ['init', '-b', 'main'], { cwd: workspace })
+    await run('git', ['config', 'user.email', 'test@phosphor.dev'], { cwd: workspace })
+    await run('git', ['config', 'user.name', 'Test'], { cwd: workspace })
+    await run('git', ['add', '.'], { cwd: workspace })
+    await run('git', ['commit', '-m', 'initial'], { cwd: workspace })
+    const original = await readFile(join(workspace, 'hello.ts'), 'utf8')
+    await openWorkspace(page)
+    await page.getByPlaceholder('Describe a task or ask a question').fill('Hello')
+    await page.getByRole('button', { name: /Start session/i }).click()
+    await expect(page.getByText(/Done:\s*hello\.ts\s*updated\./)).toBeVisible({ timeout: 30_000 })
+    const lane = join(workspace, '.phosphor', 'worktrees', 'hello')
+    expect(existsSync(lane)).toBe(true)
+    await writeFile(join(lane, 'hello.ts'), '// staged\n')
+    await run('git', ['add', 'hello.ts'], { cwd: lane })
+    await writeFile(join(lane, 'hello.ts'), '// unstaged\n')
+    await page.getByTitle(/^Changes pane/).click()
+    page.once('dialog', (dialog) => void dialog.accept())
+    await page.getByRole('button', { name: 'Revert hello.ts', exact: true }).click()
+    await expect.poll(() => readFile(join(lane, 'hello.ts'), 'utf8')).toBe(original)
+    const staged = await run('git', ['show', ':hello.ts'], { cwd: lane })
+    expect(staged.stdout).toBe('// staged\n')
+  } finally {
+    await shutdown(harness)
+  }
+})
+
 test('closing dirty editor tabs offers cancel, discard and save', async () => {
   const harness = await launch()
   const { page, workspace } = harness

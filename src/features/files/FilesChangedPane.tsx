@@ -9,6 +9,8 @@ import { MonacoDiff } from './MonacoEditor'
 import { languageForPath } from '@/lib/monaco'
 import { basename } from '@/lib/path'
 import { errorText } from '@shared/errors'
+import { useFilesStore, workspaceFiles } from '@/stores/files'
+import { runFileAction } from './fileActions'
 
 export const FilesChangedPane = memo(function FilesChangedPane({
   workspacePath,
@@ -122,7 +124,24 @@ function FileRow({
 
   const revert = async (event: React.MouseEvent): Promise<void> => {
     event.stopPropagation()
-    if (!window.confirm(`Revert ${file.relativePath} to its state at session start?`)) return
+    // Explorer paths use native separators; agent paths and file links may
+    // use forward slashes. Compare the same representation before reverting.
+    const absolute = `${workspacePath.replace(/[/\\]+$/, '')}/${file.relativePath}`.replace(
+      /\\/g,
+      '/',
+    )
+    if (
+      workspaceFiles(useFilesStore.getState(), workspacePath).openFiles.some(
+        (f) => f.path.replace(/\\/g, '/') === absolute && f.dirty,
+      )
+    )
+      throw new Error('Save or discard the unsaved editor buffer before reverting this file.')
+    if (
+      !window.confirm(
+        `Revert ${file.relativePath} to its state at session start? Current on-disk edits will be discarded.`,
+      )
+    )
+      return
     if (baselineRef) {
       await window.phosphor.invoke(
         'git:restoreFileTo',
@@ -131,7 +150,7 @@ function FileRow({
         file.relativePath,
       )
     } else if (file.created) {
-      await window.phosphor.invoke('fs:trash', `${workspacePath}/${file.relativePath}`)
+      throw new Error('Cannot safely revert a write without a saved baseline.')
     } else if (file.patches.length > 0) {
       const current = await window.phosphor.invoke(
         'fs:readFile',
@@ -174,9 +193,15 @@ function FileRow({
         </span>
       </button>
       <button
-        onClick={(e) => void revert(e)}
-        title="Revert to session start"
-        className="text-text-tertiary hover:text-danger hidden shrink-0 rounded p-1 transition-colors group-hover:block"
+        onClick={(e) => runFileAction(revert(e))}
+        disabled={!baselineRef && file.created}
+        aria-label={`Revert ${file.relativePath}`}
+        title={
+          !baselineRef && file.created
+            ? 'No saved baseline: automatic revert is unavailable'
+            : 'Revert to session start'
+        }
+        className="text-text-tertiary hover:text-danger shrink-0 rounded p-1 transition-colors disabled:opacity-40"
       >
         <svg
           width="12"

@@ -2,16 +2,13 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2023"],
-    "jsx": "react-jsx",
-    "types": ["node", "vite/client"]
+    "types": ["node"]
   },
   "include": [
     "electron/**/*.ts",
     "runtime/**/*.ts",
     "shared/**/*.ts",
     "electron.vite.config.ts",
-    "pi-ext/**/*.ts",
-    "scripts/omp-compat.ts",
-    "scripts/omp-subagents.ts"
+    "pi-ext/**/*.ts"
   ]
 }

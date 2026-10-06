@@ -9,7 +9,6 @@ import type {
   ToolPartialResult,
   Usage,
 } from '@shared/rpc'
-import type { OmpSubagentLive } from './subagentRuns'
 
 export interface UserItem {
   id: string
@@ -117,12 +116,6 @@ export interface ToolState {
   isError?: boolean
   startedAt?: number
   endedAt?: number
-  /**
-   * omp only: the subagents this `task` call spawned, by id, as omp's
-   * subagent frames last described them. Outlives the call's own end, since a
-   * background spawn keeps running after it (`subagentRuns.ts`).
-   */
-  subagents?: Record<string, OmpSubagentLive>
 }
 
 interface RetryState {

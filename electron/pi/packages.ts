@@ -13,7 +13,7 @@ import type {
 import { piAgentDir } from './pi-paths'
 import { claudeOneShotEnv, claudeProviderSpawnEnv } from './provider-detect'
 import { getLoginShellPath, piProcessEnv } from './shell-env'
-import { checkPiHealth } from './health'
+import { cachedPiHealth } from './health'
 import { pickWhereMatch, resolveWindowsLaunch } from './win-launch'
 import { readJsonFile } from './json-config'
 
@@ -348,7 +348,7 @@ async function resolvePiInvoker(stubPath?: string): Promise<PiInvoker | null> {
   }
   // Through the health probe, not `resolveBinary('pi')`: on Windows the thing
   // to spawn is node.exe plus pi's entry script (PiHealth.prefixArgs).
-  const health = await checkPiHealth()
+  const health = await cachedPiHealth()
   if (!health.ok || !health.binaryPath) return null
   return {
     command: health.binaryPath,

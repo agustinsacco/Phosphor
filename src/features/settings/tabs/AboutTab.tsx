@@ -52,8 +52,7 @@ export function AboutTab(): React.JSX.Element {
   const busy = update.phase === 'checking' || update.phase === 'downloading'
   const actionable = update.phase === 'downloaded' || update.phase === 'manual-download'
 
-  // VERIFIED_PI_LINE is a pi version; omp numbers its own releases.
-  const drift = health?.agent === 'pi' && isPiNewerThanVerified(health.version)
+  const drift = isPiNewerThanVerified(health?.version)
 
   return (
     <div>
@@ -92,10 +91,7 @@ export function AboutTab(): React.JSX.Element {
           </Button>
         )}
       </Row>
-      <Row
-        title={`${health?.agent ?? 'pi'} version`}
-        description={health ? piInstallLocation(health) : undefined}
-      >
+      <Row title="pi version" description={health ? piInstallLocation(health) : undefined}>
         <span className="font-mono text-base">
           {health?.version ?? (health ? 'not found' : '…')}
         </span>

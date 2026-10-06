@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { PiRpcClient } from './rpc-client'
+import { PiRpcClient } from './desktop-rpc-client'
 import { shutdownApproval } from '../shutdown-approval'
 import type { PiEvent } from '@shared/rpc'
 

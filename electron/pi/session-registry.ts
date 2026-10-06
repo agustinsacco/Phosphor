@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { PiRpcClient, type PiSpawnOptions } from './rpc-client'
+import { PiRpcClient, type PiSpawnOptions } from './desktop-rpc-client'
 import type { LiveSessionInfo } from '@shared/models'
 import { shutdownApproval } from '../shutdown-approval'
 

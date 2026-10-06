@@ -18,7 +18,7 @@
  * folder — and cleared by `invalidateCommandCaches` from every mutation that
  * changes the answer (`electron/ipc/pi-config-handlers.ts`).
  */
-import { PiRpcClient } from './rpc-client'
+import { PiRpcClient } from './desktop-rpc-client'
 import { createTtlCache, type TtlCache } from './ttl-cache'
 import type { RpcResponse, RpcResponseDataMap, RpcSlashCommand } from '@shared/rpc'
 

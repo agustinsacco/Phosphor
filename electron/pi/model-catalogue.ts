@@ -1,4 +1,4 @@
-import { PiRpcClient } from './rpc-client'
+import { PiRpcClient } from './desktop-rpc-client'
 import { piProcessEnv } from './shell-env'
 import { log } from '../debug-log'
 import type { Model, ModelCost, RpcResponse, RpcResponseDataMap } from '@shared/rpc'

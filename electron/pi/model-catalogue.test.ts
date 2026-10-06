@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { PiRpcClient } from './rpc-client'
+import { PiRpcClient } from './desktop-rpc-client'
 import {
   requestAvailableModels,
   resolveCatalogueModels,

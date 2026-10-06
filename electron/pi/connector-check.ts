@@ -1,4 +1,4 @@
-import { PiRpcClient } from './rpc-client'
+import { PiRpcClient } from './desktop-rpc-client'
 import { parseReconnectNotice, type ConnectorCheckResult } from '@shared/connectors'
 import { log } from '../debug-log'
 

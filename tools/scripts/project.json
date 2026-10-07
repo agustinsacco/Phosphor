@@ -13,7 +13,8 @@
       "options": {
         "command": "tsc --noEmit -p apps/desktop/tsconfig.node.json && tsc --noEmit -p apps/desktop/tsconfig.web.json",
         "cwd": "."
-      }
+      },
+      "outputs": []
     },
     "lint": {
       "executor": "nx:run-commands",
@@ -22,7 +23,8 @@
       "options": {
         "command": "eslint .",
         "cwd": "."
-      }
+      },
+      "outputs": []
     },
     "test": {
       "executor": "nx:run-commands",
@@ -30,7 +32,10 @@
       "inputs": ["workspace"],
       "options": {
         "command": "vitest run",
-        "cwd": "."
+        "cwd": ".",
+        "env": {
+          "VITEST_MAX_WORKERS": "2"
+        }
       },
       "configurations": {
         "inventory": {
@@ -62,7 +67,10 @@
       "inputs": ["workspace"],
       "options": {
         "command": "vitest run tools/scripts/nx-projects.test.ts",
-        "cwd": "."
+        "cwd": ".",
+        "env": {
+          "VITEST_MAX_WORKERS": "2"
+        }
       }
     }
   }

@@ -14,11 +14,11 @@ apps/desktop/build/*.png
 specs/screenshots/
 apps/desktop/src/features/chat/__fixtures__/
 **/package-lock.json
-site/.astro/
-site/dist/
-site/shots-raw/
-site/src/assets/shots/
-site/public/fonts/
+apps/site/.astro/
+apps/site/dist/
+apps/site/shots-raw/
+apps/site/src/assets/shots/
+apps/site/public/fonts/
 
 # Per-worktree Nx state (never shared or committed).
 .nx/

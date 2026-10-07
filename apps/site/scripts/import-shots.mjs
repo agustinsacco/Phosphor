@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Import real PNG captures from site/shots-raw into the canonical site assets. */
+/** Import real PNG captures from apps/site/shots-raw into the canonical site assets. */
 import { copyFile, mkdir, readdir } from 'node:fs/promises'
 import { join, dirname, basename, extname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'

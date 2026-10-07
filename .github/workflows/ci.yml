@@ -74,23 +74,23 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: site/package-lock.json
+          cache-dependency-path: apps/site/package-lock.json
 
       - name: Install site dependencies
-        run: npm ci --prefix site
+        run: npm ci --prefix apps/site
 
       - name: Astro check
-        run: npm run check --prefix site
+        run: npm run check --prefix apps/site
 
       - name: Build site
-        run: npm run build --prefix site
+        run: npm run build --prefix apps/site
 
       - name: Install browser
-        working-directory: site
+        working-directory: apps/site
         run: npx playwright install --with-deps chromium
 
       - name: Build production site image
-        run: docker build -t phosphor-site-ci ./site
+        run: docker build -t phosphor-site-ci ./apps/site
 
       - name: Serve production image
         run: |
@@ -106,7 +106,7 @@ jobs:
       - name: Browser checks (desktop, mobile, no JS, reduced motion)
         env:
           SITE_TEST_URL: http://127.0.0.1:4322
-        run: npm test --prefix site
+        run: npm test --prefix apps/site
 
       - name: Stop production image
         if: always()
@@ -116,7 +116,7 @@ jobs:
         if: always()
         with:
           name: site-browser-evidence
-          path: site/test-results/
+          path: apps/site/test-results/
           retention-days: 7
 
   windows:

@@ -1,7 +1,7 @@
 {
-  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "name": "site",
-  "root": "site",
+  "root": "apps/site",
   "projectType": "application",
   "tags": ["scope:site"],
   "implicitDependencies": ["desktop", "tooling"],
@@ -12,7 +12,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run build",
-        "cwd": "site"
+        "cwd": "apps/site"
       },
       "outputs": ["{projectRoot}/dist", "{projectRoot}/public/og.png"]
     },
@@ -22,7 +22,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run check",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     },
     "test": {
@@ -31,7 +31,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm test",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     },
     "dev": {
@@ -40,7 +40,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run dev",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     },
     "start": {
@@ -49,7 +49,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run start",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     },
     "prebuild": {
@@ -58,7 +58,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run prebuild",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     },
     "preview": {
@@ -67,7 +67,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run preview",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     },
     "shots": {
@@ -76,7 +76,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run shots",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     },
     "shots:guides": {
@@ -85,7 +85,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run shots:guides",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     },
     "audit:links": {
@@ -94,7 +94,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run audit:links",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     },
     "format": {
@@ -103,7 +103,7 @@
       "inputs": ["workspace"],
       "options": {
         "command": "npm run format",
-        "cwd": "site"
+        "cwd": "apps/site"
       }
     }
   }

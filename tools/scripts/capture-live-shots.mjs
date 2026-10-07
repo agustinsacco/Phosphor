@@ -48,7 +48,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
 const appRoot = join(repoRoot, 'apps/desktop')
 /**
  * Where the shots land and how wide they are. The README reads 1440px PNGs
- * out of docs/img; the landing site (site/) wants the same captures at the
+ * out of docs/img; the landing site (apps/site/) wants the same captures at the
  * display's native scale, so it sets OUT_DIR and MAX_WIDTH=0 (keep the
  * device-scale original).
  */

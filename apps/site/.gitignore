@@ -4,7 +4,7 @@ dist/
 .astro/
 # dependencies
 node_modules/
-# raw captures from scripts/capture-live-shots.mjs (OUT_DIR=site/shots-raw);
+# raw captures from tools/scripts/capture-live-shots.mjs (OUT_DIR=apps/site/shots-raw);
 # the committed sources are the .webp files in src/assets/shots/
 shots-raw/
 # logs

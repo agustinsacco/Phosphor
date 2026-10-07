@@ -155,11 +155,15 @@ describe('site-deploy-policy', () => {
       ...context.event,
       before: 'b'.repeat(40),
       commits: [
-        { id: 'c'.repeat(40), modified: ['site/src/pages/index.astro'] },
+        { id: 'c'.repeat(40), modified: ['apps/site/src/pages/index.astro'] },
         { id: sha, modified: ['docs/overview.md'] },
       ],
     }
     expect(decision({ event })).toBe('deploy')
+    expect(
+      decision({ event, message: 'refactor(site): relocate to apps/site\n\nSkip-Release: true' }),
+    ).toBe('skip')
+    expect(decision({ event, hold: 'migration' })).toBe('skip')
   })
 })
 
@@ -171,7 +175,11 @@ describe('deploy-site workflow trust and path wiring', () => {
 
   it('retains path-filtered main pushes, not PR CI completion triggers', () => {
     expect(source).toContain('branches: [main]')
-    for (const path of ['site/**', '.infra/phosphor-site/**', '.github/workflows/deploy-site.yml'])
+    for (const path of [
+      'apps/site/**',
+      '.infra/phosphor-site/**',
+      '.github/workflows/deploy-site.yml',
+    ])
       expect(source).toContain(`- '${path}'`)
     expect(source).not.toMatch(/^ {2}(workflow_run|pull_request|pull_request_target):/m)
     expect(source).not.toContain('git diff')

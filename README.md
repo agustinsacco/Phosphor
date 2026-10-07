@@ -330,7 +330,7 @@ the same full unit suites without running them.
 | `runtime`       | `libs/session-runtime/src/`, including plain-Node and fake-pi tests |
 | `shared`        | `libs/shared/`                                                      |
 | `pi-extensions` | `libs/pi-extensions/pi-ext/`, including optional extension tests    |
-| `site`          | `site/`, with its independent install and lockfile                  |
+| `site`          | `apps/site/`, with its independent install and lockfile             |
 | `schema`        | `supabase/`, with explicit start/test/stop lifecycle                |
 | `tooling`       | `tools/scripts/`, including workspace-wide checks                   |
 
@@ -338,7 +338,7 @@ Every target starts uncached, with conservative whole-workspace inputs,
 including nested projects. Nx runs one task at a time by default, has no
 inference plugins, daemon or Cloud connection, and keeps per-worktree state
 in ignored `.nx/`. No affected-only selection is introduced. Desktop owns its isolated native install
-and lifecycle, described in [desktop-build.md](docs/desktop-build.md). Site targets use its existing npm commands from `site/`, retaining
+and lifecycle, described in [desktop-build.md](docs/desktop-build.md). Site targets use its existing npm commands from `apps/site/`, retaining
 its social-image prebuild; schema targets retain the pinned local Supabase
 commands and require explicit lifecycle cleanup. Neither is invoked by the
 normal root validator unless its existing opt-in applies.
@@ -470,8 +470,8 @@ docs/                living technical docs — one file per surface, each
                      rewritten in the same diff as the behaviour it describes;
                      plus known-issues.md, defects that reproduce today
 docs/img/            the screenshots above (assets, not documentation)
-site/                phosphor.saccolabs.com — the Astro landing page, real
-                     captures, nginx image and browser checks (site/README.md)
+apps/site/           phosphor.saccolabs.com — the Astro landing page, real
+                     captures, nginx image and browser checks (apps/site/README.md)
 .infra/phosphor-site/  the k3s manifests the Deploy Site workflow applies
 ```
 

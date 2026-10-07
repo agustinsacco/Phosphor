@@ -124,8 +124,12 @@ that alters the prompt, the tools or compaction breaks the first table.
   switch older Phosphor saved to pi's settings.
 - `apps/desktop/electron/pi/session-deleter.ts`: also removes the session's Claude ledger
   entry.
-- `items/transcriptRows.ts` and `ClaudeContextRecovery.tsx`: block shapes and
-  the rebuild button for sessions recorded before provider 0.9.0.
+- `items/transcriptRows.ts`: block shapes for sessions recorded before
+  provider 0.9.0.
+- `ClaudeContextRecovery.tsx` (via `errorRemedies.ts`): the rebuild button for
+  the "context policy changed" error. Only the legacy policy raises it; with
+  `PI_CLAUDE_CLI_CONTEXT=pi` pinned, the provider never resumes a mapped CLI
+  session, so a current session cannot reach it.
 
 ## Checking a change
 

@@ -325,9 +325,10 @@ Deleting is three resources, and all three default on. The branch default is
 safe because an unmerged branch is never deleted:
 
 1. the session transcript, to the OS Trash (recoverable): pi's `.jsonl`
-   **and** its paired Claude Code transcript with its `<id>/` sidecar folder
-   (subagent transcripts, oversized tool results). The bookkeeping nothing
-   reads once the session is gone is removed with it: `pi-claude-cli`'s
+   **and**, for a session recorded before provider 0.9.0, its paired Claude
+   Code transcript with its `<id>/` sidecar folder (subagent transcripts,
+   oversized tool results); current Claude sessions write neither. The
+   bookkeeping nothing reads once the session is gone is removed with it: `pi-claude-cli`'s
    session-map entry and stored system prompt, and pi's per-cwd session folder
    once it is empty (`apps/desktop/electron/pi/session-deleter.ts`)
 2. the worktree directory, gone

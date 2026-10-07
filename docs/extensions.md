@@ -451,17 +451,19 @@ provider-specific handling
   provider replays pi's whole context, so the model holds both sides of it
   again.
 
-- **CLI-side tools** (WebSearch, WebFetch, ToolSearch, the user's own MCP
-  servers, sub-agents) run _inside_ the CLI, so pi never sees them as tool
-  calls. The provider reports each as a `[Claude Code · Name {args}]` marker;
-  Phosphor parses it into an `externalTool` activity step.
+- **CLI-side tools, in sessions recorded before 0.9.0** (WebSearch,
+  WebFetch, ToolSearch, the user's own MCP servers, sub-agents) ran _inside_
+  the CLI, so pi never saw them as tool calls. The provider reported each as a
+  `[Claude Code · Name {args}]` marker; Phosphor parses it into an
+  `externalTool` activity step. A current session runs every tool in pi, so
+  its rows are ordinary pi tool rows.
 
   **They render in pi's vocabulary.** `summarizeExternalTool` maps the marker's
   tool name onto the same verbs pi's own tools get (`Bash` → `Ran`, `Grep` →
   `Searched for`), with the same monospace treatment and the same
-  operative-line labelling. A Claude-provider turn interleaves these rows with
-  pi's, and two vocabularies made one turn read as two transcripts. Provenance
-  survives as a small `cc` mark in the row gutter (absolute, reserving no
+  operative-line labelling. An old Claude-provider turn interleaves these rows
+  with pi's, and two vocabularies made one turn read as two transcripts.
+  Provenance survives as a small `cc` mark in the row gutter (absolute, reserving no
   column, sharing a slot with the ✳ reasoning mark) plus the full marker in
   the row's `title`. An unrecognised tool keeps its NAME as the emphasis;
   `mcp__linear__save_issue` says more than any verb we could invent.
@@ -520,29 +522,26 @@ provider-specific handling
   **Background agents used to die, and old sessions still show it.** Until
   provider 0.4.14 the provider killed `claude -p` at the turn's first
   `result`, which for a background agent lands while it is still working.
-  Phosphor pins no version, so both shapes keep arriving:
-  `trailingUnfinishedAgents` counts agents that never reached a terminal
-  state, and only those raise the "never reported back" strip.
-  `PI_CLAUDE_CLI_SETTINGS` → `--settings` with `permissions.deny: ["Agent","Task"]`
-  is the hard block.
+  Both shapes are on disk: `trailingUnfinishedAgents` counts agents that
+  never reached a terminal state, and only those raise the "never reported
+  back" strip.
 
-  **Live progress rides the status channel, not the transcript.**
-  `task_progress` fires once per sub-agent tool call, so the provider publishes
-  a snapshot on `claude-subagents` instead, parsed into the strip's chip and
-  each row's step. That key MUST stay in `STRUCTURED_STATUS_KEYS`. The
-  provider clears it when the episode ends, so a finished turn leaves the chip
-  empty.
+  **Live progress rode the status channel, not the transcript.**
+  `task_progress` fired once per sub-agent tool call, so the provider
+  published a snapshot on `claude-subagents` instead, parsed into the strip's
+  chip and each row's step, and cleared it when the episode ended. That key
+  MUST stay in `STRUCTURED_STATUS_KEYS` while the parser remains.
 
   Sub-agent **spend** is visible from provider 0.4.10, which bills from
   `result.modelUsage` (every model, sub-agents included) rather than
   `result.usage` (the main agent alone).
 
-**If you extend this** (tool request/response UX, live sub-agent trees): the
-provider drops the `tool_result` blocks the CLI feeds itself between cycles.
-Surfacing more needs a provider change first, then a step kind here. Do not
-infer it from the marker stream.
+**If you extend tool UX or sub-agent views**, build on pi's tool calls and
+pi-subagents' events: every tool, delegation included, is now a pi tool call
+on both providers. The marker stream is frozen: nothing new should be added
+to it or inferred from it.
 
-**The sub-agent's own work IS on disk.** The CLI writes each sub-agent a
+**A pre-0.9.0 sub-agent's own work is on disk.** The CLI wrote each sub-agent a
 complete, live-appended transcript at
 `~/.claude/projects/<mangled-cwd>/<session-id>/subagents/agent-<taskId>.jsonl`,
 with an `agent-<taskId>.meta.json` sidecar (`agentType`, `toolUseId`,

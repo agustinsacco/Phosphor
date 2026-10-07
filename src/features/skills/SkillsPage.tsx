@@ -10,6 +10,7 @@ import { ModalOverlay } from '@/components/Modal'
 import { Button, TextInput } from '@/components/form'
 import { Markdown } from '@/components/markdown/Markdown'
 import { NewSkillModal } from './NewSkillModal'
+import { groupSkills } from './skillGroups'
 
 /**
  * Global Skills page: outcome-first discovery with evidence and fit before
@@ -162,20 +163,6 @@ function Segmented<T extends string>({
 // ---------------------------------------------------------------------------
 // Yours
 
-/**
- * A human root label per skill, derived from its directory. Grouping by root
- * (not just scope) is the honesty the page exists for: `~/.claude/skills` and
- * `~/.pi/agent/skills` are both "user" to pi, and telling them apart is how
- * the user knows what a borrowed skill is.
- */
-function rootLabel(skill: ResolvedSkill): string {
-  if (skill.origin === 'package') return 'Packages (read-only)'
-  const scope = skill.scope === 'project' ? 'Project' : 'Global'
-  if (skill.borrowed) return `${scope} · .claude/skills (borrowed)`
-  if (!skill.writable && skill.scope === 'user') return `Global · other`
-  return skill.scope === 'project' ? 'Project · .pi/skills' : 'Global · ~/.pi/agent/skills'
-}
-
 function matches(skill: ResolvedSkill, search: string): boolean {
   const needle = search.trim().toLowerCase()
   if (!needle) return true
@@ -198,11 +185,7 @@ function YoursList({
   probe: 'rpc' | 'scan' | undefined
 }): React.JSX.Element {
   const visible = skills.filter((skill) => matches(skill, search))
-  const groups = new Map<string, ResolvedSkill[]>()
-  for (const skill of visible) {
-    const label = rootLabel(skill)
-    groups.set(label, [...(groups.get(label) ?? []), skill])
-  }
+  const ordered = groupSkills(visible)
   if (error) return <EmptyNote text={`Could not list skills: ${error}`} />
   if (loading && skills.length === 0) return <EmptyNote text="Resolving skills…" />
   if (visible.length === 0) {
@@ -215,7 +198,7 @@ function YoursList({
           pi could not be asked directly — this list is a scan of the known skill folders.
         </div>
       )}
-      {[...groups.entries()].map(([label, group]) => (
+      {ordered.map(([label, group]) => (
         <div key={label} className="pb-2">
           <div className="text-text-tertiary pt-1 pb-1 font-mono text-xs font-semibold tracking-wider uppercase">
             {label}

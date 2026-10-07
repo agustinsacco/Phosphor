@@ -976,6 +976,20 @@ export function installMockPhosphor(): void {
                 totalSize: 5905,
                 warnings: [],
               },
+              {
+                name: 'council-mode',
+                description: 'Run a bounded supervisor-mediated advisor council.',
+                dir: '/mock/.pi/agent/npm/node_modules/pi-subagents/skills/council-mode',
+                scope: 'user' as const,
+                source: 'npm:pi-subagents',
+                origin: 'package' as const,
+                writable: false,
+                borrowed: false,
+                draft: false,
+                files: [{ path: 'SKILL.md', size: 3120 }],
+                totalSize: 3120,
+                warnings: [],
+              },
             ],
           })
         case 'skills:readFile':
@@ -1031,6 +1045,23 @@ export function installMockPhosphor(): void {
               description: 'MCP adapter extension for the pi coding agent',
               installed: false,
               resources: { extensions: [], skills: [], prompts: [], themes: [] },
+            },
+            {
+              spec: 'npm:pi-subagents',
+              scope: 'global',
+              kind: 'npm',
+              filtered: false,
+              name: 'pi-subagents',
+              version: '0.74.0',
+              description: 'Single-agent delegation and scripted multi-agent workflows',
+              installed: true,
+              installPath: '/mock/.pi/agent/npm/node_modules/pi-subagents',
+              resources: {
+                extensions: ['index.js'],
+                skills: ['council-mode', 'pi-subagents'],
+                prompts: ['council', 'parallel-review', 'review-loop'],
+                themes: [],
+              },
             },
           ])
         case 'packages:run':

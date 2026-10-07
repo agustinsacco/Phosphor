@@ -242,6 +242,29 @@ describe('chat reducer — queues, compaction, retry', () => {
     expect(state.queues).toEqual({ steering: ['do X'], followUp: ['then Y'] })
   })
 
+  it('renders a queued follow-up where pi delivers it, after the work it waited for', () => {
+    // The composer no longer draws a bubble when it queues: the chip is the
+    // only trace until pi reads the message, then message_end appends it.
+    const assistantEnd: PiEvent = {
+      type: 'message_end',
+      message: { role: 'assistant', content: [{ type: 'text', text: 'working' }] },
+    }
+    const state = run([
+      { type: 'agent_start' },
+      assistantStart,
+      { type: 'queue_update', steering: [], followUp: ['then Y'] },
+      assistantEnd,
+      assistantStart,
+      assistantEnd,
+      { type: 'queue_update', steering: [], followUp: [] },
+      { type: 'message_start', message: { role: 'user', content: 'then Y' } },
+      { type: 'message_end', message: { role: 'user', content: 'then Y' } },
+    ])
+    expect(state.items.map((item) => item.kind)).toEqual(['assistant', 'assistant', 'user'])
+    expect(state.items[2]).toMatchObject({ kind: 'user', text: 'then Y' })
+    expect(state.queues).toEqual({ steering: [], followUp: [] })
+  })
+
   it('tracks queue_update', () => {
     const state = run([{ type: 'queue_update', steering: ['do X'], followUp: ['then Y'] }])
     expect(state.queues).toEqual({ steering: ['do X'], followUp: ['then Y'] })

@@ -452,6 +452,21 @@ describe('chat reducer — extension-injected messages', () => {
     ])
     expect(state.items.map((i) => i.kind)).toEqual(['user', 'custom'])
   })
+
+  it("keeps a sub-agent question's structured details, and no other extension's", () => {
+    const state = hydrateFromMessages([
+      {
+        role: 'custom',
+        customType: 'subagent_supervisor_request',
+        content: 'Subagent needs a supervisor decision.',
+        display: true,
+        details: { requestId: 'req-1', agent: 'worker' },
+      },
+      { role: 'custom', customType: 'ext', content: 'x', display: true, details: { big: 1 } },
+    ])
+    expect(state.items[0]).toMatchObject({ details: { requestId: 'req-1', agent: 'worker' } })
+    expect(state.items[1]).not.toHaveProperty('details', expect.anything())
+  })
 })
 
 describe('chat reducer — hydration', () => {
@@ -561,5 +576,45 @@ describe('chat reducer — thinking timing', () => {
     const [thought, text] = (state.items[1] as AssistantItem).blocks
     expect(thought).not.toHaveProperty('startedAt')
     expect(text).not.toHaveProperty('startedAt')
+  })
+})
+
+describe('sub-agent command results', () => {
+  const placeholder = {
+    role: 'custom' as const,
+    customType: 'subagent-slash-result',
+    content: 'Running subagent...',
+    display: true,
+    details: { requestId: 'slash-1' },
+  }
+  const result = {
+    role: 'custom' as const,
+    customType: 'subagent-slash-result',
+    content: '## Subagent result\n\nStop requested for async run fd71fece.',
+    display: false,
+    details: { requestId: 'slash-1' },
+  }
+
+  it("lets the muted result take its placeholder's place, live", () => {
+    let state = reduceChatEvent(emptyChatSession(), { type: 'message_end', message: placeholder })
+    const id = state.items[0]!.id
+    state = reduceChatEvent(state, { type: 'message_end', message: result })
+    expect(state.items).toHaveLength(1)
+    expect(state.items[0]).toMatchObject({ id, text: result.content })
+    expect(state.items[0]).not.toHaveProperty('quiet', true)
+  })
+
+  it('folds the same way when a session is reopened', () => {
+    const state = hydrateFromMessages([
+      { role: 'user', content: 'go' },
+      placeholder,
+      result,
+      { ...placeholder, details: { requestId: 'slash-2' } },
+    ])
+    expect(state.items.map((i) => (i.kind === 'custom' ? i.text : i.kind))).toEqual([
+      'user',
+      result.content,
+      'Running subagent...',
+    ])
   })
 })

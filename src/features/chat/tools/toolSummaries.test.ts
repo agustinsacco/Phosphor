@@ -141,6 +141,27 @@ describe('editDiffStats', () => {
   })
 })
 
+describe('summarizeTool — subagent_supervisor', () => {
+  it("reads a reply as the parent answering, with the answer's first line", () => {
+    const args = {
+      action: 'reply',
+      replyTo: 'req-1',
+      message: 'APPROVED narrowly.\nDetails follow.',
+    }
+    expect(summarizeTool(tool({ toolName: 'subagent_supervisor', args }))).toMatchObject({
+      label: 'Answered',
+      object: 'sub-agent',
+      hint: 'APPROVED narrowly.',
+    })
+    expect(
+      summarizeTool(tool({ toolName: 'subagent_supervisor', args, status: 'running' })).label,
+    ).toBe('Answering')
+    expect(
+      summarizeTool(tool({ toolName: 'subagent_supervisor', args: { action: 'pending' } })),
+    ).toMatchObject({ label: 'Checked', object: 'sub-agent questions' })
+  })
+})
+
 describe('summarizeTool', () => {
   it('uses past-tense labels when done and present participles while running', () => {
     const args = { path: 'src/a.ts' }

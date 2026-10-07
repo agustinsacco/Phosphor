@@ -263,6 +263,15 @@ scout · grep`) and which is **never printed as widget lines**
   (`STRUCTURED_WIDGET_KEYS` in `ExtensionUiHosts.tsx`, alongside the
   `subagent-inspect` reply key the protocol says a host must not render). The
   extension removes the widget when nothing runs, so the chip goes with it.
+- **While a background run works, the screen says so.** A detached launch
+  hands control back, so the parent goes idle while its workers carry on.
+  `BackgroundAgents.tsx` sits above the composer whenever the snapshot has a
+  live run: one row per working agent (`liveAgentRows`: a workflow's running
+  steps by their stage label, the workflow as context), its current tool and
+  how long that has been open, its tool and turn counts, its elapsed time, and
+  `needs attention` when pi-subagents' watchdog flags it. The sidebar row reads
+  `Agents working` instead of a timestamp (`useActiveAgents`), so a lane whose
+  parent is idle no longer looks stopped.
 - **The completion is a card where the model woke up.** pi-subagents delivers
   it as a `subagent-notify` custom message and marks a plain success
   `display: false` so its own TUI does not badge an idle tab; Phosphor keeps
@@ -271,11 +280,64 @@ scout · grep`) and which is **never printed as widget lines**
   `items/SubagentNotice.tsx` reads the header (`Background task completed:
 **scout**`) into "scout finished in the background" and folds the output
   under it; a failure, a stop, or a `subagent_control_notice` opens by default.
+  A workflow's per-child `subagent-incremental-child-notify` reads the same
+  way ("host-components failed in a workflow"); pi-subagents mutes the
+  successes and Phosphor leaves those hidden.
+- **A child's question is one exchange, not two rows.** When a child calls
+  `contact_supervisor`, pi-subagents injects a `subagent_supervisor_request`
+  written for the model, ending in copy-paste `Reply with:` / `Live guidance:`
+  tool calls. `items/SupervisorQuestion.tsx` drops those and shows who asked
+  (agent, short run id), the question from `details.requestBody`, and the
+  parent's answer, paired by `replyTo` from the parent's own
+  `subagent_supervisor` reply call (pi-subagents' `subagent_supervisor_reply`
+  is a session-file entry that never reaches the transcript). An open
+  question opens, and folds to its first line once the answer lands unless
+  the reader opened or closed it. The reply call itself is the activity row
+  `Answered sub-agent`, and a turn of them counts as `answered N agents`.
+- **Every live row can be opened, steered and stopped**
+  (`subagentControl.ts`), with no model turn: each button sends one of
+  pi-subagents' extension commands as a `prompt`, which pi runs at once even
+  mid-stream, the way Settings drives `/mcp-auth`. Stop confirms first and
+  sends `/subagents-stop <run> [child]`; Steer asks for a message and sends
+  `/subagents-steer <run> [--child <child>] <message>` (whitespace flattened,
+  since the command re-joins its words). Both answer with a visible
+  `subagent-slash-result` placeholder and then a muted result under the same
+  `details.requestId`; the reducer swaps the result into the placeholder's
+  place (`foldIndex`), so one notice reads "Stopped async run …". The bare
+  `/subagents-stop` typed in the composer still does nothing over RPC (its
+  picker is a `ctx.ui.custom` component); the row's Stop is the path.
+- **Opening a row shows the agent's own transcript** (`AgentsModal.tsx`, run
+  view): its task, its latest messages and tool calls, and its final output,
+  from `/subagents-inspect-rpc <requestId> <run> [child] --lines 80`. The
+  reply arrives on the `subagent-inspect` widget as one
+  `PI_SUBAGENT_INSPECT_JSON:` line, set and cleared in the same tick, so
+  `stores/extensionUi.ts` buffers it by request id (`takeInspectReply`, last
+  16 kept) instead of storing a widget. A running run refreshes every 5s.
+- **The Agents history lists every run in the session** (`agentHistory.ts`,
+  the same modal's history view, opened from `All agents` on the live panel
+  or the status-strip chip). It is rebuilt from the transcript, so it
+  survives a reload: each launch or resume with its run id
+  (`details.asyncId`), its children, its questions and its outcome, settled
+  by the `subagent-notify` naming its async directory. A workflow child is
+  linked by its muted `subagent-incremental-child-notify`, which the reducer
+  keeps as a `hidden` item for exactly this and never renders. A question
+  from a child not yet linked goes to the one open background run, if only
+  one is open. The live snapshot overrides the status of anything still
+  working.
+- **When the work stops, the screen says so.** pi-subagents wakes the parent
+  only while a run is live, so a parent that delegated and then ended its
+  turn waits for the user; one did for 8h overnight on "NX-07 is next".
+  When the latest turn delegated (a launch, resume, report or question since
+  the last user message), the parent is idle and no run is working,
+  `DelegationIdleStrip` reads "No agents are running, and the parent has
+  stopped" with a **Continue** button that sends an ordinary user message.
+  It is dismissible until the transcript moves. Phosphor never sends that
+  message on its own: a host that prompts a session unasked is a separate
+  decision.
 
-Not here yet: an expandable fleet tree with stop and steer, opening a child's
-own session file as a transcript, and the parent-plus-child cost report.
-Stop, steer, inspect and cost exist in pi-subagents without a model turn (an
-extension command and an in-process RPC), which is the path for them.
+Not here yet: the parent-plus-child cost report, and answering a child's
+question from the UI (pi-subagents has no host command for a supervisor
+reply; only the parent's `subagent_supervisor` tool can send one).
 
 ## Rich content (first-class citizens)
 

@@ -3491,6 +3491,83 @@ test('a Claude fan-out is one row per sub-agent, with the ones that died named',
   }
 })
 
+test('a supervised background workflow can be watched, opened, steered, stopped and resumed', async () => {
+  const harness = await launch()
+  const { page } = harness
+  try {
+    await openWorkspace(page)
+    // The stub replays pi-subagents 0.74.0: a background workflow with one
+    // running step, a worker question the parent answers, and the parent's
+    // turn ending while the step keeps working. `/subagents-*` commands are
+    // answered the way the extension answers them over RPC.
+    await page.getByPlaceholder('Describe a task or ask a question').fill('orchestrate please')
+    await page.getByRole('button', { name: /Start session/i }).click()
+
+    // The live panel names the step and what it is on.
+    const row = page.getByTestId('background-agent')
+    await expect(row).toContainText('Prove bounded local Nx caching', { timeout: 60_000 })
+    await expect(row).toContainText(/bash for \d+s · 52 tools · 47 turns/)
+
+    // The question and the parent's answer are one card, without the tool
+    // calls pi-subagents wrote for the model.
+    const question = page.getByTestId('subagent-question')
+    await expect(question).toHaveAttribute('data-state', 'answered', { timeout: 30_000 })
+    await expect(question).toContainText('worker asked for a decision')
+    await question.getByRole('button').first().click()
+    await expect(page.getByTestId('subagent-question-answer')).toContainText(
+      'Approved: keep caching off.',
+    )
+    expect(await page.evaluate(() => document.body.innerText)).not.toContain('Reply with:')
+
+    // Opening the row shows the agent's own transcript, via the inspect RPC.
+    await row.getByTitle("Open this agent's transcript").click()
+    const modal = page.getByTestId('agents-modal')
+    await expect(modal.getByTestId('agent-run-messages')).toContainText(
+      'Running the original validator uncached.',
+    )
+    await expect(modal).toContainText('Prove the Nx cache contract')
+    await page.keyboard.press('Escape')
+    await expect(modal).toHaveCount(0)
+
+    // Steering goes straight to pi-subagents; its result folds into one notice.
+    await row.getByRole('button', { name: 'Steer' }).click()
+    await page.getByTestId('prompt-input').fill('Skip e2e, the parent validates.')
+    await page.getByTestId('prompt-input').press('Enter')
+    await expect(
+      page.getByText(`Steering delivered to b7e2c0de-0000-4000-8000-0000000000aa.`),
+    ).toBeVisible()
+    await expect(page.getByText('Running subagent...')).toHaveCount(0)
+
+    // The history lists the run, still running, with its question.
+    await page.getByTestId('subagent-chip').click()
+    const history = page.getByTestId('agents-history-run')
+    await expect(history).toContainText('Launched workflow finish-nx.js')
+    await expect(history).toContainText('1 question')
+    await expect(history.getByTestId('agent-status')).toHaveText('running')
+    await page.keyboard.press('Escape')
+
+    // Stop, after a confirmation. The run reports back and the panel goes.
+    await row.getByRole('button', { name: 'Stop' }).click()
+    await page
+      .getByRole('dialog', { name: /Stop Prove bounded local Nx caching/ })
+      .getByRole('button', { name: 'Stop' })
+      .click()
+    await expect(page.getByText('workflow was stopped in the background')).toBeVisible({
+      timeout: 30_000,
+    })
+    await expect(page.getByTestId('background-agents')).toHaveCount(0)
+
+    // Nothing is running and the parent has stopped: say so, and offer to go on.
+    const idle = page.getByTestId('delegation-idle')
+    await expect(idle).toBeVisible()
+    await idle.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByText('Continue with the next step.', { exact: false })).toBeVisible()
+    await expect(idle).toHaveCount(0)
+  } finally {
+    await shutdown(harness)
+  }
+})
+
 test('a native delegation is an agent row with live progress, a fleet chip and a completion card', async () => {
   const harness = await launch()
   const { page } = harness
@@ -3518,6 +3595,16 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
       'PI_SUBAGENT_ASYNC_JSON',
     )
 
+    // The parent is idle, but its scout is not: the panel above the composer
+    // says what it is on, and the lane reads as working, not "just now".
+    const background = page.getByTestId('background-agents')
+    await expect(background).toContainText('1 agent working in the background')
+    await expect(background.getByTestId('background-agent')).toContainText('scout')
+    await expect(background.getByTestId('background-agent')).toContainText(
+      'grep · 2 tools · 1 turn',
+    )
+    await expect(page.getByText('Agents working')).toBeVisible()
+
     // Settled: one row per call, in pi's vocabulary, with what it cost.
     const summary = page.getByTestId('activity-summary').first()
     await expect(summary).toContainText(/delegated 2 agents/)
@@ -3542,6 +3629,7 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
     await expect(page.getByTestId('subagent-notice-body')).toContainText('login.ts')
     await expect(page.getByText('Scout reports: the auth flow enters at login.ts.')).toBeVisible()
     await expect(chip).toHaveCount(0)
+    await expect(background).toHaveCount(0)
   } finally {
     await shutdown(harness)
   }

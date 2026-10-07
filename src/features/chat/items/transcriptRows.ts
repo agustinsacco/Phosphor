@@ -613,6 +613,7 @@ export function buildTranscriptRows(items: ChatItem[]): TranscriptRow[] {
   }
 
   for (const item of items) {
+    if (item.kind === 'custom' && item.hidden) continue
     if (item.kind !== 'assistant') {
       rows.push({ kind: 'item', id: item.id, item })
       continue
@@ -794,6 +795,7 @@ const NOUNS: Record<string, [string, string]> = {
   'Claude Code': ['tool', 'tools'],
   Launched: ['agent', 'agents'],
   Delegated: ['agent', 'agents'],
+  Answered: ['agent', 'agents'],
 }
 
 /**

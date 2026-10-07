@@ -33,6 +33,19 @@ export const SUBAGENT_INSPECT_WIDGET_KEY = 'subagent-inspect'
 export const SUBAGENT_NOTIFY_TYPE = 'subagent-notify'
 export const SUBAGENT_CONTROL_NOTICE_TYPE = 'subagent_control_notice'
 export const SUBAGENT_STEERING_NOTICE_TYPE = 'subagent_steering_notice'
+/** A child's progress inside a workflow; muted on success like `subagent-notify`. */
+export const SUBAGENT_CHILD_NOTIFY_TYPE = 'subagent-incremental-child-notify'
+/** A child asking the parent model for a decision (`contact_supervisor`). */
+export const SUBAGENT_QUESTION_TYPE = 'subagent_supervisor_request'
+/** The parent model's side of that conversation. */
+export const SUBAGENT_SUPERVISOR_TOOL = 'subagent_supervisor'
+/**
+ * What a `/subagents-*` command did. pi-subagents posts a visible
+ * "Running subagent..." placeholder, then the result under the same
+ * `details.requestId` with `display: false` (it assumes its own TUI shows the
+ * live row). The reducer folds the second into the first.
+ */
+export const SUBAGENT_SLASH_RESULT_TYPE = 'subagent-slash-result'
 
 const ASYNC_WIDGET_PREFIX = 'PI_SUBAGENT_ASYNC_JSON:'
 const ASYNC_SNAPSHOT_KIND = 'pi-subagents.async-status-snapshot'
@@ -50,8 +63,16 @@ export function isSubagentNotice(customType: string | undefined): boolean {
   return (
     customType === SUBAGENT_NOTIFY_TYPE ||
     customType === SUBAGENT_CONTROL_NOTICE_TYPE ||
-    customType === SUBAGENT_STEERING_NOTICE_TYPE
+    customType === SUBAGENT_STEERING_NOTICE_TYPE ||
+    customType === SUBAGENT_CHILD_NOTIFY_TYPE ||
+    customType === SUBAGENT_QUESTION_TYPE ||
+    customType === SUBAGENT_SLASH_RESULT_TYPE
   )
+}
+
+/** The `details.requestId` a slash result is correlated by, if any. */
+export function slashRequestId(details: unknown): string | undefined {
+  return str(rec(details)?.requestId)
 }
 
 // ---------- the call ----------
@@ -428,6 +449,8 @@ export interface FleetNode {
   startedAt?: number
   endedAt?: number
   currentTool?: string
+  /** When `currentTool` started, for "bash · 4m" on a long command. */
+  currentToolStartedAt?: number
   lastActivityAt?: number
   toolCount?: number
   turnCount?: number
@@ -473,6 +496,7 @@ function fleetNode(entry: unknown, depth: number): FleetNode | undefined {
     startedAt: num(node?.startedAt),
     endedAt: num(node?.endedAt),
     currentTool: str(activity?.currentTool),
+    currentToolStartedAt: num(activity?.currentToolStartedAt),
     lastActivityAt: num(activity?.lastActivityAt),
     toolCount: num(activity?.toolCount),
     turnCount: num(activity?.turnCount),
@@ -526,6 +550,67 @@ export function fleetCurrentTool(node: FleetNode): string | undefined {
   return undefined
 }
 
+/** One agent that is working right now, as the live panel lists it. */
+export interface LiveAgentRow {
+  id: string
+  /** The top-level async run, which `/subagents-stop` and `-steer` address. */
+  runId: string
+  /** The step or nested child inside it, when the row is not the run itself. */
+  childId?: string
+  /** A workflow step's label ("Prove bounded local Nx caching"), else the agent. */
+  label: string
+  /** The run it belongs to, when the row is a step inside one. */
+  context?: string
+  startedAt?: number
+  currentTool?: string
+  currentToolStartedAt?: number
+  toolCount?: number
+  turnCount?: number
+  attention: boolean
+}
+
+/**
+ * The agents doing work right now, deepest first: a workflow is a container,
+ * so its running steps are the rows, named by their stage label, with the
+ * workflow as context. A run with no running child is its own row.
+ */
+export function liveAgentRows(snapshot: FleetSnapshot, limit = 6): LiveAgentRow[] {
+  const rows: LiveAgentRow[] = []
+  // Step ids (`step:0`) repeat across runs, so a row's id is its path.
+  const visit = (
+    node: FleetNode,
+    context: string | undefined,
+    path: string,
+    runId: string,
+  ): void => {
+    const running = node.children.filter((child) => isFleetActive(child.state))
+    if (running.length === 0) {
+      rows.push({
+        id: path,
+        runId,
+        childId: node.id === runId ? undefined : node.id,
+        label: node.label,
+        // A single run's lone step repeats the run's label; say it once.
+        context: context === node.label ? undefined : context,
+        startedAt: node.startedAt,
+        currentTool: node.currentTool,
+        currentToolStartedAt: node.currentToolStartedAt,
+        toolCount: node.toolCount,
+        turnCount: node.turnCount,
+        attention: node.attention,
+      })
+      return
+    }
+    for (const child of running) {
+      visit(child, context ?? node.label, `${path}/${child.id}`, runId)
+    }
+  }
+  for (const run of snapshot.runs) {
+    if (isFleetActive(run.state)) visit(run, undefined, run.id, run.id)
+  }
+  return rows.slice(0, limit)
+}
+
 /** "1 background agent running · scout · grep" — one line for the strip. */
 export function summarizeFleet(snapshot: FleetSnapshot): string {
   const total = snapshot.runs.length + snapshot.omittedRuns
@@ -540,7 +625,7 @@ export function summarizeFleet(snapshot: FleetSnapshot): string {
 // ---------- the completion ----------
 
 export interface SubagentNotice {
-  kind: 'completion' | 'attention' | 'steering'
+  kind: 'completion' | 'attention' | 'steering' | 'question' | 'command'
   status?: 'completed' | 'failed' | 'stopped' | 'paused'
   agents: string[]
   /** "scout finished in the background" */
@@ -551,6 +636,9 @@ export interface SubagentNotice {
 
 const COMPLETION_HEADER =
   /^(Background|Detached foreground) tasks? (completed|failed|stopped|paused)(?: \((\d+)\))?: (.*)$/
+
+/** `Workflow child completed: **repo-nx**` */
+const CHILD_HEADER = /^Workflow child (completed|failed|stopped|paused): (.*)$/
 
 const STATUS_VERB: Record<NonNullable<SubagentNotice['status']>, string> = {
   completed: 'finished',
@@ -575,6 +663,45 @@ export function parseSubagentNotice(
   const rest = newline === -1 ? '' : trimmed.slice(newline + 1).trim()
   const plain = first.replace(/\*\*/g, '')
 
+  if (customType === SUBAGENT_QUESTION_TYPE) {
+    const question = parseSupervisorQuestion(undefined, text)
+    return {
+      kind: 'question',
+      agents: question.agent ? [question.agent] : [],
+      headline: questionHeadline(question),
+      body: question.body,
+    }
+  }
+  if (customType === SUBAGENT_SLASH_RESULT_TYPE) {
+    // "## Subagent result\n\n<what happened>"; the placeholder is one line.
+    const lines = trimmed
+      .split('\n')
+      .filter((line) => !/^#+\s/.test(line))
+      .map((line) => line.trim())
+    const headline = lines.find(Boolean) ?? 'Sub-agent command'
+    return {
+      kind: 'command',
+      agents: [],
+      headline: /^Running subagent/.test(headline) ? 'Sending to pi-subagents…' : headline,
+      body: lines
+        .slice(lines.indexOf(headline) + 1)
+        .join('\n')
+        .trim(),
+    }
+  }
+  if (customType === SUBAGENT_CHILD_NOTIFY_TYPE) {
+    const child = CHILD_HEADER.exec(first)
+    if (!child) return { kind: 'completion', agents: [], headline: plain, body: rest }
+    const status = child[1] as NonNullable<SubagentNotice['status']>
+    const who = child[2]!.replace(/\*\*/g, '').trim()
+    return {
+      kind: 'completion',
+      status,
+      agents: [who],
+      headline: `${who} ${STATUS_VERB[status]} in a workflow`,
+      body: rest,
+    }
+  }
   if (customType !== SUBAGENT_NOTIFY_TYPE) {
     return {
       kind: customType === SUBAGENT_STEERING_NOTICE_TYPE ? 'steering' : 'attention',
@@ -596,4 +723,104 @@ export function parseSubagentNotice(
     headline: `${who} ${STATUS_VERB[status]} ${where}`,
     body: rest,
   }
+}
+
+// ---------- the question ----------
+
+/**
+ * A child stopped to ask the parent model something (`contact_supervisor`).
+ * The message's prose ends with copy-paste tool calls for the model ("Reply
+ * with: …", "Live guidance: …"); a person reading the transcript wants the
+ * question, who asked it, and what the parent answered, so those lines go.
+ */
+export interface SupervisorQuestion {
+  requestId?: string
+  runId?: string
+  agent?: string
+  childIndex?: number
+  /** `need_decision`, `interview_request` or `progress_update`. */
+  reason?: string
+  /** The child's own words, as markdown. */
+  body: string
+}
+
+const QUESTION_PREAMBLE = /^(Subagent needs a supervisor decision\.|Run: |Agent: |Child index: )/
+const QUESTION_TRAILER = /^(Reply with: |Live guidance: )/
+
+export function parseSupervisorQuestion(details: unknown, text: string): SupervisorQuestion {
+  const d = rec(details)
+  const lines = text.split('\n')
+  const fromText = (prefix: string): string | undefined =>
+    str(
+      lines
+        .find((line) => line.startsWith(prefix))
+        ?.slice(prefix.length)
+        .trim(),
+    )
+  const index = num(d?.childIndex) ?? Number(fromText('Child index: '))
+  const body =
+    str(d?.requestBody)?.trim() ??
+    lines
+      .filter((line) => !QUESTION_PREAMBLE.test(line) && !QUESTION_TRAILER.test(line))
+      .join('\n')
+      .trim()
+  return {
+    requestId: str(d?.requestId) ?? str(d?.id) ?? /replyTo: "([^"]+)"/.exec(text)?.[1],
+    runId: str(d?.runId) ?? fromText('Run: '),
+    agent: str(d?.agent) ?? fromText('Agent: '),
+    childIndex: Number.isInteger(index) ? index : undefined,
+    reason: str(d?.reason),
+    body,
+  }
+}
+
+function questionHeadline(question: SupervisorQuestion): string {
+  const who = question.agent ?? 'A sub-agent'
+  return question.reason === 'progress_update'
+    ? `${who} sent an update`
+    : `${who} asked for a decision`
+}
+
+export interface SupervisorAnswer {
+  message: string
+  /** The tool call is still running. */
+  pending: boolean
+  /** pi-subagents refused it, e.g. the request had already lapsed. */
+  failed: boolean
+}
+
+interface ToolLike {
+  toolName: string | null
+  args?: Rec
+  status: string
+  isError?: boolean
+}
+
+const answerIndex = new WeakMap<object, Map<string, SupervisorAnswer>>()
+
+/**
+ * The parent's replies, keyed by the request they answer. The answer lives in
+ * the `subagent_supervisor` call's own args; pi-subagents' reply entry is a
+ * session-file record that never reaches the transcript. Cached per `tools`
+ * record, which the reducer replaces rather than mutates.
+ */
+export function supervisorAnswers(tools: Record<string, ToolLike>): Map<string, SupervisorAnswer> {
+  const cached = answerIndex.get(tools)
+  if (cached) return cached
+  const answers = new Map<string, SupervisorAnswer>()
+  for (const tool of Object.values(tools)) {
+    if (tool.toolName !== SUBAGENT_SUPERVISOR_TOOL || tool.args?.action !== 'reply') continue
+    const replyTo = str(tool.args.replyTo)
+    if (!replyTo) continue
+    const failed = tool.status === 'error' || tool.isError === true
+    // A refused reply never displaces one that landed.
+    if (failed && answers.has(replyTo)) continue
+    answers.set(replyTo, {
+      message: str(tool.args.message) ?? '',
+      pending: tool.status === 'starting' || tool.status === 'running',
+      failed,
+    })
+  }
+  answerIndex.set(tools, answers)
+  return answers
 }

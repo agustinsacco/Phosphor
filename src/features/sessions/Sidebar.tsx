@@ -1,3 +1,4 @@
+import { useActiveAgents } from '@/features/chat/useFleet'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import type { GitInfo, SessionMeta, WorktreeInfo } from '@shared/models'
@@ -1322,11 +1323,14 @@ function WorkspaceSwitcher(): React.JSX.Element {
  * → process-up window, which is otherwise a second or more of a row that
  * looks exactly like every idle row beside it.
  */
-type LaneActivity = 'opening' | 'starting' | 'working'
+type LaneActivity = 'opening' | 'starting' | 'working' | 'agents'
 const ACTIVITY_LABEL: Record<LaneActivity, string> = {
   opening: 'Opening',
   starting: 'Starting',
   working: 'Working',
+  // The parent handed off and went idle while its background runs carry on.
+  // Without this the row read "1m ago", as if the lane had stopped.
+  agents: 'Agents working',
 }
 
 // One line, always. A narrow sidebar used to wrap every long title onto a
@@ -1550,7 +1554,16 @@ function SessionRow({
   }
 
   const subtitle = sessionSubtitle(meta, git)
-  const activity = isStreaming ? 'working' : opening ? 'opening' : booting ? 'starting' : undefined
+  const agents = useActiveAgents(livePhosphorId)
+  const activity = isStreaming
+    ? 'working'
+    : opening
+      ? 'opening'
+      : booting
+        ? 'starting'
+        : agents > 0
+          ? 'agents'
+          : undefined
   const indicatorState = activity
     ? 'streaming'
     : unseen
@@ -1814,7 +1827,14 @@ function PendingSessionRow({
   const orderActions = useSessionOrderActions()
   const isStreaming = useChatStore((s) => s.sessions[phosphorId]?.isStreaming ?? false)
   const booting = useSessionBooting(phosphorId)
-  const activity = isStreaming ? 'working' : booting ? 'starting' : undefined
+  const agents = useActiveAgents(phosphorId)
+  const activity = isStreaming
+    ? 'working'
+    : booting
+      ? 'starting'
+      : agents > 0
+        ? 'agents'
+        : undefined
   const firstUserText = useChatStore(
     (s) => s.sessions[phosphorId]?.items.find((item) => item.kind === 'user')?.text,
   )

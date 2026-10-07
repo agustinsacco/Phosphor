@@ -29,7 +29,13 @@ import type {
   UserItem,
 } from './chatItems'
 import { emptyChatSession, newItemId } from './chatItems'
-import { SUBAGENT_NOTIFY_TYPE } from './subagentRuns'
+import {
+  isSubagentNotice,
+  slashRequestId,
+  SUBAGENT_CHILD_NOTIFY_TYPE,
+  SUBAGENT_NOTIFY_TYPE,
+  SUBAGENT_SLASH_RESULT_TYPE,
+} from './subagentRuns'
 import {
   applyRevealedIdentity,
   pendingToolId,
@@ -599,12 +605,58 @@ function applyMessageEnd(state: ChatSessionState, message: AgentMessage): ChatSe
     case 'customMessage': {
       const item = customItemFrom(message as CustomMessage)
       // `display: false` means the extension wants it hidden from the UI.
-      return item ? { ...state, items: [...state.items, item] } : state
+      return item ? { ...state, items: withCustomItem(state.items, item) } : state
     }
 
     default:
       return state
   }
+}
+
+/**
+ * Hidden messages that still earn a row: the muted sub-agent completion (the
+ * model's next reply quotes it, see `CustomItem.quiet`) and the result of a
+ * `/subagents-*` command, which replaces its visible placeholder.
+ */
+const QUIET_KEPT = new Set<string>([
+  SUBAGENT_NOTIFY_TYPE,
+  SUBAGENT_SLASH_RESULT_TYPE,
+  SUBAGENT_CHILD_NOTIFY_TYPE,
+])
+
+/**
+ * Where a `/subagents-*` result replaces its "Running subagent..."
+ * placeholder (same `details.requestId`), or -1 to append.
+ */
+export function foldIndex(items: ChatItem[], item: CustomItem): number {
+  if (item.customType !== SUBAGENT_SLASH_RESULT_TYPE) return -1
+  const requestId = slashRequestId(item.details)
+  if (!requestId) return -1
+  for (let i = items.length - 1; i >= 0; i--) {
+    const prior = items[i]!
+    if (
+      prior.kind === 'custom' &&
+      prior.customType === SUBAGENT_SLASH_RESULT_TYPE &&
+      slashRequestId(prior.details) === requestId
+    ) {
+      return i
+    }
+  }
+  return -1
+}
+
+const folded = (prior: ChatItem, item: CustomItem): CustomItem => ({
+  ...item,
+  id: prior.id,
+  quiet: undefined,
+})
+
+export function withCustomItem(items: ChatItem[], item: CustomItem): ChatItem[] {
+  const at = foldIndex(items, item)
+  if (at === -1) return [...items, item]
+  const next = items.slice()
+  next[at] = folded(items[at]!, item)
+  return next
 }
 
 /**
@@ -614,7 +666,8 @@ function applyMessageEnd(state: ChatSessionState, message: AgentMessage): ChatSe
 function customItemFrom(message: CustomMessage): CustomItem | null {
   // A muted sub-agent completion is the one hidden message worth a row: the
   // model's next reply quotes it (see `CustomItem.quiet`).
-  if (message.display === false && message.customType !== SUBAGENT_NOTIFY_TYPE) return null
+  if (message.display === false && !QUIET_KEPT.has(String(message.customType))) return null
+  const customType = typeof message.customType === 'string' ? message.customType : undefined
   const content = message.content
   const text =
     typeof content === 'string'
@@ -627,12 +680,16 @@ function customItemFrom(message: CustomMessage): CustomItem | null {
   return {
     id: newItemId(),
     kind: 'custom',
-    customType: typeof message.customType === 'string' ? message.customType : undefined,
+    customType,
     text,
     images,
     // `customMessage` role == pi's custom_message entry: it reaches the LLM.
     inContext: message.role === 'customMessage',
     quiet: message.display === false || undefined,
+    details: isSubagentNotice(customType) ? message.details : undefined,
+    // A muted workflow-child notice is history's link between a child and
+    // its workflow; on screen the workflow's own completion says it all.
+    hidden: (message.display === false && customType === SUBAGENT_CHILD_NOTIFY_TYPE) || undefined,
   }
 }
 
@@ -736,7 +793,11 @@ export function hydrateFromMessages(messages: AgentMessage[]): ChatSessionState 
       case 'custom':
       case 'customMessage': {
         const item = customItemFrom(message as CustomMessage)
-        if (item) items.push(item)
+        if (item) {
+          const at = foldIndex(items, item)
+          if (at === -1) items.push(item)
+          else items[at] = folded(items[at]!, item)
+        }
         break
       }
       default:

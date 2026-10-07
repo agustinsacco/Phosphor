@@ -23,7 +23,8 @@ import { BranchIcon, RewindIcon } from '@/components/icons'
 import { BashExecution } from './items/BashExecution'
 import { Divider } from './items/Divider'
 import { SubagentNoticeItem } from './items/SubagentNotice'
-import { isSubagentNotice } from './subagentRuns'
+import { SupervisorQuestionItem } from './items/SupervisorQuestion'
+import { isSubagentNotice, SUBAGENT_QUESTION_TYPE } from './subagentRuns'
 import type { FindReveal } from './useTranscriptFind'
 import { SEGMENT } from './transcriptFind'
 
@@ -79,7 +80,9 @@ export const MessageItemView = memo(function MessageItemView({
         case 'divider':
           return <Divider item={row.item} />
         case 'custom':
-          return isSubagentNotice(row.item.customType) ? (
+          return row.item.customType === SUBAGENT_QUESTION_TYPE ? (
+            <SupervisorQuestionItem item={row.item} sessionId={sessionId} />
+          ) : isSubagentNotice(row.item.customType) ? (
             <SubagentNoticeItem item={row.item} />
           ) : (
             <CustomMessageItem item={row.item} />

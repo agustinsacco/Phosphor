@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * Regenerate the platform icon assets from build/icon.svg.
+ * Regenerate the platform icon assets from apps/desktop/build/icon.svg.
  *
- *   node scripts/generate-icons.mjs
+ *   node tools/scripts/generate-icons.mjs
  *
  * Renders the SVG with Playwright's bundled Chromium (already a
  * devDependency) so the rasterization matches what the renderer would
  * paint — no extra image tooling as a dependency. Produces:
  *
- *   build/icon.png     1024×1024 (linux; install.sh downloads this)
- *   build/icons/*.png  per-size linux set (electron-builder picks the best)
- *   build/icon.icns    macOS (via `iconutil`, so darwin-only)
- *   build/icon.ico     windows (via `npx png-to-ico`, network on first run)
+ *   apps/desktop/build/icon.png     1024×1024 (linux; install.sh downloads this)
+ *   apps/desktop/build/icons/*.png  per-size linux set (electron-builder picks the best)
+ *   apps/desktop/build/icon.icns    macOS (via `iconutil`, so darwin-only)
+ *   apps/desktop/build/icon.ico     windows (via `npx png-to-ico`, network on first run)
  *   site/public/favicon.svg  a copy of icon.svg
  *
  * The favicon is written here rather than kept by hand because it WAS kept by

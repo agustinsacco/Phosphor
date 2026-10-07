@@ -9,8 +9,8 @@
 # `"ok":true`. A main-process throw would land in the same log as
 # `uncaughtException`, so that fails the smoke too.
 #
-# Run from the repo root after `electron-builder --win`:
-#   pwsh scripts/smoke-packaged-win.ps1
+# Run from the repo root after the Windows packaging build:
+#   pwsh tools/scripts/smoke-packaged-win.ps1
 param(
   [string]$Exe = 'apps\desktop\release\win-unpacked\Phosphor.exe',
   [int]$TimeoutSec = 120

@@ -2,13 +2,13 @@
 /**
  * Regenerate the README screenshots.
  *
- *   npm run build && node scripts/capture-readme-shots.mjs
- *   ONLY=settings,tree node scripts/capture-readme-shots.mjs   # partial rerun
+ *   npm run build && node tools/scripts/capture-readme-shots.mjs
+ *   ONLY=settings,tree node tools/scripts/capture-readme-shots.mjs   # partial rerun
  *
  * What is real and what is not: this launches the BUILT app (`out/`) through
  * Playwright's Electron driver, so every pixel of chrome, layout, colour and
  * interaction is Phosphor as it ships. The transcript itself is the deterministic
- * e2e pi stub (`e2e/fixtures/pi-stub.cjs`) — no model, no API key, no network —
+ * e2e pi stub (`apps/desktop/e2e/fixtures/pi-stub.cjs`), with no model, API key or network,
  * so the assistant prose and artifact titles are the stub's fixed script. That
  * is deliberate: the shots must be reproducible from a clean clone, and a real
  * session's transcript would be somebody else's code.

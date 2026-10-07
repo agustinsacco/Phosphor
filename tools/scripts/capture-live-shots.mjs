@@ -2,10 +2,10 @@
 /**
  * Capture the README screenshots against a REAL pi instance.
  *
- *   npm run build && node scripts/capture-live-shots.mjs
- *   ONLY=home,models node scripts/capture-live-shots.mjs      # partial rerun
- *   WORKSPACE=~/myrepo MODEL_EDIT=glm node scripts/capture-live-shots.mjs
- *   REDACT='my-internal-mcp=knowledge' node scripts/capture-live-shots.mjs
+ *   npm run build && node tools/scripts/capture-live-shots.mjs
+ *   ONLY=home,models node tools/scripts/capture-live-shots.mjs      # partial rerun
+ *   WORKSPACE=~/myrepo MODEL_EDIT=glm node tools/scripts/capture-live-shots.mjs
+ *   REDACT='my-internal-mcp=knowledge' node tools/scripts/capture-live-shots.mjs
  *
  * The shots are published, and a real ~/.pi shows real account details.
  * Every email address on screen is masked before each capture, and REDACT

@@ -113,9 +113,17 @@ package manager (`pi install` / `pi remove` / `pi update`) with the output
 streamed into the tab, so a failure is legible rather than a silent no-op.
 
 - A **Recommended** catalogue of curated packages, then Installed lists by
-  scope (global, this workspace). Each row shows version, what it contributes
-  (`2 extensions · 1 skill`), and a `vX available` chip when the registry says
-  so. The registry lookup never blocks the local listing.
+  scope (global, this workspace). Each row shows version, a `vX available`
+  chip when the registry says so, and what the package contributes, by name:
+  its skills (with a "View in Skills" jump), prompt commands, extensions and
+  themes. The registry lookup never blocks the local listing.
+- Contents come from the install dir (`apps/desktop/electron/pi/package-resources.ts`).
+  A `pi` manifest lists folders and globs, not resources, so each entry is
+  expanded the way pi expands it (`"skills": ["./skills"]` is every bundle in
+  that folder) and `!pattern` exclusions are applied. A kind the manifest
+  omits is empty even if the folder exists, because pi will not load it.
+  Settings-level filters (the object form) are not applied; the row says
+  "filtered" instead.
 - Add a package by spec (`npm:pkg`, `git:github.com/user/repo`, or an absolute
   path), plus Update all. Packages run with full system access, and the tab
   says so.

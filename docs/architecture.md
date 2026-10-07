@@ -69,7 +69,12 @@ machine-local preferences, Git, packages, accounts and Headroom state.
 allocation, event binding, readiness, cancellation and failure disposal. Desktop
 supplies live budget/routine callbacks, account bookkeeping, recents and a sink.
 Failure while binding the sink or recording startup metadata also stops the
-child. Command and resume admission remain in the Desktop handlers.
+child. `runtime/pi/session-service.ts` owns create/resume admission, command
+preflight, extension responses and disposal. Both Desktop IPC and routine startup
+use this service. Resumes reuse live writers, retire crashed handles and reject
+missing files; routine ownership is checked again after a queued command waits.
+`createSessionPathRuntime()` gives each owner an independent lock domain, shared
+with its deletion path. Desktop binds one instance in `session-path-lock.ts`.
 
 Directive composition, provider detection, pi path rules and safe session-header
 repair also live in `runtime/pi/`. The same-named Desktop modules re-export them

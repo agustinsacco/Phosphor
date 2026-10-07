@@ -1,30 +1,17 @@
-import { access } from 'node:fs/promises'
-import { registry } from '../registry'
-import { sessionPathKey, openSessionPath } from '../pi/session-path-lock'
 import { handle } from './handle'
-import { spawnSession } from '../pi/session-runtime'
-import {
-  isRoutineSession,
-  observeRoutineSession,
-  routineSessionForPath,
-} from '../routines/ownership'
+import { desktopSessions } from '../pi/session-runtime'
 import { checkPiHealth } from '../pi/health'
 import { piStubPath } from '../pi/stub'
 import { runPrintMode } from '../pi/print-mode'
 import { piProcessEnv } from '../pi/shell-env'
 import { dedupeTitle, sanitizeTitle, titleArgs, titlePrompt } from '../pi/session-naming'
 import { claudeAccountEnv, primaryAccount } from '../claude/accounts'
-import { forgetSpawnAccount } from '../pi/session-accounts'
 import {
   claudeOneShotEnv,
   claudeProviderSpawnEnv,
-  assertClaudeContextProvider,
   usesClaudeCliProvider,
 } from '../pi/provider-detect'
 import { readAgentSettings } from '../pi/agent-settings'
-import { syncContextBudget, withBudgetCompaction } from '../pi/context-budget'
-import { getPrefs } from '../store'
-import { listPackages } from '../pi/packages'
 import { getLanePrefs } from '../store'
 import { MIN_PI_VERSION, type CreateSessionOptions, type PiHealth } from '@shared/models'
 import type { ExtensionUIResponse, RpcCommand } from '@shared/rpc'
@@ -55,93 +42,17 @@ export function registerPiSessionHandlers(): void {
     return cachedHealth
   })
 
-  handle('pi:createSession', (event, options: CreateSessionOptions) => {
-    // Opening a running routine's transcript must adopt its process, never
-    // create a second writer for the same pi file.
-    const ownedId = options.sessionPath ? routineSessionForPath(options.sessionPath) : undefined
-    const owned = ownedId ? registry.get(ownedId) : undefined
-    if (owned)
-      return {
-        sessionId: owned.sessionId,
-        workspacePath: owned.workspacePath,
-        pid: owned.client.pid,
-      }
-    if (!options.sessionPath) return spawnSession(options, event.sender)
-    const path = sessionPathKey(options.sessionPath)
-    return openSessionPath(path, async (signal) => {
-      const matches = registry
-        .list()
-        .filter((s) => s.diskPath && sessionPathKey(s.diskPath) === path)
-      const live = matches.find((s) => registry.get(s.sessionId)?.client.alive)
-      if (live) return live
-      // A crashed handle must not prevent a genuine resume.
-      for (const session of matches) await registry.dispose(session.sessionId)
-      // pi creates a new session for a missing --session file. After a delete,
-      // a queued open must fail instead of silently recreating that lane.
-      await access(path)
-      signal.throwIfAborted()
-      return spawnSession({ ...options, sessionPath: path }, event.sender, { signal })
-    })
-  })
-
-  handle('pi:command', async (_event, sessionId: string, command: RpcCommand) => {
-    const session = registry.get(sessionId)
-    if (!session) throw new Error(`Unknown session: ${sessionId}`)
-    if (command.type === 'get_messages') observeRoutineSession(sessionId)
-    if (
-      isRoutineSession(sessionId) &&
-      ![
-        'get_state',
-        'get_messages',
-        'get_session_stats',
-        'get_available_models',
-        'get_commands',
-      ].includes(command.type)
-    ) {
-      throw new Error(
-        'This lane is owned by a running routine. Cancel it from Routines before continuing manually.',
-      )
-    }
-    return withBudgetCompaction(sessionId, command.type, async () => {
-      if (!piStubPath()) {
-        if (command.type === 'set_model' && command.provider === 'pi-claude-cli') {
-          assertClaudeContextProvider(await listPackages(session.workspacePath))
-        }
-        // Spawn-time prediction cannot resolve pi's fuzzy model patterns. Verify
-        // the actual provider before a prompt can run against an old package.
-        if (command.type === 'prompt') {
-          const state = await session.client.request({ type: 'get_state' })
-          if (!state.success || !state.data) throw new Error('Cannot verify the active pi model.')
-          if (state.data.model?.provider === 'pi-claude-cli') {
-            assertClaudeContextProvider(await listPackages(session.workspacePath))
-          }
-          await syncContextBudget(session.client, getPrefs().contextBudget)
-        }
-      }
-      const result = await session.client.request(command)
-      if (!piStubPath() && command.type === 'set_auto_compaction' && result.success) {
-        await syncContextBudget(session.client, getPrefs().contextBudget)
-      }
-      return result
-    })
-  })
-
-  handle('pi:extensionUiResponse', (_event, sessionId: string, response: ExtensionUIResponse) => {
-    const session = registry.get(sessionId)
-    if (!session) throw new Error(`Unknown session: ${sessionId}`)
-    session.client.respondToExtensionUI(response)
-  })
-
-  handle('pi:disposeSession', async (_event, sessionId: string) => {
-    if (isRoutineSession(sessionId)) {
-      const { cancelRoutineSession } = await import('../routines')
-      await cancelRoutineSession(sessionId)
-    }
-    forgetSpawnAccount(sessionId)
-    await registry.dispose(sessionId)
-  })
-
-  handle('pi:listLiveSessions', () => registry.list())
+  handle('pi:createSession', (event, options: CreateSessionOptions) =>
+    desktopSessions.create(options, event.sender),
+  )
+  handle('pi:command', (_event, sessionId: string, command: RpcCommand) =>
+    desktopSessions.command(sessionId, command),
+  )
+  handle('pi:extensionUiResponse', (_event, sessionId: string, response: ExtensionUIResponse) =>
+    desktopSessions.respond(sessionId, response),
+  )
+  handle('pi:disposeSession', (_event, sessionId: string) => desktopSessions.dispose(sessionId))
+  handle('pi:listLiveSessions', () => desktopSessions.list())
 
   // Best-effort: naming is a nicety, so every failure path returns null and
   // the session keeps its first-message-derived title.

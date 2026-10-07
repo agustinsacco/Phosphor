@@ -1,13 +1,20 @@
 import { registry } from '../registry'
 import { createSessionStartup } from '../../runtime/pi/session-startup'
+import { createSessionService } from '../../runtime/pi/session-service'
+import { sessionPaths } from './session-path-lock'
+import { piStubPath } from './stub'
 import type { SessionExecution } from '../../runtime/pi/session-policy'
 import { desktopSessionSink } from './session-events'
 import { prepareDesktopSessionLaunch } from './session-launch'
 import { desktopSessionPolicy } from './session-policy'
 import { holdAccount } from '../claude/accounts'
 import { forgetSpawnAccount, rememberSpawnAccount } from './session-accounts'
-import { watchContextBudget } from './context-budget'
-import { isRoutineSession } from '../routines/ownership'
+import { watchContextBudget, withBudgetCompaction } from './context-budget'
+import {
+  isRoutineSession,
+  routineSessionForPath,
+  observeRoutineSession,
+} from '../routines/ownership'
 import { getPrefs, recordWorkspace, realPathOrNull } from '../store'
 import type { CreateSessionOptions, LiveSessionInfo } from '@shared/models'
 import { log } from '../debug-log'
@@ -27,15 +34,36 @@ const spawn = createSessionStartup({
   recordWorkspace,
 })
 
-/** Desktop binding only. Startup orchestration lives in the shared runtime. */
+export const desktopSessions = createSessionService<Electron.WebContents>({
+  registry,
+  paths: sessionPaths,
+  spawn: (options, target, execution = {}) =>
+    spawn(
+      options,
+      (id) => desktopSessionSink(id, target, () => execution.unattended ?? false),
+      execution,
+    ),
+  isStub: () => Boolean(piStubPath()),
+  packages: desktopSessionPolicy.packages,
+  readBudget: () => getPrefs().contextBudget,
+  withBudgetCompaction,
+  forgetAccount: forgetSpawnAccount,
+  routines: {
+    owns: isRoutineSession,
+    sessionForPath: routineSessionForPath,
+    observe: observeRoutineSession,
+    cancel: async (id) => {
+      const { cancelRoutineSession } = await import('../routines')
+      await cancelRoutineSession(id)
+    },
+  },
+})
+
+/** Both IPC and routines enter the same process-local admission boundary. */
 export function spawnSession(
   options: CreateSessionOptions,
   target?: Electron.WebContents,
   execution: SessionExecution = {},
 ): Promise<LiveSessionInfo> {
-  return spawn(
-    options,
-    (id) => desktopSessionSink(id, target, () => execution.unattended ?? false),
-    execution,
-  )
+  return desktopSessions.create(options, target, execution)
 }

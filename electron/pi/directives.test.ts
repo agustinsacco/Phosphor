@@ -35,6 +35,14 @@ describe('subagentPolicyBlock', () => {
     expect(block).not.toContain('dies with the turn')
     expect(block).not.toContain('0.4.14')
   })
+
+  it('tells a parent that nothing resumes an orchestration it stops', () => {
+    const block = subagentPolicyBlock()
+    expect(block).toContain('nothing wakes you once no run is live')
+    expect(block).toContain('never end a turn with the next step named and nothing running')
+    expect(block).toContain('Read the subagent guide once per session')
+    expect(block).toContain('answer a pending question before other work')
+  })
 })
 
 describe('composeDirectives', () => {

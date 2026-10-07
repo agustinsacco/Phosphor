@@ -148,7 +148,7 @@ export function DirectivesSection(): React.JSX.Element {
 
       <Row
         title="Sub-agent policy"
-        description="Prefers direct answers for small work. For broader delegation, distinguishes native Claude Agent parameters from pi subagent parameters and asks the agent to wait for findings."
+        description="Prefers direct answers for small work. For broader delegation, distinguishes native Claude Agent parameters from pi subagent parameters, keeps a multi-stage orchestration moving instead of ending a turn with nothing running, and limits guide re-reads and check-ins."
       >
         <Toggle on={editing.subagentPolicy} onChange={(on) => patch({ subagentPolicy: on })} />
       </Row>

@@ -7,6 +7,9 @@ import { JobOutput } from '../JobOutput'
 import { usePackageJob } from '../usePackageJob'
 import { isNewerVersion } from '@shared/version'
 import { errorText } from '@shared/errors'
+import { useLayoutStore } from '@/stores/layout'
+import { useSkillsStore } from '@/stores/skills'
+import { useSettingsUiStore } from '../settingsUiStore'
 
 /**
  * Settings → Extensions: pi package management. Reads come from settings
@@ -178,21 +181,9 @@ function PackageRow({
 }): React.JSX.Element {
   const updatable =
     latest !== null && entry.version !== undefined && isNewerVersion(latest, entry.version)
-  const counts = (
-    [
-      ['extension', entry.resources.extensions.length],
-      ['skill', entry.resources.skills.length],
-      ['prompt', entry.resources.prompts.length],
-      ['theme', entry.resources.themes.length],
-    ] as const
-  )
-    .filter(([, n]) => n > 0)
-    .map(([label, n]) => `${n} ${label}${n > 1 ? 's' : ''}`)
-    .join(' · ')
-
   return (
-    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-      <div className="min-w-0">
+    <div className="flex items-start justify-between gap-3 px-3.5 py-2.5">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-lg font-medium">{entry.name}</span>
           {entry.version && (
@@ -212,10 +203,8 @@ function PackageRow({
             </span>
           )}
         </div>
-        <div className="text-text-tertiary mt-0.5 truncate font-mono text-sm">
-          {entry.spec}
-          {counts && <span className="font-sans"> — {counts}</span>}
-        </div>
+        <div className="text-text-tertiary mt-0.5 truncate font-mono text-sm">{entry.spec}</div>
+        {entry.installed && <PackageContents entry={entry} />}
       </div>
       {updatable && (
         <button
@@ -234,5 +223,52 @@ function PackageRow({
         Remove
       </button>
     </div>
+  )
+}
+
+const CONTENT_KINDS = [
+  ['skills', 'Skills'],
+  ['prompts', 'Prompts'],
+  ['extensions', 'Extensions'],
+  ['themes', 'Themes'],
+] as const
+
+/**
+ * What a package brings, by name: its skills (with a jump to the Skills page,
+ * where they group under the package), prompt commands, extension entry points
+ * and themes. Read from the install dir, so it is what the package declares;
+ * a "filtered" entry may load less.
+ */
+function PackageContents({ entry }: { entry: PiPackageEntry }): React.JSX.Element {
+  const rows = CONTENT_KINDS.filter(([kind]) => entry.resources[kind].length > 0)
+  if (rows.length === 0) {
+    return <div className="text-text-tertiary mt-1 text-sm">No resources found</div>
+  }
+  const openSkills = (): void => {
+    useSettingsUiStore.getState().setOpen(false)
+    useSkillsStore.getState().setTab('yours')
+    useLayoutStore.getState().setPage('skills')
+  }
+  return (
+    <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
+      {rows.map(([kind, label]) => {
+        const names = entry.resources[kind]
+        return (
+          <div key={kind} className="contents">
+            <dt className="text-text-tertiary">
+              {label} ({names.length})
+            </dt>
+            <dd className="text-text-secondary min-w-0 font-mono break-words">
+              {names.map((name) => (kind === 'prompts' ? `/${name}` : name)).join(', ')}
+              {kind === 'skills' && (
+                <button onClick={openSkills} className="text-accent ml-2 font-sans hover:underline">
+                  View in Skills
+                </button>
+              )}
+            </dd>
+          </div>
+        )
+      })}
+    </dl>
   )
 }

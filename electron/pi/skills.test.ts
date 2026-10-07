@@ -69,6 +69,24 @@ describe('resolveSkills (scan fallback)', () => {
     rmSync(foreign, { recursive: true, force: true })
   })
 
+  it('includes the skills of installed packages, read-only and tagged by spec', async () => {
+    const pkg = join(agentDir, 'npm', 'node_modules', 'pi-demo')
+    mkdirSync(pkg, { recursive: true })
+    writeFileSync(
+      join(pkg, 'package.json'),
+      JSON.stringify({ name: 'pi-demo', pi: { skills: ['./skills'] } }),
+    )
+    seedSkill(join(pkg, 'skills'), 'echo')
+    seedSkill(join(pkg, 'skills'), 'foxtrot')
+    writeFileSync(join(agentDir, 'settings.json'), JSON.stringify({ packages: ['npm:pi-demo'] }))
+
+    const result = await resolveSkills({})
+    const fromPackage = result.skills.filter((skill) => skill.origin === 'package')
+    expect(fromPackage.map((skill) => skill.name)).toEqual(['echo', 'foxtrot'])
+    expect(fromPackage.every((skill) => skill.source === 'npm:pi-demo')).toBe(true)
+    expect(fromPackage.every((skill) => !skill.writable)).toBe(true)
+  })
+
   it('reports draft state, warnings and bundle files', async () => {
     const dir = seedSkill(join(agentDir, 'skills'), 'delta', 'disable-model-invocation: true\n')
     mkdirSync(join(dir, 'references'))

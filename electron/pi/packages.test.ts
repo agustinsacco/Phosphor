@@ -140,6 +140,10 @@ describe('listPackages', () => {
         pi: { extensions: ['index.ts'], skills: ['skills/*.md', '!skills/wip.md'] },
       }),
     )
+    writeFileSync(join(installDir, 'index.ts'), '')
+    mkdirSync(join(installDir, 'skills'))
+    writeFileSync(join(installDir, 'skills', 'ready.md'), '')
+    writeFileSync(join(installDir, 'skills', 'wip.md'), '')
     writeSettings(join(home, 'agent'), ['npm:demo-pkg', 'npm:not-installed'])
     writeSettings(join(workspace, '.pi'), [{ source: 'npm:demo-proj', extensions: [] }])
 
@@ -151,8 +155,8 @@ describe('listPackages', () => {
     expect(demo.installed).toBe(true)
     expect(demo.version).toBe('1.0.0')
     expect(demo.resources.extensions).toEqual(['index.ts'])
-    // Exclusions are display noise, not resources.
-    expect(demo.resources.skills).toEqual(['skills/*.md'])
+    // Globs expand to what they match; exclusions drop their matches.
+    expect(demo.resources.skills).toEqual(['ready'])
 
     const missing = entries.find((e) => e.spec === 'npm:not-installed')!
     expect(missing.installed).toBe(false)

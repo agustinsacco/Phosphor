@@ -429,6 +429,21 @@ describe('chat reducer — extension-injected messages', () => {
     ])
     expect(state.items.map((i) => i.kind)).toEqual(['user', 'custom'])
   })
+
+  it("keeps a sub-agent question's structured details, and no other extension's", () => {
+    const state = hydrateFromMessages([
+      {
+        role: 'custom',
+        customType: 'subagent_supervisor_request',
+        content: 'Subagent needs a supervisor decision.',
+        display: true,
+        details: { requestId: 'req-1', agent: 'worker' },
+      },
+      { role: 'custom', customType: 'ext', content: 'x', display: true, details: { big: 1 } },
+    ])
+    expect(state.items[0]).toMatchObject({ details: { requestId: 'req-1', agent: 'worker' } })
+    expect(state.items[1]).not.toHaveProperty('details', expect.anything())
+  })
 })
 
 describe('chat reducer — hydration', () => {

@@ -58,6 +58,8 @@ export function settledVerb(toolName: string | null, args?: Record<string, unkno
       // A launch is the headline of a turn ("delegated 2 agents"); a status
       // check or a listing is bookkeeping and counts as a tool like any other.
       return typeof args?.action === 'string' ? 'Used' : 'Delegated'
+    case 'subagent_supervisor':
+      return args?.action === 'reply' ? 'Answered' : 'Used'
     case 'read':
       return 'Read'
     case 'bash':
@@ -258,6 +260,22 @@ export function summarizeTool(tool: ToolState, workspacePath?: string): ToolSumm
     }
     case 'subagents_enable':
       return { label: running ? 'Enabling' : 'Enabled', object: 'sub-agents' }
+    case 'subagent_supervisor': {
+      // The parent's side of a child's question. The question itself is the
+      // card above (SubagentNotice), which shows this answer under it.
+      if (args?.action === 'reply') {
+        const message = typeof args.message === 'string' ? args.message : ''
+        return {
+          label: running ? 'Answering' : 'Answered',
+          object: 'sub-agent',
+          hint: message ? truncate(message.split('\n')[0]!, 80) : undefined,
+        }
+      }
+      if (args?.action === 'pending') {
+        return { label: running ? 'Checking' : 'Checked', object: 'sub-agent questions' }
+      }
+      return { label: running ? 'Running' : 'Used', object: tool.toolName, mono: true }
+    }
     default:
       return { label: running ? 'Running' : 'Used', object: tool.toolName, mono: true }
   }

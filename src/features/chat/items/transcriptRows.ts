@@ -794,6 +794,7 @@ const NOUNS: Record<string, [string, string]> = {
   'Claude Code': ['tool', 'tools'],
   Launched: ['agent', 'agents'],
   Delegated: ['agent', 'agents'],
+  Answered: ['agent', 'agents'],
 }
 
 /**

@@ -269,6 +269,20 @@ scout · grep`) and which is **never printed as widget lines**
   `items/SubagentNotice.tsx` reads the header (`Background task completed:
 **scout**`) into "scout finished in the background" and folds the output
   under it; a failure, a stop, or a `subagent_control_notice` opens by default.
+  A workflow's per-child `subagent-incremental-child-notify` reads the same
+  way ("host-components failed in a workflow"); pi-subagents mutes the
+  successes and Phosphor leaves those hidden.
+- **A child's question is one exchange, not two rows.** When a child calls
+  `contact_supervisor`, pi-subagents injects a `subagent_supervisor_request`
+  written for the model, ending in copy-paste `Reply with:` / `Live guidance:`
+  tool calls. `items/SupervisorQuestion.tsx` drops those and shows who asked
+  (agent, short run id), the question from `details.requestBody`, and the
+  parent's answer, paired by `replyTo` from the parent's own
+  `subagent_supervisor` reply call (pi-subagents' `subagent_supervisor_reply`
+  is a session-file entry that never reaches the transcript). An open
+  question opens; an answered one folds to its first line. The reply call
+  itself is the activity row `Answered sub-agent`, and a turn of them counts
+  as `answered N agents`.
 
 Not here yet: an expandable fleet tree with stop and steer, opening a child's
 own session file as a transcript, and the parent-plus-child cost report.

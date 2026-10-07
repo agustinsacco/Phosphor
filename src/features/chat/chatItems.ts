@@ -91,6 +91,11 @@ export interface CustomItem {
    * that follows it.
    */
   quiet?: boolean
+  /**
+   * The extension's structured payload, kept only for sub-agent notices
+   * (a child's question carries its run, agent and request id here).
+   */
+  details?: unknown
 }
 
 export type ChatItem = UserItem | AssistantItem | BashItem | DividerItem | CustomItem

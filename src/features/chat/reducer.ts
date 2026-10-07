@@ -29,7 +29,7 @@ import type {
   UserItem,
 } from './chatItems'
 import { emptyChatSession, newItemId } from './chatItems'
-import { SUBAGENT_NOTIFY_TYPE } from './subagentRuns'
+import { isSubagentNotice, SUBAGENT_NOTIFY_TYPE } from './subagentRuns'
 import {
   applyRevealedIdentity,
   pendingToolId,
@@ -615,6 +615,7 @@ function customItemFrom(message: CustomMessage): CustomItem | null {
   // A muted sub-agent completion is the one hidden message worth a row: the
   // model's next reply quotes it (see `CustomItem.quiet`).
   if (message.display === false && message.customType !== SUBAGENT_NOTIFY_TYPE) return null
+  const customType = typeof message.customType === 'string' ? message.customType : undefined
   const content = message.content
   const text =
     typeof content === 'string'
@@ -627,12 +628,13 @@ function customItemFrom(message: CustomMessage): CustomItem | null {
   return {
     id: newItemId(),
     kind: 'custom',
-    customType: typeof message.customType === 'string' ? message.customType : undefined,
+    customType,
     text,
     images,
     // `customMessage` role == pi's custom_message entry: it reaches the LLM.
     inContext: message.role === 'customMessage',
     quiet: message.display === false || undefined,
+    details: isSubagentNotice(customType) ? message.details : undefined,
   }
 }
 

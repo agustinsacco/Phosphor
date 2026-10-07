@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   parseFleetWidget,
   parseSubagentNotice,
+  parseSupervisorQuestion,
   scriptAgents,
   subagentCall,
   subagentRun,
   summarizeFleet,
   summarizeSubagentCall,
+  supervisorAnswers,
 } from './subagentRuns'
 
 /**
@@ -384,5 +386,123 @@ describe('parseSubagentNotice', () => {
       kind: 'steering',
     })
     expect(parseSubagentNotice('other', 'x')).toBeNull()
+  })
+})
+
+/**
+ * Captured from session 01a10e05 (2026-10-06, pi-subagents 0.74.0): a worker
+ * inside a workflow asking the parent model for a decision.
+ */
+const QUESTION_TEXT = [
+  'Subagent needs a supervisor decision.',
+  'Run: fd71fece-0942-4038-abea-2ce920af565b',
+  'Agent: worker',
+  'Child index: 0',
+  '',
+  'Production unsafe machinery removed. Approve independent scratch npm install of exact nx@23.2.1?',
+  '',
+  'Reply with: subagent_supervisor({ action: "reply", replyTo: "e024c800-3fee-4363-b923-8e4f6782fa23", message: "..." })',
+  '',
+  'Live guidance: subagent({ action: "steer", id: "fd71fece-0942-4038-abea-2ce920af565b", index: 0, message: "..." }) (Reply to the pending request first.)',
+].join('\n')
+
+const QUESTION_DETAILS = {
+  id: 'e024c800-3fee-4363-b923-8e4f6782fa23',
+  requestId: 'e024c800-3fee-4363-b923-8e4f6782fa23',
+  reason: 'need_decision',
+  expectsReply: true,
+  runId: 'fd71fece-0942-4038-abea-2ce920af565b',
+  agent: 'worker',
+  childIndex: 0,
+  requestBody:
+    'Production unsafe machinery removed. Approve independent scratch npm install of exact nx@23.2.1?',
+  replyHint: 'subagent_supervisor({ action: "reply", replyTo: "e024c800-…", message: "..." })',
+}
+
+describe('parseSupervisorQuestion', () => {
+  it('reads who asked and the question from the structured details', () => {
+    expect(parseSupervisorQuestion(QUESTION_DETAILS, QUESTION_TEXT)).toEqual({
+      requestId: 'e024c800-3fee-4363-b923-8e4f6782fa23',
+      runId: 'fd71fece-0942-4038-abea-2ce920af565b',
+      agent: 'worker',
+      childIndex: 0,
+      reason: 'need_decision',
+      body: QUESTION_DETAILS.requestBody,
+    })
+  })
+
+  it('falls back to the prose, dropping the tool calls written for the model', () => {
+    const q = parseSupervisorQuestion(undefined, QUESTION_TEXT)
+    expect(q.requestId).toBe('e024c800-3fee-4363-b923-8e4f6782fa23')
+    expect(q.runId).toBe('fd71fece-0942-4038-abea-2ce920af565b')
+    expect(q.agent).toBe('worker')
+    expect(q.childIndex).toBe(0)
+    expect(q.body).toBe(QUESTION_DETAILS.requestBody)
+    expect(q.body).not.toMatch(/Reply with|Live guidance|subagent_supervisor/)
+  })
+
+  it('headlines the notice as a decision request', () => {
+    const notice = parseSubagentNotice('subagent_supervisor_request', QUESTION_TEXT)
+    expect(notice).toMatchObject({
+      kind: 'question',
+      agents: ['worker'],
+      headline: 'worker asked for a decision',
+    })
+  })
+})
+
+describe('supervisorAnswers', () => {
+  const reply = (
+    id: string,
+    replyTo: string,
+    message: string,
+    status = 'done',
+    isError = false,
+  ) => ({
+    [id]: {
+      toolName: 'subagent_supervisor',
+      args: { action: 'reply', replyTo, message },
+      status,
+      isError,
+    },
+  })
+
+  it('pairs each reply call with the request it answers', () => {
+    const tools = {
+      ...reply('t1', 'req-a', 'Approved.'),
+      ...reply('t2', 'req-b', 'Not yet.', 'running'),
+      t3: { toolName: 'subagent_supervisor', args: { action: 'pending' }, status: 'done' },
+      t4: { toolName: 'read', args: { path: 'x' }, status: 'done' },
+    }
+    const answers = supervisorAnswers(tools)
+    expect(answers.get('req-a')).toEqual({ message: 'Approved.', pending: false, failed: false })
+    expect(answers.get('req-b')).toMatchObject({ pending: true })
+    expect(answers.size).toBe(2)
+    expect(supervisorAnswers(tools)).toBe(answers)
+  })
+
+  it('never lets a refused late reply hide one that landed', () => {
+    const tools = {
+      ...reply('t1', 'req-a', 'Accepted.'),
+      ...reply('t2', 'req-a', 'Accepted again.', 'error', true),
+    }
+    expect(supervisorAnswers(tools).get('req-a')).toMatchObject({
+      message: 'Accepted.',
+      failed: false,
+    })
+  })
+})
+
+describe('workflow child notices', () => {
+  it('names the child and keeps the run lines as the body', () => {
+    const text =
+      'Workflow child failed: **host-components**\nWorkflow run: c6ee611f-ce23-44e6-952d-23bd37523bef\nChild run: a0adb356-0465-4e19-9c94-759e9c3000f1'
+    expect(parseSubagentNotice('subagent-incremental-child-notify', text)).toEqual({
+      kind: 'completion',
+      status: 'failed',
+      agents: ['host-components'],
+      headline: 'host-components failed in a workflow',
+      body: 'Workflow run: c6ee611f-ce23-44e6-952d-23bd37523bef\nChild run: a0adb356-0465-4e19-9c94-759e9c3000f1',
+    })
   })
 })

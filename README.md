@@ -225,8 +225,10 @@ endpoint in `~/.pi/agent/`.
 
 ### Updates
 
-Every merge to `main` that passes CI publishes a release, versioned
-`0.1.<commit count>`. An installed app checks at launch and every 30 minutes;
+Successful same-repository CI pushes to `main` publish a release unless the
+commit has a `Skip-Release: true` trailer. The guard supports both script layouts
+in the validated checkout and blocks publication if missing or broken. Releases
+are versioned `0.1.<commit count>`. An installed app checks at launch and every 30 minutes;
 when there is something to do, an update button appears in the sidebar footer
 above Settings.
 

@@ -745,6 +745,10 @@ test('steering controls and modified Enter send the intended RPC mode', async ()
           .map((cmd) => cmd.streamingBehavior),
       )
       .toEqual(['steer', 'followUp', 'followUp'])
+    // Queued messages stay out of the transcript until pi delivers them;
+    // a bubble at send time sat above work the agent did before reading it.
+    await expect(page.getByTestId('user-message')).toHaveCount(1)
+    await expect(page.getByTestId('user-message')).toHaveText('queue-hold')
     await page.getByRole('button', { name: 'Stop', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Steer now' })).toBeHidden()
   } finally {

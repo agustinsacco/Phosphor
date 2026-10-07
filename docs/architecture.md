@@ -75,6 +75,10 @@ use this service. Resumes reuse live writers, retire crashed handles and reject
 missing files; routine ownership is checked again after a queued command waits.
 `createSessionPathRuntime()` gives each owner an independent lock domain, shared
 with its deletion path. Desktop binds one instance in `session-path-lock.ts`.
+`runtime/pi/session-deletion.ts` cancels active/queued resumes, stops every writer
+and handles identities learned during shutdown before invoking storage hooks.
+Desktop keeps its existing Trash, legacy-ledger and draft cleanup adapters.
+These are in-process locks, not cross-process Host ownership or network authority.
 
 Directive composition, provider detection, pi path rules and safe session-header
 repair also live in `runtime/pi/`. The same-named Desktop modules re-export them

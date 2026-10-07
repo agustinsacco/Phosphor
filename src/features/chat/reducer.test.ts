@@ -578,3 +578,43 @@ describe('chat reducer — thinking timing', () => {
     expect(text).not.toHaveProperty('startedAt')
   })
 })
+
+describe('sub-agent command results', () => {
+  const placeholder = {
+    role: 'custom' as const,
+    customType: 'subagent-slash-result',
+    content: 'Running subagent...',
+    display: true,
+    details: { requestId: 'slash-1' },
+  }
+  const result = {
+    role: 'custom' as const,
+    customType: 'subagent-slash-result',
+    content: '## Subagent result\n\nStop requested for async run fd71fece.',
+    display: false,
+    details: { requestId: 'slash-1' },
+  }
+
+  it("lets the muted result take its placeholder's place, live", () => {
+    let state = reduceChatEvent(emptyChatSession(), { type: 'message_end', message: placeholder })
+    const id = state.items[0]!.id
+    state = reduceChatEvent(state, { type: 'message_end', message: result })
+    expect(state.items).toHaveLength(1)
+    expect(state.items[0]).toMatchObject({ id, text: result.content })
+    expect(state.items[0]).not.toHaveProperty('quiet', true)
+  })
+
+  it('folds the same way when a session is reopened', () => {
+    const state = hydrateFromMessages([
+      { role: 'user', content: 'go' },
+      placeholder,
+      result,
+      { ...placeholder, details: { requestId: 'slash-2' } },
+    ])
+    expect(state.items.map((i) => (i.kind === 'custom' ? i.text : i.kind))).toEqual([
+      'user',
+      result.content,
+      'Running subagent...',
+    ])
+  })
+})

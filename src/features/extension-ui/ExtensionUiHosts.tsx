@@ -1,3 +1,4 @@
+import { useAgentsUi } from '@/features/chat/agentsUi'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
@@ -481,10 +482,11 @@ function SubagentChip({ sessionId }: { sessionId: string }): React.JSX.Element |
     ? legacy.tasks.map((task) => `${task.description || task.taskId}: ${task.status}`).join('\n')
     : fleet!.runs.map((run) => `${run.label}: ${run.state}`).join('\n')
   return (
-    <span
+    <button
       data-testid="subagent-chip"
-      title={title}
-      className="text-text-tertiary flex min-w-0 items-center gap-1.5 text-xs"
+      title={`${title}\n\nOpen the Agents panel`}
+      onClick={() => useAgentsUi.getState().showHistory(sessionId)}
+      className="text-text-tertiary hover:text-text flex min-w-0 items-center gap-1.5 text-xs"
     >
       <span
         className={clsx(
@@ -495,7 +497,7 @@ function SubagentChip({ sessionId }: { sessionId: string }): React.JSX.Element |
       <span className="truncate">
         {legacy ? summarizeSubagents(legacy) : summarizeFleet(fleet!)}
       </span>
-    </span>
+    </button>
   )
 }
 

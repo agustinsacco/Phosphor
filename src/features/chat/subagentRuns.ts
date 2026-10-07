@@ -39,6 +39,13 @@ export const SUBAGENT_CHILD_NOTIFY_TYPE = 'subagent-incremental-child-notify'
 export const SUBAGENT_QUESTION_TYPE = 'subagent_supervisor_request'
 /** The parent model's side of that conversation. */
 export const SUBAGENT_SUPERVISOR_TOOL = 'subagent_supervisor'
+/**
+ * What a `/subagents-*` command did. pi-subagents posts a visible
+ * "Running subagent..." placeholder, then the result under the same
+ * `details.requestId` with `display: false` (it assumes its own TUI shows the
+ * live row). The reducer folds the second into the first.
+ */
+export const SUBAGENT_SLASH_RESULT_TYPE = 'subagent-slash-result'
 
 const ASYNC_WIDGET_PREFIX = 'PI_SUBAGENT_ASYNC_JSON:'
 const ASYNC_SNAPSHOT_KIND = 'pi-subagents.async-status-snapshot'
@@ -58,8 +65,14 @@ export function isSubagentNotice(customType: string | undefined): boolean {
     customType === SUBAGENT_CONTROL_NOTICE_TYPE ||
     customType === SUBAGENT_STEERING_NOTICE_TYPE ||
     customType === SUBAGENT_CHILD_NOTIFY_TYPE ||
-    customType === SUBAGENT_QUESTION_TYPE
+    customType === SUBAGENT_QUESTION_TYPE ||
+    customType === SUBAGENT_SLASH_RESULT_TYPE
   )
+}
+
+/** The `details.requestId` a slash result is correlated by, if any. */
+export function slashRequestId(details: unknown): string | undefined {
+  return str(rec(details)?.requestId)
 }
 
 // ---------- the call ----------
@@ -540,6 +553,10 @@ export function fleetCurrentTool(node: FleetNode): string | undefined {
 /** One agent that is working right now, as the live panel lists it. */
 export interface LiveAgentRow {
   id: string
+  /** The top-level async run, which `/subagents-stop` and `-steer` address. */
+  runId: string
+  /** The step or nested child inside it, when the row is not the run itself. */
+  childId?: string
   /** A workflow step's label ("Prove bounded local Nx caching"), else the agent. */
   label: string
   /** The run it belongs to, when the row is a step inside one. */
@@ -560,11 +577,18 @@ export interface LiveAgentRow {
 export function liveAgentRows(snapshot: FleetSnapshot, limit = 6): LiveAgentRow[] {
   const rows: LiveAgentRow[] = []
   // Step ids (`step:0`) repeat across runs, so a row's id is its path.
-  const visit = (node: FleetNode, context: string | undefined, path: string): void => {
+  const visit = (
+    node: FleetNode,
+    context: string | undefined,
+    path: string,
+    runId: string,
+  ): void => {
     const running = node.children.filter((child) => isFleetActive(child.state))
     if (running.length === 0) {
       rows.push({
         id: path,
+        runId,
+        childId: node.id === runId ? undefined : node.id,
         label: node.label,
         // A single run's lone step repeats the run's label; say it once.
         context: context === node.label ? undefined : context,
@@ -577,9 +601,13 @@ export function liveAgentRows(snapshot: FleetSnapshot, limit = 6): LiveAgentRow[
       })
       return
     }
-    for (const child of running) visit(child, context ?? node.label, `${path}/${child.id}`)
+    for (const child of running) {
+      visit(child, context ?? node.label, `${path}/${child.id}`, runId)
+    }
   }
-  for (const run of snapshot.runs) if (isFleetActive(run.state)) visit(run, undefined, run.id)
+  for (const run of snapshot.runs) {
+    if (isFleetActive(run.state)) visit(run, undefined, run.id, run.id)
+  }
   return rows.slice(0, limit)
 }
 
@@ -597,7 +625,7 @@ export function summarizeFleet(snapshot: FleetSnapshot): string {
 // ---------- the completion ----------
 
 export interface SubagentNotice {
-  kind: 'completion' | 'attention' | 'steering' | 'question'
+  kind: 'completion' | 'attention' | 'steering' | 'question' | 'command'
   status?: 'completed' | 'failed' | 'stopped' | 'paused'
   agents: string[]
   /** "scout finished in the background" */
@@ -642,6 +670,23 @@ export function parseSubagentNotice(
       agents: question.agent ? [question.agent] : [],
       headline: questionHeadline(question),
       body: question.body,
+    }
+  }
+  if (customType === SUBAGENT_SLASH_RESULT_TYPE) {
+    // "## Subagent result\n\n<what happened>"; the placeholder is one line.
+    const lines = trimmed
+      .split('\n')
+      .filter((line) => !/^#+\s/.test(line))
+      .map((line) => line.trim())
+    const headline = lines.find(Boolean) ?? 'Sub-agent command'
+    return {
+      kind: 'command',
+      agents: [],
+      headline: /^Running subagent/.test(headline) ? 'Sending to pi-subagents…' : headline,
+      body: lines
+        .slice(lines.indexOf(headline) + 1)
+        .join('\n')
+        .trim(),
     }
   }
   if (customType === SUBAGENT_CHILD_NOTIFY_TYPE) {

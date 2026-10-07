@@ -94,3 +94,15 @@ describe('SupervisorQuestionItem', () => {
     ).toContain('Approved, exact version only.')
   })
 })
+
+describe('SupervisorQuestionItem, live', () => {
+  it('folds by itself when the answer lands after the question', () => {
+    act(() => root.render(<SupervisorQuestionItem item={item} sessionId="s1" />))
+    expect(container.querySelector('[data-testid="subagent-question-answer"]')).not.toBeNull()
+    act(() => withReply('Approved.'))
+    expect(
+      container.querySelector('[data-testid="subagent-question"]')!.getAttribute('data-state'),
+    ).toBe('answered')
+    expect(container.querySelector('[data-testid="subagent-question-answer"]')).toBeNull()
+  })
+})

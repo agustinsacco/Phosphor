@@ -554,6 +554,8 @@ describe('liveAgentRows', () => {
     expect(liveAgentRows(fleet)).toEqual([
       {
         id: '76406f96-94a6-46dd-8d93-9ff2f0fbb239/step:1',
+        runId: '76406f96-94a6-46dd-8d93-9ff2f0fbb239',
+        childId: 'step:1',
         label: 'Review prove bounded local nx caching',
         context: 'workflow',
         startedAt: 1791379000000,
@@ -582,6 +584,28 @@ describe('liveAgentRows', () => {
     const rows = liveAgentRows(
       parseFleetWidget(['PI_SUBAGENT_ASYNC_JSON:' + JSON.stringify(single)])!,
     )
-    expect(rows).toMatchObject([{ id: 'r1/step:0', label: 'delegate', context: undefined }])
+    expect(rows).toMatchObject([
+      { id: 'r1/step:0', runId: 'r1', childId: 'step:0', label: 'delegate', context: undefined },
+    ])
+  })
+})
+
+describe('slash command results', () => {
+  it('reads the placeholder as in flight and the result by its first line', () => {
+    expect(parseSubagentNotice('subagent-slash-result', 'Running subagent...')).toMatchObject({
+      kind: 'command',
+      headline: 'Sending to pi-subagents…',
+      body: '',
+    })
+    expect(
+      parseSubagentNotice(
+        'subagent-slash-result',
+        '## Subagent result\n\nStop requested for async run fd71fece.\nIt will settle shortly.',
+      ),
+    ).toMatchObject({
+      kind: 'command',
+      headline: 'Stop requested for async run fd71fece.',
+      body: 'It will settle shortly.',
+    })
   })
 })

@@ -96,6 +96,11 @@ export interface CustomItem {
    * (a child's question carries its run, agent and request id here).
    */
   details?: unknown
+  /**
+   * Kept for bookkeeping, never rendered: a workflow child's muted progress
+   * notice, which is how the Agents history links a child to its workflow.
+   */
+  hidden?: boolean
 }
 
 export type ChatItem = UserItem | AssistantItem | BashItem | DividerItem | CustomItem

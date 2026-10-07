@@ -14,7 +14,8 @@ const EMPTY_TOOLS = Object.freeze({}) as Record<string, never>
  * said back. pi-subagents writes the question for the model, ending in
  * copy-paste tool calls; this shows it to a person as one exchange: who asked,
  * the question, and the answer (taken from the parent's `subagent_supervisor`
- * reply call). An open question stays open; an answered one folds to a line.
+ * reply call). An open question stays open; it folds to a line once answered, unless
+ * the reader opened or closed it themselves.
  */
 export function SupervisorQuestionItem({
   item,
@@ -27,7 +28,9 @@ export function SupervisorQuestionItem({
   const tools = useChatStore((s) => s.sessions[sessionId]?.tools) ?? EMPTY_TOOLS
   const answer = question.requestId ? supervisorAnswers(tools).get(question.requestId) : undefined
   const answered = !!answer && !answer.pending && !answer.failed
-  const [open, setOpen] = useState(!answered)
+  // Open while it waits, folded once answered, unless the reader chose.
+  const [chosen, setChosen] = useState<boolean | null>(null)
+  const open = chosen ?? !answered
   const who = question.agent ?? 'A sub-agent'
   const state = answered ? 'answered' : answer?.pending ? 'answering' : 'waiting'
   const preview = question.body.split('\n').find((line) => line.trim()) ?? ''
@@ -44,7 +47,7 @@ export function SupervisorQuestionItem({
       )}
     >
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setChosen(!open)}
         aria-expanded={open}
         className="hover:bg-bg-secondary/60 flex w-full items-center gap-2 rounded-md py-0.5 text-left text-base"
       >

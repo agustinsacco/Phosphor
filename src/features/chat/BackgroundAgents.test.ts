@@ -11,7 +11,7 @@ describe('elapsedLabel', () => {
 })
 
 describe('agentActivityLine', () => {
-  const base = { id: 'r', label: 'worker', attention: false }
+  const base = { id: 'r', runId: 'r', label: 'worker', attention: false }
 
   it('says how long the current tool has been running, then the counts', () => {
     expect(

@@ -559,6 +559,10 @@ function handle(cmd) {
       }
       // Record the actual requested mode without starting overlapping fake turns.
       if (queueHold && cmd.streamingBehavior) break
+      if (message.startsWith('/subagents-')) {
+        runSubagentsCommand(message)
+        break
+      }
       // The MCP adapter's OAuth flow: an extension command, so it runs no
       // model at all. The stub reproduces the two wire facts Phosphor depends on
       // — the authorization prompt arrives as an `input` request the client
@@ -614,6 +618,7 @@ function handle(cmd) {
       else if (message.includes('longartifact')) runLongArtifactTurn()
       else if (message.includes('manyitems')) runManyItemsTurn()
       else if (message.includes('delegate')) runNativeSubagentTurn()
+      else if (message.includes('orchestrate')) runOrchestrationTurn()
       else if (message.includes('fanout')) runSubagentTurn()
       else if (message.includes('longstream')) runLongStreamTurn()
       else if (message.includes('thinkstream')) runThinkingTurn()
@@ -1434,6 +1439,269 @@ function runSubagentTurn() {
   steps.push(() => out({ type: 'agent_settled' }))
 
   play(steps)
+}
+
+/**
+ * A supervised background workflow, end to end, in pi-subagents 0.74.0's
+ * wire shapes (session 01a10e05):
+ *
+ *  - the launch returns at once with `details.asyncId`, and the run rides the
+ *    `subagent-async` widget with one running, labelled step;
+ *  - the worker asks the parent (`subagent_supervisor_request`, details
+ *    carrying the request id) and the parent answers with a
+ *    `subagent_supervisor` reply call;
+ *  - the parent ends its turn while the step keeps running.
+ *
+ * The run then stays live until `/subagents-stop` (handled with the other
+ * `/subagents-*` commands below) stops it.
+ */
+const ORCH_RUN = 'b7e2c0de-0000-4000-8000-0000000000aa'
+const ORCH_CHILD_RUN = 'c8f3d1ef-0000-4000-8000-0000000000bb'
+const ORCH_STEP = 'cache-contract'
+let orchestrationLive = false
+
+function orchestrationWidget(state) {
+  const now = Date.now()
+  return (
+    'PI_SUBAGENT_ASYNC_JSON:' +
+    JSON.stringify({
+      kind: 'pi-subagents.async-status-snapshot',
+      version: 1,
+      generatedAt: now,
+      omitted: { runs: 0, children: 0, byteLimitExceeded: false },
+      runs: [
+        {
+          id: ORCH_RUN,
+          kind: 'workflow',
+          label: 'workflow',
+          state,
+          startedAt: now - 90_000,
+          children: [
+            {
+              id: ORCH_STEP,
+              kind: 'step',
+              label: 'Prove bounded local Nx caching',
+              state,
+              startedAt: now - 80_000,
+              activity: {
+                currentTool: 'bash',
+                currentToolStartedAt: now - 30_000,
+                toolCount: 52,
+                turnCount: 47,
+              },
+            },
+          ],
+        },
+      ],
+    })
+  )
+}
+
+function runOrchestrationTurn() {
+  const msg = { role: 'assistant', content: [] }
+  const launch = { workflow: '/tmp/stub/finish-nx.js', async: true }
+  const answer = { action: 'reply', replyTo: 'q-orch-1', message: 'Approved: keep caching off.' }
+  const question = {
+    role: 'custom',
+    customType: 'subagent_supervisor_request',
+    display: true,
+    content: [
+      'Subagent needs a supervisor decision.',
+      `Run: ${ORCH_CHILD_RUN}`,
+      'Agent: worker',
+      'Child index: 0',
+      '',
+      'Cache proof found a blocker. Keep every target uncached?',
+      '',
+      'Reply with: subagent_supervisor({ action: "reply", replyTo: "q-orch-1", message: "..." })',
+    ].join('\n'),
+    details: {
+      requestId: 'q-orch-1',
+      reason: 'need_decision',
+      runId: ORCH_CHILD_RUN,
+      agent: 'worker',
+      childIndex: 0,
+      requestBody: 'Cache proof found a blocker. Keep every target uncached?',
+    },
+  }
+  const toolCall = (id, name, args) => [
+    () => out({ type: 'message_start', message: msg }),
+    () =>
+      out({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'toolCall', id, name, arguments: args }],
+          stopReason: 'toolUse',
+          timestamp: Date.now(),
+        },
+      }),
+    () => out({ type: 'tool_execution_start', toolCallId: id, toolName: name, args }),
+  ]
+  const say = (text) => [
+    () => out({ type: 'message_start', message: msg }),
+    () =>
+      out({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text }],
+          stopReason: 'stop',
+          timestamp: Date.now(),
+        },
+      }),
+  ]
+  orchestrationLive = true
+  play([
+    () => out({ type: 'agent_start' }),
+    () => out({ type: 'turn_start' }),
+    ...toolCall('orch_launch', 'subagent', launch),
+    () =>
+      out({
+        type: 'tool_execution_end',
+        toolCallId: 'orch_launch',
+        toolName: 'subagent',
+        isError: false,
+        result: {
+          content: [{ type: 'text', text: `Async workflow [${ORCH_RUN}]` }],
+          details: { asyncId: ORCH_RUN, runId: ORCH_RUN, mode: 'workflow', results: [] },
+        },
+      }),
+    () =>
+      out({
+        type: 'extension_ui_request',
+        id: 'orch-widget',
+        method: 'setWidget',
+        widgetKey: 'subagent-async',
+        widgetLines: [orchestrationWidget('running')],
+      }),
+    ...say('The cache-contract worker is running in the background.'),
+    () => out({ type: 'agent_end', messages: [] }),
+    () => out({ type: 'agent_settled' }),
+    () => new Promise((resolve) => setTimeout(resolve, 600)),
+    // The worker asks; the question wakes the parent, which answers.
+    () => out({ type: 'agent_start' }),
+    () => out({ type: 'turn_start' }),
+    () => out({ type: 'message_start', message: question }),
+    () => out({ type: 'message_end', message: question }),
+    ...toolCall('orch_answer', 'subagent_supervisor', answer),
+    () =>
+      out({
+        type: 'tool_execution_end',
+        toolCallId: 'orch_answer',
+        toolName: 'subagent_supervisor',
+        isError: false,
+        result: { content: [{ type: 'text', text: 'Replied to supervisor request q-orch-1.' }] },
+      }),
+    ...say('Approved the safe path: caching stays off.'),
+    () => out({ type: 'agent_end', messages: [] }),
+    () => out({ type: 'agent_settled' }),
+  ])
+}
+
+/**
+ * pi-subagents' extension commands, as they behave over RPC: they run at
+ * once with no model turn. Inspect answers on the `subagent-inspect` widget,
+ * set and cleared in one go; stop and steer post a visible "Running
+ * subagent..." placeholder and then a muted result under the same request id.
+ */
+function runSubagentsCommand(message) {
+  const [command, ...args] = message.trim().split(/\s+/)
+  if (command === '/subagents-inspect-rpc') {
+    const [requestId, asyncId, childId] = args
+    const reply = {
+      kind: 'pi-subagents.inspect-reply',
+      version: 1,
+      requestId,
+      asyncId,
+      ...(childId ? { childId } : {}),
+      status: orchestrationLive ? 'running' : 'stopped',
+      label: 'Prove bounded local Nx caching',
+      task: 'Prove the Nx cache contract, or keep caching off.',
+      messages: [
+        { role: 'assistant', kind: 'text', text: 'Running the original validator uncached.' },
+        {
+          role: 'assistant',
+          kind: 'toolCall',
+          name: 'bash',
+          text: '[tool: bash {"command":"npm run validate"}]',
+        },
+      ],
+    }
+    out({
+      type: 'extension_ui_request',
+      id: `inspect-${requestId}`,
+      method: 'setWidget',
+      widgetKey: 'subagent-inspect',
+      widgetLines: ['PI_SUBAGENT_INSPECT_JSON:' + JSON.stringify(reply)],
+    })
+    out({
+      type: 'extension_ui_request',
+      id: `inspect-clear-${requestId}`,
+      method: 'setWidget',
+      widgetKey: 'subagent-inspect',
+    })
+    return
+  }
+  const requestId = `slash-${Date.now()}`
+  const slash = (content, display) => ({
+    role: 'custom',
+    customType: 'subagent-slash-result',
+    content,
+    display,
+    details: { requestId },
+  })
+  const placeholder = slash('Running subagent...', true)
+  out({ type: 'message_start', message: placeholder })
+  out({ type: 'message_end', message: placeholder })
+  if (command === '/subagents-steer') {
+    const done = slash(`## Subagent result\n\nSteering delivered to ${args[0]}.`, false)
+    setTimeout(() => {
+      out({ type: 'message_start', message: done })
+      out({ type: 'message_end', message: done })
+    }, 300)
+    return
+  }
+  if (command === '/subagents-stop') {
+    const done = slash(`## Subagent result\n\nStopped async run ${args[0]}.`, false)
+    const notify = {
+      role: 'custom',
+      customType: 'subagent-notify',
+      display: true,
+      content: `Background task stopped: **workflow**\nWorkflow receipt: /tmp/stub/async-subagent-runs/${ORCH_RUN}/workflow-receipt.json\n\nStopped by the user.`,
+    }
+    orchestrationLive = false
+    const msg = { role: 'assistant', content: [] }
+    play([
+      () => new Promise((resolve) => setTimeout(resolve, 300)),
+      () => out({ type: 'message_start', message: done }),
+      () => out({ type: 'message_end', message: done }),
+      () =>
+        out({
+          type: 'extension_ui_request',
+          id: 'orch-widget-clear',
+          method: 'setWidget',
+          widgetKey: 'subagent-async',
+        }),
+      () => out({ type: 'agent_start' }),
+      () => out({ type: 'turn_start' }),
+      () => out({ type: 'message_start', message: notify }),
+      () => out({ type: 'message_end', message: notify }),
+      () => out({ type: 'message_start', message: msg }),
+      () =>
+        out({
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'The workflow was stopped. NX-07 is next.' }],
+            stopReason: 'stop',
+            timestamp: Date.now(),
+          },
+        }),
+      () => out({ type: 'agent_end', messages: [] }),
+      () => out({ type: 'agent_settled' }),
+    ])
+  }
 }
 
 /**

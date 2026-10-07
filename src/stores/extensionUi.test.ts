@@ -73,3 +73,40 @@ describe('extension UI requests', () => {
     expect(useExtensionUiStore.getState().toasts).toHaveLength(1)
   })
 })
+
+describe('sub-agent inspect replies', () => {
+  const reply = (requestId: string): string =>
+    'PI_SUBAGENT_INSPECT_JSON:' +
+    JSON.stringify({ kind: 'pi-subagents.inspect-reply', version: 1, requestId, status: 'running' })
+
+  const setWidget = (lines?: string[]): void =>
+    useExtensionUiStore.getState().handleRequest('s1', {
+      type: 'extension_ui_request',
+      id: `w-${Math.random()}`,
+      method: 'setWidget',
+      widgetKey: 'subagent-inspect',
+      widgetLines: lines,
+    })
+
+  beforeEach(() => useExtensionUiStore.setState({ inspectReplies: {} }))
+
+  it('keeps a reply by request id across the set-then-clear, never as a widget', () => {
+    setWidget([reply('req-1')])
+    setWidget(undefined)
+    expect(useExtensionUiStore.getState().widgets.s1?.['subagent-inspect']).toBeUndefined()
+    expect(useExtensionUiStore.getState().takeInspectReply('req-1')).toMatchObject({
+      requestId: 'req-1',
+      status: 'running',
+    })
+    // Claimed once.
+    expect(useExtensionUiStore.getState().takeInspectReply('req-1')).toBeUndefined()
+  })
+
+  it('drops unclaimed replies oldest first', () => {
+    for (let i = 0; i < 20; i++) setWidget([reply(`req-${i}`)])
+    const kept = Object.keys(useExtensionUiStore.getState().inspectReplies)
+    expect(kept).toHaveLength(16)
+    expect(kept).not.toContain('req-0')
+    expect(kept).toContain('req-19')
+  })
+})

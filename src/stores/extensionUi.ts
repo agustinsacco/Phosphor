@@ -2,6 +2,17 @@ import { create } from 'zustand'
 import type { ExtensionUIRequest } from '@shared/rpc'
 import { parseAuthNotice, parseOAuthPrompt, parseReconnectNotice } from '@shared/connectors'
 import { useConnectorsStore } from './connectors'
+import { parseInspectReply, type InspectReply } from '@/features/chat/subagentInspect'
+
+/**
+ * pi-subagents answers `/subagents-inspect-rpc` on this widget key, setting
+ * the reply and clearing it in the same handler. As a widget it would be gone
+ * before anything rendered, so replies are kept by request id instead, for
+ * `inspectAgent` to collect, and never become a widget.
+ */
+const INSPECT_WIDGET_KEY = 'subagent-inspect'
+/** Unclaimed replies kept at most; a reply nobody asked for is dropped oldest-first. */
+const MAX_INSPECT_REPLIES = 16
 
 export interface PendingDialog {
   sessionId: string
@@ -73,6 +84,8 @@ interface ExtensionUiState {
     Record<string, { lines: string[]; placement: 'aboveEditor' | 'belowEditor' }>
   >
   toasts: Toast[]
+  /** requestId → reply, until `takeInspectReply` claims it. */
+  inspectReplies: Record<string, InspectReply>
 
   handleRequest: (sessionId: string, request: ExtensionUIRequest) => void
   resolveDialog: (
@@ -89,6 +102,8 @@ interface ExtensionUiState {
   dismissSessionToast: (sessionId: string) => void
   setToastsPaused: (reason: ToastPauseReason, paused: boolean) => void
   clearSession: (sessionId: string) => void
+  /** Claim (and forget) the inspect reply for a request, if it has arrived. */
+  takeInspectReply: (requestId: string) => InspectReply | undefined
 }
 
 let toastId = 1
@@ -124,6 +139,7 @@ export const useExtensionUiStore = create<ExtensionUiState>((set, get) => ({
   statuses: {},
   widgets: {},
   toasts: [],
+  inspectReplies: {},
 
   handleRequest: (sessionId, request) => {
     switch (request.method) {
@@ -181,6 +197,18 @@ export const useExtensionUiStore = create<ExtensionUiState>((set, get) => ({
         break
 
       case 'setWidget':
+        if (request.widgetKey === INSPECT_WIDGET_KEY) {
+          const reply = parseInspectReply(request.widgetLines?.[0])
+          if (reply) {
+            set((s) => {
+              const kept = Object.entries(s.inspectReplies).slice(-(MAX_INSPECT_REPLIES - 1))
+              return {
+                inspectReplies: { ...Object.fromEntries(kept), [reply.requestId]: reply },
+              }
+            })
+          }
+          break
+        }
         set((s) => {
           const session = { ...(s.widgets[sessionId] ?? {}) }
           if (!request.widgetLines) {
@@ -311,5 +339,16 @@ export const useExtensionUiStore = create<ExtensionUiState>((set, get) => ({
         dialogs: s.dialogs.filter((d) => d.sessionId !== sessionId),
       }
     })
+  },
+
+  takeInspectReply: (requestId) => {
+    const reply = get().inspectReplies[requestId]
+    if (!reply) return undefined
+    set((s) => {
+      const inspectReplies = { ...s.inspectReplies }
+      delete inspectReplies[requestId]
+      return { inspectReplies }
+    })
+    return reply
   },
 }))

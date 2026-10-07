@@ -352,14 +352,20 @@ tooling scripts. These real back-edges are retained. Targets have no recursive
 acyclic. `tools/scripts/nx-projects.test.ts` checks the effective graph and targets,
 including missing-edge/target fixtures. App-relative `out/`, packaging metadata and resource destinations are unchanged.
 Root npm aliases delegate to Desktop; the app owns its Electron postinstall.
+The root npm workspaces contain only `libs/shared`, `libs/session-runtime` and
+`libs/pi-extensions`. Desktop and the site retain independent locks and real
+installation directories. The [installation contract](docs/installations.md)
+defines the supported scoped source-production recipe, script suppression,
+source bundling and native ABI separation. This is not universal single-lock
+consolidation.
 
 `@phosphor/shared` is a private source-only package at `libs/shared`. Its
 explicit subpath exports cover the complete shared module set, with adjacent
 tests excluded from exports. Electron main/preload and renderer/browser builds
 bundle its sources, rather than requiring workspace TypeScript at runtime.
 The existing `@shared/*` spelling is the sole compatibility alias, mapped to
-`libs/shared/src` in TypeScript, Vitest and both Vite configurations. Its removal
-belongs to installation closure, not a semantic split of the shared modules.
+`libs/shared/src` in TypeScript, Vitest and both Vite configurations. It remains supported by configured source builds; installation closure does not
+require a semantic split or a repository-wide import rewrite.
 `@phosphor/session-runtime` exports the Electron-free modules from
 `libs/session-runtime/src`, with a standalone Node TypeScript configuration.
 Desktop main/preload and the plain-Node acceptance fixtures bundle these source

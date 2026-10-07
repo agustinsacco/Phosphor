@@ -4,6 +4,11 @@
   "description": "Desktop coding-agent app powered by the pi coding agent",
   "type": "module",
   "private": true,
+  "workspaces": [
+    "libs/shared",
+    "libs/session-runtime",
+    "libs/pi-extensions"
+  ],
   "scripts": {
     "dev": "npm run dev --prefix apps/desktop --",
     "dev:web": "npm run dev:web --prefix apps/desktop --",
@@ -70,7 +75,9 @@
     "typescript-eslint": "^8.65.0",
     "vite": "^7.3.6",
     "vitest": "^4.1.10",
-    "ws": "8.21.0"
+    "ws": "8.21.0",
+    "playwright": "1.62.1",
+    "playwright-core": "1.62.1"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.9",

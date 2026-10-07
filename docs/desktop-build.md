@@ -32,6 +32,17 @@ A future plain-Node terminal owner needs a different install/rebuild domain;
 plain-Node session-runtime tests do not load Desktop's native module.
 Playwright tests and screenshot scripts explicitly select the app-owned
 Electron executable, even when Playwright itself is installed at the root.
+The shared test/capture launcher also preloads the installed Playwright Electron
+loader, preserving its screenshot switches and readiness handshake. A test-only
+preload removes its own exact require-argument pair before invoking that loader,
+so explicit-executable launches retain the default app argv too. Playwright
+does not add that loader automatically when an explicit executable is supplied.
+CI failure artifacts are collected from `apps/desktop/playwright-report` and
+`apps/desktop/test-results`, matching the app-owned Playwright configuration.
+
+Root tooling declares esbuild explicitly for portable package/boundary tests.
+These imports must resolve inside the root installation, not from an ancestor
+checkout; Vite retains its separate nested esbuild version.
 
 ## Resources and release
 

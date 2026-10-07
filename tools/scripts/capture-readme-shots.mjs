@@ -16,13 +16,13 @@
  * Requires `npm run build` first: main.ts picks dev-vs-built from
  * ELECTRON_RENDERER_URL, which is stripped below so this always means `out/`.
  */
-import { createRequire } from 'node:module'
+import { desktopElectronLaunchOptions } from './desktop-electron-launch.mjs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { Buffer } from 'node:buffer'
 import { mkdtempSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { fileURLToPath, URL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { _electron as electron } from 'playwright'
 
@@ -88,10 +88,7 @@ async function main() {
   // rasterises the current frame instead of reading a GPU surface that may
   // still hold the view behind it — which is what ghosted these shots.
   const app = await electron.launch({
-    executablePath: createRequire(new URL('../../apps/desktop/package.json', import.meta.url))(
-      'electron',
-    ),
-    args: [appRoot, '--disable-gpu'],
+    ...desktopElectronLaunchOptions([appRoot, '--disable-gpu']),
     env,
   })
   const page = await app.firstWindow()

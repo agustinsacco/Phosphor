@@ -79,12 +79,26 @@ describe('Desktop application and native install boundary', () => {
     }
     for (const file of ['smoke.spec.ts', 'startup.spec.ts', 'routines.spec.ts']) {
       expect(readFileSync(join(app, 'e2e', file), 'utf8')).toContain(
-        "executablePath: createRequire(import.meta.url)('electron')",
+        '...desktopElectronLaunchOptions([',
       )
     }
     expect(readFileSync(join(root, 'tools/scripts/fix-node-pty.mjs'), 'utf8')).toContain(
       "new URL('../../apps/desktop/package.json', import.meta.url)",
     )
+  })
+
+  it('resolves esbuild from declared root tooling, never an ancestor checkout', () => {
+    expect(facade.devDependencies.esbuild).toBe('0.25.12')
+    const require = createRequire(join(root, 'package.json'))
+    const path = require.resolve('esbuild/package.json')
+    expect(path).toBe(join(root, 'node_modules/esbuild/package.json'))
+    expect(json(path).version).toBe('0.25.12')
+    expect(lstatSync(join(root, 'node_modules/esbuild')).isSymbolicLink()).toBe(false)
+    const viteRequire = createRequire(require.resolve('vite/package.json'))
+    expect(viteRequire.resolve('esbuild/package.json')).toBe(
+      join(root, 'node_modules/vite/node_modules/esbuild/package.json'),
+    )
+    expect(viteRequire('esbuild/package.json').version).toBe('0.28.1')
   })
 
   it('anchors relocated tooling to the workspace or application cwd', () => {

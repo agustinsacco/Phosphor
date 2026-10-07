@@ -35,12 +35,12 @@
  * behind two real sessions plus one worktree/branch under the workspace's
  * .phosphor/worktrees. Delete them like any other session/worktree if unwanted.
  */
-import { createRequire } from 'node:module'
+import { desktopElectronLaunchOptions } from './desktop-electron-launch.mjs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { Buffer } from 'node:buffer'
 import { statSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
-import { fileURLToPath, URL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { _electron as electron } from 'playwright'
 
@@ -124,10 +124,7 @@ async function main() {
   // there for why: software compositor, settle-after-switch, resize nudge,
   // capturePage over CDP.
   const app = await electron.launch({
-    executablePath: createRequire(new URL('../../apps/desktop/package.json', import.meta.url))(
-      'electron',
-    ),
-    args: [appRoot, '--disable-gpu'],
+    ...desktopElectronLaunchOptions([appRoot, '--disable-gpu']),
     env,
   })
   const page = await app.firstWindow()

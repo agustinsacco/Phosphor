@@ -1,4 +1,4 @@
-import { createRequire } from 'node:module'
+import { desktopElectronLaunchOptions } from '../../../tools/scripts/desktop-electron-launch.mjs'
 import {
   test,
   expect,
@@ -84,8 +84,7 @@ async function launch(
   await writeFile(join(workspace, 'hello.ts'), 'export function hello() {\n  return "new"\n}\n')
 
   const app = await electron.launch({
-    executablePath: createRequire(import.meta.url)('electron'),
-    args: [repoRoot],
+    ...desktopElectronLaunchOptions([repoRoot]),
     env: {
       ...devServerEnvStripped(),
       NODE_ENV: 'production',

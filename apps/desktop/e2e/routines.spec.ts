@@ -1,4 +1,4 @@
-import { createRequire } from 'node:module'
+import { desktopElectronLaunchOptions } from '../../../tools/scripts/desktop-electron-launch.mjs'
 import {
   test,
   expect,
@@ -29,8 +29,7 @@ async function launch(): Promise<void> {
   delete env.ELECTRON_CLI_ARGS
   delete env.NODE_ENV_ELECTRON_VITE
   app = await electron.launch({
-    executablePath: createRequire(import.meta.url)('electron'),
-    args: [root],
+    ...desktopElectronLaunchOptions([root]),
     env: {
       ...env,
       NODE_ENV: 'production',

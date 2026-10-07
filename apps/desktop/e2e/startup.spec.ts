@@ -1,4 +1,4 @@
-import { createRequire } from 'node:module'
+import { desktopElectronLaunchOptions } from '../../../tools/scripts/desktop-electron-launch.mjs'
 import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test'
 import { mkdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { scratchDir } from './fixtures/scratch'
@@ -20,8 +20,7 @@ async function launch(theme: 'light' | 'dark' | 'system', extraEnv: Record<strin
   delete env.NODE_ENV_ELECTRON_VITE
   delete env.ELECTRON_CLI_ARGS
   const app = await electron.launch({
-    executablePath: createRequire(import.meta.url)('electron'),
-    args: [resolve(import.meta.dirname, '..')],
+    ...desktopElectronLaunchOptions([resolve(import.meta.dirname, '..')]),
     env: {
       ...env,
       NODE_ENV: 'production',
@@ -45,6 +44,35 @@ async function launch(theme: 'light' | 'dark' | 'system', extraEnv: Record<strin
     },
   }
 }
+
+test('Electron harness retains Playwright loader readiness and screenshot switches', async () => {
+  const h = await launch('light')
+  try {
+    const state = await h.app.evaluate(({ app }) => ({
+      ready: app.isReady(),
+      loader: typeof (globalThis as typeof globalThis & { __playwright_run?: unknown })
+        .__playwright_run,
+      screenshotSurface: app.commandLine.getSwitchValue('enable-features'),
+      backgroundTimersDisabled: app.commandLine.hasSwitch('disable-background-timer-throttling'),
+      rendererBackgroundingDisabled: app.commandLine.hasSwitch('disable-renderer-backgrounding'),
+      argv: process.argv,
+    }))
+    expect(state).toMatchObject({
+      ready: true,
+      loader: 'function',
+      screenshotSurface: 'CDPScreenshotNewSurface',
+      backgroundTimersDisabled: true,
+      rendererBackgroundingDisabled: true,
+    })
+    expect(state.argv.slice(1)).toEqual([resolve(import.meta.dirname, '..')])
+    expect(test.info().outputDir.startsWith(resolve(import.meta.dirname, '../test-results'))).toBe(
+      true,
+    )
+    await h.page.screenshot({ path: test.info().outputPath('playwright-loader.png') })
+  } finally {
+    await h.close()
+  }
+})
 
 test('sidebar preserves a saved fork and its inactive source across reloads', async () => {
   const h = await launch('light')

@@ -241,13 +241,18 @@ export function Composer({
       setMention(null)
       setHistoryIndex(null)
 
-      // Only non-command prompts render as user bubbles immediately; extension
-      // commands echo through the event stream if they produce messages.
-      chat.addUserMessage(
-        sessionId,
-        messageWithFiles,
-        imagePayload.length ? imagePayload : undefined,
-      )
+      // An idle prompt renders its bubble now. A steer or follow-up does not:
+      // pi holds it in a queue (shown as a chip) and the reducer appends the
+      // bubble at its `message_end`, where pi actually delivered it. Drawing it
+      // at send time put it above work the agent did before reading it, so a
+      // follow-up looked like a steer and an aborted queue showed it twice.
+      if (!isStreaming) {
+        chat.addUserMessage(
+          sessionId,
+          messageWithFiles,
+          imagePayload.length ? imagePayload : undefined,
+        )
+      }
 
       try {
         await piCallOk(sessionId, {

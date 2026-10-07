@@ -20,6 +20,7 @@ import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { probeCommandsCached } from './commands'
+import { packageSkillDirs } from './packages'
 import { piAgentDir } from './pi-paths'
 import { invalidZipEntryName, readZipEntries, writeZipStore, type ZipEntry } from './zip'
 import {
@@ -150,10 +151,11 @@ async function probeSkillsViaRpc(
 }
 
 /**
- * Fallback discovery: the two phosphor-writable roots plus any directories the
+ * Fallback discovery: the two phosphor-writable roots, any directories the
  * settings `skills` arrays point at (global resolved against the agent dir,
- * project against `<ws>/.pi`). Loose root-level `.md` skills are RPC-only —
- * the scan reports bundle dirs, which is every skill Phosphor can act on.
+ * project against `<ws>/.pi`), and every installed package's skills. Loose
+ * root-level `.md` skills are RPC-only — the scan reports bundle dirs, which
+ * is every skill Phosphor can act on.
  */
 async function scanSkillDirs(
   workspacePath?: string,
@@ -182,6 +184,9 @@ async function scanSkillDirs(
     for (const dir of await findSkillBundles(target.dir, 4)) {
       found.push({ dir, scope: target.scope, source: 'scan', origin: 'top-level' })
     }
+  }
+  for (const skill of await packageSkillDirs(workspacePath)) {
+    found.push({ ...skill, origin: 'package' })
   }
   return found
 }

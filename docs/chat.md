@@ -29,8 +29,10 @@ The composer is one small field with several ways in.
   Escape aborts and hands queued messages back to the composer. Once the draft
   has text, **Steer now** and **Queue follow-up** buttons expose both without
   a keyboard.
-- Queued chips render above the composer, each with a ✕ that undoes just that
-  entry. pi has no per-entry command, so `composer/queueActions.ts` drains with
+- A queued message is a chip above the composer, not a bubble. Its bubble
+  appears in the transcript only when pi delivers it (the user `message_end`),
+  so it sits after the work the agent finished first. Each chip has a ✕ that
+  undoes just that entry. pi has no per-entry command, so `composer/queueActions.ts` drains with
   `clear_queue` (pi 0.84.4+; refused on older pi) and re-queues the survivors.
 - `@` → fuzzy file search across the workspace (gitignore-aware), inserts a
   path reference.

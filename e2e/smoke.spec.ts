@@ -3518,6 +3518,16 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
       'PI_SUBAGENT_ASYNC_JSON',
     )
 
+    // The parent is idle, but its scout is not: the panel above the composer
+    // says what it is on, and the lane reads as working, not "just now".
+    const background = page.getByTestId('background-agents')
+    await expect(background).toContainText('1 agent working in the background')
+    await expect(background.getByTestId('background-agent')).toContainText('scout')
+    await expect(background.getByTestId('background-agent')).toContainText(
+      'grep · 2 tools · 1 turn',
+    )
+    await expect(page.getByText('Agents working')).toBeVisible()
+
     // Settled: one row per call, in pi's vocabulary, with what it cost.
     const summary = page.getByTestId('activity-summary').first()
     await expect(summary).toContainText(/delegated 2 agents/)
@@ -3542,6 +3552,7 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
     await expect(page.getByTestId('subagent-notice-body')).toContainText('login.ts')
     await expect(page.getByText('Scout reports: the auth flow enters at login.ts.')).toBeVisible()
     await expect(chip).toHaveCount(0)
+    await expect(background).toHaveCount(0)
   } finally {
     await shutdown(harness)
   }

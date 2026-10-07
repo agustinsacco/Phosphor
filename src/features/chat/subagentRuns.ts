@@ -436,6 +436,8 @@ export interface FleetNode {
   startedAt?: number
   endedAt?: number
   currentTool?: string
+  /** When `currentTool` started, for "bash · 4m" on a long command. */
+  currentToolStartedAt?: number
   lastActivityAt?: number
   toolCount?: number
   turnCount?: number
@@ -481,6 +483,7 @@ function fleetNode(entry: unknown, depth: number): FleetNode | undefined {
     startedAt: num(node?.startedAt),
     endedAt: num(node?.endedAt),
     currentTool: str(activity?.currentTool),
+    currentToolStartedAt: num(activity?.currentToolStartedAt),
     lastActivityAt: num(activity?.lastActivityAt),
     toolCount: num(activity?.toolCount),
     turnCount: num(activity?.turnCount),
@@ -532,6 +535,52 @@ export function fleetCurrentTool(node: FleetNode): string | undefined {
     if (tool) return tool
   }
   return undefined
+}
+
+/** One agent that is working right now, as the live panel lists it. */
+export interface LiveAgentRow {
+  id: string
+  /** A workflow step's label ("Prove bounded local Nx caching"), else the agent. */
+  label: string
+  /** The run it belongs to, when the row is a step inside one. */
+  context?: string
+  startedAt?: number
+  currentTool?: string
+  currentToolStartedAt?: number
+  toolCount?: number
+  turnCount?: number
+  attention: boolean
+}
+
+/**
+ * The agents doing work right now, deepest first: a workflow is a container,
+ * so its running steps are the rows, named by their stage label, with the
+ * workflow as context. A run with no running child is its own row.
+ */
+export function liveAgentRows(snapshot: FleetSnapshot, limit = 6): LiveAgentRow[] {
+  const rows: LiveAgentRow[] = []
+  // Step ids (`step:0`) repeat across runs, so a row's id is its path.
+  const visit = (node: FleetNode, context: string | undefined, path: string): void => {
+    const running = node.children.filter((child) => isFleetActive(child.state))
+    if (running.length === 0) {
+      rows.push({
+        id: path,
+        label: node.label,
+        // A single run's lone step repeats the run's label; say it once.
+        context: context === node.label ? undefined : context,
+        startedAt: node.startedAt,
+        currentTool: node.currentTool,
+        currentToolStartedAt: node.currentToolStartedAt,
+        toolCount: node.toolCount,
+        turnCount: node.turnCount,
+        attention: node.attention,
+      })
+      return
+    }
+    for (const child of running) visit(child, context ?? node.label, `${path}/${child.id}`)
+  }
+  for (const run of snapshot.runs) if (isFleetActive(run.state)) visit(run, undefined, run.id)
+  return rows.slice(0, limit)
 }
 
 /** "1 background agent running · scout · grep" — one line for the strip. */

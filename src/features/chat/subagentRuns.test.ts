@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  liveAgentRows,
   parseFleetWidget,
   parseSubagentNotice,
   parseSupervisorQuestion,
@@ -504,5 +505,83 @@ describe('workflow child notices', () => {
       headline: 'host-components failed in a workflow',
       body: 'Workflow run: c6ee611f-ce23-44e6-952d-23bd37523bef\nChild run: a0adb356-0465-4e19-9c94-759e9c3000f1',
     })
+  })
+})
+
+describe('liveAgentRows', () => {
+  /** A workflow mid-stage, shaped as pi-subagents 0.74.0 projects it. */
+  const WORKFLOW = {
+    kind: 'pi-subagents.async-status-snapshot',
+    version: 1,
+    generatedAt: 1791380000000,
+    omitted: { runs: 0, children: 0 },
+    runs: [
+      {
+        id: '76406f96-94a6-46dd-8d93-9ff2f0fbb239',
+        kind: 'workflow',
+        label: 'workflow',
+        state: 'running',
+        startedAt: 1791370000000,
+        children: [
+          {
+            id: 'step:0',
+            kind: 'step',
+            label: 'Prove bounded local Nx caching',
+            state: 'complete',
+          },
+          {
+            id: 'step:1',
+            kind: 'step',
+            label: 'Review prove bounded local nx caching',
+            state: 'running',
+            startedAt: 1791379000000,
+            activity: {
+              state: 'needs_attention',
+              currentTool: 'bash',
+              currentToolStartedAt: 1791379760000,
+              toolCount: 52,
+              turnCount: 47,
+            },
+          },
+        ],
+      },
+      { id: 'old', kind: 'subagent', label: 'scout', state: 'complete', children: [] },
+    ],
+  }
+
+  it('lists the running step by its stage label, inside its workflow', () => {
+    const fleet = parseFleetWidget(['PI_SUBAGENT_ASYNC_JSON:' + JSON.stringify(WORKFLOW)])!
+    expect(liveAgentRows(fleet)).toEqual([
+      {
+        id: '76406f96-94a6-46dd-8d93-9ff2f0fbb239/step:1',
+        label: 'Review prove bounded local nx caching',
+        context: 'workflow',
+        startedAt: 1791379000000,
+        currentTool: 'bash',
+        currentToolStartedAt: 1791379760000,
+        toolCount: 52,
+        turnCount: 47,
+        attention: true,
+      },
+    ])
+  })
+
+  it("names a single run once, not as its own step's context", () => {
+    const single = {
+      ...WORKFLOW,
+      runs: [
+        {
+          id: 'r1',
+          kind: 'subagent',
+          label: 'delegate',
+          state: 'running',
+          children: [{ id: 'step:0', kind: 'step', label: 'delegate', state: 'running' }],
+        },
+      ],
+    }
+    const rows = liveAgentRows(
+      parseFleetWidget(['PI_SUBAGENT_ASYNC_JSON:' + JSON.stringify(single)])!,
+    )
+    expect(rows).toMatchObject([{ id: 'r1/step:0', label: 'delegate', context: undefined }])
   })
 })

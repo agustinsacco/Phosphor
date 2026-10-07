@@ -1634,7 +1634,7 @@ function runNativeSubagentTurn() {
     ...say('Reviewer found one nit; scout is mapping the auth flow in the background.'),
     () => out({ type: 'agent_end', messages: [] }),
     () => out({ type: 'agent_settled' }),
-    () => new Promise((resolve) => setTimeout(resolve, 2500)),
+    () => new Promise((resolve) => setTimeout(resolve, 4000)),
     // The run reports back: the widget goes, the muted completion lands, and
     // the model is woken to read it.
     () =>

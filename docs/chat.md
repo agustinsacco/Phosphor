@@ -263,6 +263,15 @@ scout · grep`) and which is **never printed as widget lines**
   (`STRUCTURED_WIDGET_KEYS` in `ExtensionUiHosts.tsx`, alongside the
   `subagent-inspect` reply key the protocol says a host must not render). The
   extension removes the widget when nothing runs, so the chip goes with it.
+- **While a background run works, the screen says so.** A detached launch
+  hands control back, so the parent goes idle while its workers carry on.
+  `BackgroundAgents.tsx` sits above the composer whenever the snapshot has a
+  live run: one row per working agent (`liveAgentRows`: a workflow's running
+  steps by their stage label, the workflow as context), its current tool and
+  how long that has been open, its tool and turn counts, its elapsed time, and
+  `needs attention` when pi-subagents' watchdog flags it. The sidebar row reads
+  `Agents working` instead of a timestamp (`useActiveAgents`), so a lane whose
+  parent is idle no longer looks stopped.
 - **The completion is a card where the model woke up.** pi-subagents delivers
   it as a `subagent-notify` custom message and marks a plain success
   `display: false` so its own TUI does not badge an idle tab; Phosphor keeps
@@ -286,7 +295,7 @@ scout · grep`) and which is **never printed as widget lines**
   itself is the activity row `Answered sub-agent`, and a turn of them counts
   as `answered N agents`.
 
-Not here yet: an expandable fleet tree with stop and steer, opening a child's
+Not here yet: stop and steer on the live rows, opening a child's
 own session file as a transcript, and the parent-plus-child cost report.
 Stop, steer, inspect and cost exist in pi-subagents without a model turn (an
 extension command and an in-process RPC), which is the path for them.

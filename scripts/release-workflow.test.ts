@@ -65,8 +65,8 @@ it('only eligible releases share concurrency or enter the release guard', () => 
      github.event.workflow_run.head_branch == 'main' &&
      github.event.workflow_run.head_repository.full_name == github.repository)`
   const compact = (value: string) => value.replace(/\s/g, '')
-  const guard = workflow.match(/    if: >\n([\s\S]*?)    outputs:/)?.[1] ?? ''
-  const group = workflow.match(/  group: release-\$\{\{ (.*?) \}\}/)?.[1] ?? ''
+  const guard = workflow.match(/ {4}if: >\n([\s\S]*?) {4}outputs:/)?.[1] ?? ''
+  const group = workflow.match(/ {2}group: release-\$\{\{ (.*?) \}\}/)?.[1] ?? ''
   expect(compact(guard)).toBe(compact(eligible))
   expect(compact(group)).toBe(compact(`(${eligible}) && 'main' || github.run_id`))
 })

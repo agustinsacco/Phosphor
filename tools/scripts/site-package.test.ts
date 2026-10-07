@@ -63,6 +63,10 @@ describe('independent apps/site package contract', () => {
     expect(read('tools/scripts/generate-icons.mjs')).toContain(
       "join(root, 'apps/site', 'public', 'favicon.svg')",
     )
+    const icon = read('apps/desktop/build/icon.svg')
+    expect(icon).toContain('Regenerate platform assets with: node tools/scripts/generate-icons.mjs')
+    expect(icon).not.toContain('node scripts/generate-icons.mjs')
+    expect(read('apps/site/public/favicon.svg')).toBe(icon)
     for (const path of ['README.md', 'apps/site/README.md', 'docs/style-guide.md']) {
       const source = read(path)
       expect(source).not.toMatch(/--prefix site\b|\bcd site\b|`site\/(?:public|src|\*\*)/)

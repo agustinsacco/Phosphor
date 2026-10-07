@@ -1,4 +1,4 @@
-// Run explicitly: node scripts/perf/stream-buffers.mjs. No model or Electron needed.
+// Run explicitly: node tools/scripts/perf/stream-buffers.mjs. No model or Electron needed.
 import { Buffer } from 'node:buffer'
 import { readFileSync } from 'node:fs'
 import { URL } from 'node:url'
@@ -6,14 +6,14 @@ import { performance } from 'node:perf_hooks'
 import ts from 'typescript'
 
 async function load(path) {
-  const source = readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')
+  const source = readFileSync(new URL(`../../../${path}`, import.meta.url), 'utf8')
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
   })
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
 }
 const { JsonlDecoder } = await load('libs/session-runtime/src/pi/jsonl.ts')
-const { ScrollbackBuffer } = await load('electron/pty/scrollback-buffer.ts')
+const { ScrollbackBuffer } = await load('apps/desktop/electron/pty/scrollback-buffer.ts')
 const samples = 5
 function measure(run) {
   run() // warmup

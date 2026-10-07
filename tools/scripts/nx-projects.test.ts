@@ -5,19 +5,19 @@ import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-const root = resolve(import.meta.dirname, '..')
+const root = resolve(import.meta.dirname, '../..')
 const readJson = (path: string) => JSON.parse(readFileSync(join(root, path), 'utf8'))
 const projects = {
-  desktop: '.',
+  desktop: 'apps/desktop',
   runtime: 'libs/session-runtime',
   shared: 'libs/shared',
   'pi-extensions': 'libs/pi-extensions',
   site: 'site',
   schema: 'supabase',
-  tooling: 'scripts',
+  tooling: 'tools/scripts',
 }
 const commands = {
-  desktop: { build: 'electron-vite build', 'test:e2e': 'npm run build && ./scripts/e2e.sh' },
+  desktop: { build: 'npm run build', 'test:e2e': 'npm run test:e2e' },
   runtime: { test: 'vitest run libs/session-runtime' },
   shared: { test: 'vitest run libs/shared' },
   'pi-extensions': { test: 'vitest run libs/pi-extensions' },
@@ -40,12 +40,13 @@ const commands = {
     test: 'npx --yes supabase@2.119.0 test db',
   },
   tooling: {
-    typecheck: 'tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json',
+    typecheck:
+      'tsc --noEmit -p apps/desktop/tsconfig.node.json && tsc --noEmit -p apps/desktop/tsconfig.web.json',
     lint: 'eslint .',
     test: 'vitest run',
-    validate: './scripts/validate.sh',
+    validate: './tools/scripts/validate.sh',
     'format-check': 'prettier --check .',
-    'test:graph': 'vitest run scripts/nx-projects.test.ts',
+    'test:graph': 'vitest run tools/scripts/nx-projects.test.ts',
   },
 }
 // These edges include non-import resources and test-only consumers, not just
@@ -152,7 +153,10 @@ describe('explicit Nx project contract', () => {
           executor: 'nx:run-commands',
           cache: false,
           inputs: ['workspace'],
-          options: { command, cwd: name === 'site' ? 'site' : '.' },
+          options: {
+            command,
+            cwd: name === 'site' ? 'site' : name === 'desktop' ? 'apps/desktop' : '.',
+          },
         })
         expect(project.targets[target].dependsOn ?? []).toEqual([])
       }
@@ -174,9 +178,9 @@ describe('explicit Nx project contract', () => {
         join(root, 'libs/pi-extensions/pi-ext/optional/permission-gate.test.ts'),
         'utf8',
       ),
-    ).toContain('../../../../src/features/extension-ui/commandApproval')
-    expect(readFileSync(join(root, 'electron-builder.yml'), 'utf8')).toContain(
-      'from: libs/pi-extensions/pi-ext',
+    ).toContain('../../../../apps/desktop/src/features/extension-ui/commandApproval')
+    expect(readFileSync(join(root, 'apps/desktop/electron-builder.yml'), 'utf8')).toContain(
+      'from: ../../libs/pi-extensions/pi-ext',
     )
     expect(
       readFileSync(join(root, 'libs/session-runtime/src/bundled-extensions.test.ts'), 'utf8'),
@@ -193,13 +197,12 @@ describe('explicit Nx project contract', () => {
       }
     }
     const pkg = readJson('package.json')
-    expect(pkg.nx.includedScripts).toEqual([])
+    expect(pkg.nx).toBeUndefined()
+    expect(readJson('apps/desktop/package.json').nx.includedScripts).toEqual([])
     for (const target of Object.values(commands).flatMap((targets) => Object.values(targets))) {
       expect(target).not.toMatch(/npm run nx:|\bnx (run|run-many|affected)\b/)
     }
-    expect(pkg.scripts.postinstall).toBe(
-      'electron-builder install-app-deps && node scripts/fix-node-pty.mjs',
-    )
+    expect(pkg.scripts.postinstall).toBe('npm ci --prefix apps/desktop')
   })
 
   it('uses workspaceRoot inputs to include nested projects in the unchanged full unit runner', () => {
@@ -211,17 +214,17 @@ describe('explicit Nx project contract', () => {
     expect(config.targetDefaults['nx:run-commands'].cache).toBe(false)
     const vitest = readFileSync(join(root, 'vitest.config.ts'), 'utf8')
     for (const path of [
-      'electron',
+      'apps/desktop/electron',
       'libs/session-runtime/src',
       'libs/shared/src',
       'libs/pi-extensions/pi-ext',
-      'src',
-      'scripts',
+      'apps/desktop/src',
+      'tools/scripts',
     ]) {
       expect(vitest).toContain(`'${path}/**/*.test.ts'`)
     }
-    expect(vitest).toContain("'src/**/*.test.tsx'")
-    expect(readJson('scripts/project.json').targets.test.options.command).toBe(
+    expect(vitest).toContain("'apps/desktop/src/**/*.test.tsx'")
+    expect(readJson('tools/scripts/project.json').targets.test.options.command).toBe(
       readJson('package.json').scripts.test,
     )
   })

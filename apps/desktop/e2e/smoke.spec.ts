@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module'
 import {
   test,
   expect,
@@ -83,6 +84,7 @@ async function launch(
   await writeFile(join(workspace, 'hello.ts'), 'export function hello() {\n  return "new"\n}\n')
 
   const app = await electron.launch({
+    executablePath: createRequire(import.meta.url)('electron'),
     args: [repoRoot],
     env: {
       ...devServerEnvStripped(),

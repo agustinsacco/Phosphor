@@ -14,6 +14,7 @@
  * spawn-helper.ts` repeats it at runtime for installs that predate this script
  * and for packaged builds.
  */
+import { URL } from 'node:url'
 import { chmodSync, existsSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
@@ -22,7 +23,11 @@ if (process.platform === 'win32') process.exit(0)
 
 let packageDir
 try {
-  packageDir = dirname(createRequire(import.meta.url).resolve('node-pty/package.json'))
+  packageDir = dirname(
+    createRequire(new URL('../../apps/desktop/package.json', import.meta.url)).resolve(
+      'node-pty/package.json',
+    ),
+  )
 } catch {
   // node-pty is a hard dependency, but a partial install shouldn't fail the
   // whole postinstall chain.

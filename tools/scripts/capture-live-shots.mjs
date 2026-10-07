@@ -35,15 +35,17 @@
  * behind two real sessions plus one worktree/branch under the workspace's
  * .phosphor/worktrees. Delete them like any other session/worktree if unwanted.
  */
+import { createRequire } from 'node:module'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { Buffer } from 'node:buffer'
 import { statSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, URL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { _electron as electron } from 'playwright'
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
+const appRoot = join(repoRoot, 'apps/desktop')
 /**
  * Where the shots land and how wide they are. The README reads 1440px PNGs
  * out of docs/img; the landing site (site/) wants the same captures at the
@@ -121,7 +123,13 @@ async function main() {
   // Same capture mechanics as capture-readme-shots.mjs — see the comments
   // there for why: software compositor, settle-after-switch, resize nudge,
   // capturePage over CDP.
-  const app = await electron.launch({ args: [repoRoot, '--disable-gpu'], env })
+  const app = await electron.launch({
+    executablePath: createRequire(new URL('../../apps/desktop/package.json', import.meta.url))(
+      'electron',
+    ),
+    args: [appRoot, '--disable-gpu'],
+    env,
+  })
   const page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
   await page.emulateMedia({ reducedMotion: 'reduce' })

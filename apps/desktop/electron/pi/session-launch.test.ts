@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { MIN_PI_VERSION, type PiHealth } from '@shared/models'
 
 const h = vi.hoisted(() => ({
-  app: { isPackaged: false, getAppPath: vi.fn(() => '/desktop/source') },
+  app: { isPackaged: false, getAppPath: vi.fn(() => '/repo/apps/desktop') },
   health: vi.fn<() => Promise<PiHealth>>(),
   environment: vi.fn(async () => ({ PATH: '/login-shell/bin', PI_CLAUDE_CLI_CONTEXT: 'old' })),
   provider: vi.fn(() => ({ PI_CLAUDE_CLI_CONTEXT: 'pi' })),
@@ -46,7 +46,7 @@ it('retains shell PATH, provider overrides, Windows prefix arguments and dev res
     env: { PATH: '/login-shell/bin', PI_CLAUDE_CLI_CONTEXT: 'pi' },
   })
   expect(launch.extensions[0]).toBe(
-    join('/desktop/source', 'libs/pi-extensions/pi-ext', 'artifacts.ts'),
+    join('/repo/apps/desktop', '../../libs/pi-extensions/pi-ext', 'artifacts.ts'),
   )
   await prepare()
   expect(h.health).toHaveBeenCalledOnce() // Successful discovery stays cached.

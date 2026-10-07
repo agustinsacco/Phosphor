@@ -16,17 +16,19 @@
  * Requires `npm run build` first: main.ts picks dev-vs-built from
  * ELECTRON_RENDERER_URL, which is stripped below so this always means `out/`.
  */
+import { createRequire } from 'node:module'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { Buffer } from 'node:buffer'
 import { mkdtempSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, URL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { _electron as electron } from 'playwright'
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
-const piStub = join(repoRoot, 'e2e', 'fixtures', 'pi-stub.cjs')
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
+const appRoot = join(repoRoot, 'apps/desktop')
+const piStub = join(appRoot, 'e2e', 'fixtures', 'pi-stub.cjs')
 const outDir = join(repoRoot, 'docs', 'img')
 
 /** Only these shots (comma-separated names, without .png). Empty = all. */
@@ -85,7 +87,13 @@ async function main() {
   // --disable-gpu puts Chromium on the software compositor, so a capture
   // rasterises the current frame instead of reading a GPU surface that may
   // still hold the view behind it — which is what ghosted these shots.
-  const app = await electron.launch({ args: [repoRoot, '--disable-gpu'], env })
+  const app = await electron.launch({
+    executablePath: createRequire(new URL('../../apps/desktop/package.json', import.meta.url))(
+      'electron',
+    ),
+    args: [appRoot, '--disable-gpu'],
+    env,
+  })
   const page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
   // Screenshots want the settled frame, so the UI's transitions are asked to

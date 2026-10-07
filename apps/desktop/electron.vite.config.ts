@@ -10,9 +10,9 @@ export default defineConfig({
     ],
     resolve: {
       alias: {
-        '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
-        '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
-        '@phosphor/session-runtime': resolve(import.meta.dirname, 'libs/session-runtime/src'),
+        '@shared': resolve(import.meta.dirname, '../../libs/shared/src'),
+        '@phosphor/shared': resolve(import.meta.dirname, '../../libs/shared/src'),
+        '@phosphor/session-runtime': resolve(import.meta.dirname, '../../libs/session-runtime/src'),
       },
     },
     build: {
@@ -25,9 +25,9 @@ export default defineConfig({
     ],
     resolve: {
       alias: {
-        '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
-        '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
-        '@phosphor/session-runtime': resolve(import.meta.dirname, 'libs/session-runtime/src'),
+        '@shared': resolve(import.meta.dirname, '../../libs/shared/src'),
+        '@phosphor/shared': resolve(import.meta.dirname, '../../libs/shared/src'),
+        '@phosphor/session-runtime': resolve(import.meta.dirname, '../../libs/session-runtime/src'),
       },
     },
     build: {
@@ -45,9 +45,12 @@ export default defineConfig({
     root: 'src',
     plugins: [react(), tailwindcss()],
     resolve: {
+      // Source libraries sit outside the app install domain. Keep their JS
+      // dependencies on the app's copies rather than bundling a second copy.
+      dedupe: ['luxon', 'cron-parser'],
       alias: {
-        '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
-        '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
+        '@shared': resolve(import.meta.dirname, '../../libs/shared/src'),
+        '@phosphor/shared': resolve(import.meta.dirname, '../../libs/shared/src'),
         '@': resolve(import.meta.dirname, 'src'),
       },
     },

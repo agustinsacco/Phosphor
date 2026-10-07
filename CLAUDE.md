@@ -30,16 +30,16 @@ CI runs typecheck, lint, `prettier --check .`, unit tests, build, and the e2e
 matrix (ubuntu + macOS). Run typecheck + lint + test before considering a
 change done; run e2e when touching IPC, session lifecycle, or visible UI flow.
 
-`npm run validate` (`scripts/validate.sh`) is the one to reach for when you
+`npm run validate` (`tools/scripts/validate.sh`) is the one to reach for when you
 just want a verdict: it prints one line per step and sends everything else to
 `$VALIDATE_LOG` (default `/tmp/phosphor-validate-$$.log`). `SKIP_E2E=1` stops
 before the slow part.
 
 **E2E windows never appear on your screen**, so a background agent running the
-suite can't steal focus mid-keystroke. `scripts/e2e.sh` prefers `xvfb-run`
+suite can't steal focus mid-keystroke. `tools/scripts/e2e.sh` prefers `xvfb-run`
 (real windows on a virtual display, full speed — install with
 `sudo apt install xvfb`) and otherwise leaves the windows unmapped
-(`hideWindowsForE2E` in `electron/window-chrome.ts`), which is ~2-3x slower
+(`hideWindowsForE2E` in `apps/desktop/electron/window-chrome.ts`), which is ~2-3x slower
 because Chromium deprioritizes rendering for a window that was never shown.
 `PHOSPHOR_E2E_SHOW=1 npm run test:e2e` puts them back on your real display when
 you want to watch.
@@ -48,15 +48,15 @@ you want to watch.
 
 1. **The main process owns all side effects.** The renderer runs sandboxed
    (contextIsolation, no Node) and is pure UI over typed IPC. If a feature
-   needs disk/network/subprocess, it goes in `electron/`, not `src/`.
+   needs disk/network/subprocess, it goes in `apps/desktop/electron/`, not `apps/desktop/src/`.
 2. **IPC is a typed contract.** A new channel = an entry in
    `libs/shared/src/ipc.ts` `IpcInvokeMap` + a handler in
-   `electron/ipc/<prefix>-handlers.ts` (the module matching the channel prefix
+   `apps/desktop/electron/ipc/<prefix>-handlers.ts` (the module matching the channel prefix
    — 18 of them, listed in [README.md](README.md#repo-layout)) + a case in
-   `src/dev/mockPhosphor.ts` if the browser harness should exercise it.
-   `electron/ipc.ts` is only the composition root; the session registry lives
-   in `electron/registry.ts` so handlers never import their composition root.
-3. **RPC to pi goes through `src/lib/rpc.ts`** (`piCall` / `piCallOk`), which
+   `apps/desktop/src/dev/mockPhosphor.ts` if the browser harness should exercise it.
+   `apps/desktop/electron/ipc.ts` is only the composition root; the session registry lives
+   in `apps/desktop/electron/registry.ts` so handlers never import their composition root.
+3. **RPC to pi goes through `apps/desktop/src/lib/rpc.ts`** (`piCall` / `piCallOk`), which
    unwraps the `{success, data?, error?}` envelope and surfaces failures on
    the session's chat. Calling `window.phosphor.piCommand` directly means you own
    the error branch — half the original call sites forgot, so don't.
@@ -69,7 +69,7 @@ you want to watch.
    session's subprocess. Interactive sessions are created from the renderer;
    explicit local routines also start sessions through main's shared runtime
    ([routines.md](docs/routines.md)). Their bounded scheduler owns only those
-   executions, not an agent fleet. `electron/registry.ts` remains the only
+   executions, not an agent fleet. `apps/desktop/electron/registry.ts` remains the only
    live-process registry. The
    orchestration layer that used to do this was removed on 2026-09-03 for
    maintenance cost — it touched session spawn, IPC, the sidebar, the home
@@ -78,11 +78,11 @@ you want to watch.
    ([known-issues.md](docs/known-issues.md) S11).
    The portable session service lives in `libs/session-runtime/src/pi/`: policy/startup,
    command/resume admission, per-owner path locks and deletion coordination.
-   `electron/pi/session-runtime.ts` binds Desktop's machine and delivery ports;
+   `apps/desktop/electron/pi/session-runtime.ts` binds Desktop's machine and delivery ports;
    IPC handlers delegate to it. New callers must use the service and share one
    path-lock domain with deletion, not call low-level spawn to bypass admission.
    These locks are process-local, not remote authorization or cross-process locks.
-6. **Stores (`src/stores/`, zustand) are projections of main-process state.**
+6. **Stores (`apps/desktop/src/stores/`, zustand) are projections of main-process state.**
    `files.ts` and `terminal.ts` are keyed `byWorkspace[path]`; their
    `workspaceFiles()` / `workspaceTerminals()` selectors return a shared
    frozen empty value — never mutate it, never inline a fresh `{}` in a
@@ -91,30 +91,30 @@ you want to watch.
 
 ## Sharp edges (read before touching)
 
-- **`electron/pi/session-writer.ts` appends to pi's own session files**
+- **`apps/desktop/electron/pi/session-writer.ts` appends to pi's own session files**
   (bookmarks, branch jumps, forks). It is only safe while no pi process owns
   the file — call sites enforce this by convention. It depends on pi's on-disk
-  format staying stable. Tests: `electron/pi/session-writer.test.ts`.
+  format staying stable. Tests: `apps/desktop/electron/pi/session-writer.test.ts`.
 - **JSONL framing is strict LF via `JsonlDecoder`, never `readline`** —
   U+2028/U+2029 are legal inside JSON strings and readline splits on them.
 - **`libs/session-runtime/src/pi/pi-paths.ts` is the single source of truth** (re-exported from
-  `electron/pi/pi-paths.ts`) for pi's session directory layout and cwd mangling (`realpathSync.native` first — pi resolves
+  `apps/desktop/electron/pi/pi-paths.ts`) for pi's session directory layout and cwd mangling (`realpathSync.native` first — pi resolves
   symlinks). The e2e stub duplicates the mangling in
-  `e2e/fixtures/pi-stub.cjs`; keep them in sync.
+  `apps/desktop/e2e/fixtures/pi-stub.cjs`; keep them in sync.
 - **`pi -p` blocks until stdin reaches EOF, so it must never be run through
   `execFile`/`exec`.** Both leave the child's stdin an open pipe, and pi then
   sits there until the caller's timeout — silently, with empty stdout and empty
   stderr. That killed session auto-naming outright for weeks: no session was
   ever named and no branch was ever renamed. Spawn print-mode runs through
-  `electron/pi/print-mode.ts` (`stdio[0] = 'ignore'`). The e2e stub cannot
+  `apps/desktop/electron/pi/print-mode.ts` (`stdio[0] = 'ignore'`). The e2e stub cannot
   catch a regression — it prints and exits without reading stdin — so the guard
-  is `electron/pi/print-mode.test.ts`.
+  is `apps/desktop/electron/pi/print-mode.test.ts`.
 - **pi writes a session's file only when a turn ENDS**, not incrementally. A
   name set mid-turn does not reach the disk scan until the reply lands, so
   every surface showing a LIVE session's title prefers the chat store's
   `meta.sessionName` over the scanned `meta.name`, and a session keeps its
   placeholder sidebar row (`PendingSessionRow`) for the whole first turn.
-- **`electron/store.ts` constructs its electron-store lazily on purpose** —
+- **`apps/desktop/electron/store.ts` constructs its electron-store lazily on purpose** —
   a module-scope `new Store()` would resolve `userData` before main.ts can
   redirect it for E2E, leaking test state into real prefs.
 - **E2E env hooks (`PHOSPHOR_PI_STUB`, `PHOSPHOR_E2E_WORKSPACE`,
@@ -123,7 +123,7 @@ you want to watch.
   app (fixed once; don't regress it).
 - **`bootstrapSession` learns a session's file path asynchronously** (from
   `get_state`), so last-session persistence happens in two places in
-  `src/stores/sessions.ts` — read the comments there before "simplifying".
+  `apps/desktop/src/stores/sessions.ts` — read the comments there before "simplifying".
 - Session-dir watchers are per-workspace chokidar handles tied to sidebar
   group visibility (expanded ⇒ watched, collapsed ⇒ unwatched, all closed on
   quit). Don't add unbounded watch paths.
@@ -165,7 +165,7 @@ you want to watch.
   before prompts and between tool cycles, reserving response headroom below
   the budget. In-run cap changes wait for `turn_end`: model-select hooks can
   retire the Claude CLI, so never apply them during a request or tool batch.
-  An RPC `compact` aborts a running turn. `electron/pi/context-budget.ts`
+  An RPC `compact` aborts a running turn. `apps/desktop/electron/pi/context-budget.ts`
   retains a serialized idle fallback, paused while a routine owns the session;
   native in-loop compaction remains enabled for routines. See
   [cli-providers.md](docs/cli-providers.md#one-context-budget).
@@ -216,7 +216,7 @@ you want to watch.
   `display: false` on success and is kept anyway (`CustomItem.quiet`). See
   [docs/chat.md](docs/chat.md#sub-agents).
 - **macOS updates itself by replacing its own bundle**, because Squirrel.Mac
-  refuses the ad-hoc signature this repo ships (`electron/updates/mac-installer.ts`).
+  refuses the ad-hoc signature this repo ships (`apps/desktop/electron/updates/mac-installer.ts`).
   Staging lives BESIDE the installed `.app`, not in `/tmp`, so the swap is two
   atomic same-volume renames with a rollback — and the relauncher must poll for
   the old pid to exit, or the single-instance lock in `main.ts` kills the new
@@ -233,38 +233,38 @@ you want to watch.
 
 ## Conventions
 
-- Tests live beside their subject as `*.test.ts` — **everywhere**, `electron/`
+- Tests live beside their subject as `*.test.ts` — **everywhere**, `apps/desktop/electron/`
   and `libs/shared/src/` and `libs/pi-extensions/pi-ext/` included. One `__tests__/` directory is left
-  (`scripts/__tests__/`); the rest were moved next to their subjects. Shared
+  (`tools/scripts/__tests__/`); the rest were moved next to their subjects. Shared
   inputs go in a sibling `__fixtures__/`.
   DOM suites opt in per file with `// @vitest-environment jsdom`. Prefer
-  testing pure logic extracted into `src/lib/` / plain modules over component
+  testing pure logic extracted into `apps/desktop/src/lib/` / plain modules over component
   tests.
-- Modals use `ModalOverlay` from `src/components/Modal.tsx` — portalling,
+- Modals use `ModalOverlay` from `apps/desktop/src/components/Modal.tsx` — portalling,
   backdrop dismissal, and depth-aware Escape (innermost wins). Don't add
   window-level Escape listeners in modal content.
 - **Never call `window.prompt`** (or rely on it existing): Electron overrides
   it to throw. Ask for text with `promptText` / show fallback text with
-  `presentText` from `src/stores/prompt.ts` (rendered by `PromptHost`).
-  ESLint (`no-restricted-syntax`) enforces this in `src/`.
+  `presentText` from `apps/desktop/src/stores/prompt.ts` (rendered by `PromptHost`).
+  ESLint (`no-restricted-syntax`) enforces this in `apps/desktop/src/`.
 - Model-authored HTML renders **only** inside a sandboxed iframe, served over
   `phosphor-artifact://` with its own `default-src 'none'` policy
-  (`electron/artifacts/artifact-protocol.ts`). It is deliberately NOT `srcdoc`:
+  (`apps/desktop/electron/artifacts/artifact-protocol.ts`). It is deliberately NOT `srcdoc`:
   a srcdoc document inherits the app's CSP, which refused every inline script
   and made `sandbox="allow-scripts"` a no-op. Two things must never change —
   the iframe must never gain `allow-same-origin` (it is what keeps the origin
   opaque), and the served policy must never gain a `connect-src` (it is what
   denies the document any network reach). Widen neither.
 - Workspace files open in the Files pane's viewers over `phosphor-file://`
-  (`electron/fs/file-protocol.ts`). It serves only what `grantPreview` granted
+  (`apps/desktop/electron/fs/file-protocol.ts`). It serves only what `grantPreview` granted
   by token, never a path named in the URL, and previewed HTML follows the same
   two rules as artifacts. A new scheme goes into the single
-  `protocol.registerSchemesAsPrivileged` call in `electron/main.ts`: Electron
+  `protocol.registerSchemesAsPrivileged` call in `apps/desktop/electron/main.ts`: Electron
   honours only one call, so a second one silently drops the first.
-- Renderer path aliases: `@/` → `src/`, `@phosphor/shared/` → `libs/shared/src/`.
+- Renderer path aliases: `@/` → `apps/desktop/src/`, `@phosphor/shared/` → `libs/shared/src/`.
   `@shared/` remains a compatibility alias to that same source until installation closure.
 - Browser-only dev (vite without Electron) auto-installs
-  `src/dev/mockPhosphor.ts` when `window.phosphor` is undefined — new IPC channels
+  `apps/desktop/src/dev/mockPhosphor.ts` when `window.phosphor` is undefined — new IPC channels
   used by screens the harness renders need a mock case.
 - **Do not write a dated write-up for what you shipped.** That convention
   existed until 2026-09-09 and produced 161 files of history that nobody could
@@ -280,8 +280,8 @@ you want to watch.
 `npm run dev` requires `pi` on PATH (`npm i -g @earendil-works/pi-coding-agent`,
 Node ≥ 22.19). Without it the app boots to the "pi missing" setup screen —
 still useful for shell/UI work. For pure renderer work, `npm run dev:web` in
-the browser uses the mock API (plain `vite` reads the root `vite.config.ts`,
-which mirrors the `renderer` block of `electron.vite.config.ts` — keep the two
+the browser uses the mock API (plain `vite` reads the `apps/desktop/vite.config.ts`,
+which mirrors the `renderer` block of `apps/desktop/electron.vite.config.ts` — keep the two
 in sync). The `/run` and `/e2e` skills cover both flows.
 
 **Never run a packaging build (`electron-builder`, or anything that writes
@@ -304,7 +304,7 @@ letting it land in `~/Phosphor/release/`.
 ## Debugging a failing session
 
 `~/Library/Logs/Phosphor/phosphor.log` (Linux: `~/.config/Phosphor/logs/`) is written by
-`electron/debug-log.ts` — always on, no flag, rotating at 5MB. It records pi's
+`apps/desktop/electron/debug-log.ts` — always on, no flag, rotating at 5MB. It records pi's
 spawn argv, pi's stderr, unexpected exits, and main-process crashes, plus the
 inherited `PATH` (a GUI app gets launchd's, not your login shell's, so `pi` and
 `claude` can resolve to different binaries than in a terminal).

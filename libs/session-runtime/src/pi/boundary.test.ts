@@ -15,7 +15,11 @@ const portableRuntime: Plugin = {
       throw new Error('Session runtime must not import Electron')
     })
     builder.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, ({ path }) => {
-      if (['electron', 'src'].some((directory) => path.startsWith(join(root, directory) + sep))) {
+      if (
+        ['electron', 'src'].some((directory) =>
+          path.startsWith(join(root, 'apps/desktop', directory) + sep),
+        )
+      ) {
         throw new Error('Session runtime must not import Desktop source')
       }
     })
@@ -69,7 +73,7 @@ describe('session runtime source package boundary', () => {
     }
   })
 
-  it.each(['electron', './electron/store', './src/lib/format'])(
+  it.each(['electron', './apps/desktop/electron/store', './apps/desktop/src/lib/format'])(
     'rejects the forbidden import fixture %s',
     async (path) => {
       await expect(

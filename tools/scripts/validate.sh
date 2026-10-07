@@ -2,9 +2,9 @@
 # Full validation, quiet by default: prints a short PASS/FAIL summary and
 # leaves full output in a log file. The dot reporter keeps Playwright's
 # chatter out of the terminal; the Electron windows stay off your screen
-# because scripts/e2e.sh runs them under xvfb (or unmapped) — see that file.
+# because tools/scripts/e2e.sh runs them under xvfb (or unmapped) — see that file.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 LOG="${VALIDATE_LOG:-/tmp/phosphor-validate-$$.log}"
 : > "$LOG"

@@ -26,7 +26,7 @@ const runtime: SessionLaunchRuntime = {
       ? { ELECTRON_RUN_AS_NODE: '1' }
       : { ...(await piProcessEnv()), ...claudeProviderSpawnEnv() },
   resourceRoot: () =>
-    app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'libs/pi-extensions'),
+    app.isPackaged ? process.resourcesPath : join(app.getAppPath(), '../../libs/pi-extensions'),
 }
 
 export function prepareDesktopSessionLaunch() {

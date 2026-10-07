@@ -14,7 +14,7 @@ gh issue list --repo agustinsacco/Phosphor --label feedback --label rating:1
 
 ## The form
 
-`src/features/feedback/FeedbackModal.tsx`. A 1–5 star rating, two free-text
+`apps/desktop/src/features/feedback/FeedbackModal.tsx`. A 1–5 star rating, two free-text
 answers ("what's working, what isn't" and "features you'd like to see"), an
 anonymity choice, an optional contact, and an opt-out for attaching the app
 version and platform. Nothing else about the machine, the code or any session
@@ -26,7 +26,7 @@ with no story behind it.
 
 ## Two ways in, and only one of them can be anonymous
 
-`libs/shared/src/feedback.ts` is the contract; `electron/feedback/feedback-service.ts`
+`libs/shared/src/feedback.ts` is the contract; `apps/desktop/electron/feedback/feedback-service.ts`
 runs it. Which path is live depends only on whether a relay is configured.
 
 | Mode               | When                            | Who the issue is from         |
@@ -54,7 +54,7 @@ exists so that the token lives on a server the maintainer controls.
 
 ## The nudge is one sentence, once
 
-`src/features/feedback/FeedbackButton.tsx` sits in the sidebar footer above
+`apps/desktop/src/features/feedback/FeedbackButton.tsx` sits in the sidebar footer above
 Settings. It is a quiet `Send feedback` row at all times — findable, never in
 the way.
 
@@ -82,10 +82,10 @@ hand, so a browser-filed issue and an app-filed one read the same way.
 
 ## Where the pieces are
 
-| Path                                    | Holds                                                     |
-| --------------------------------------- | --------------------------------------------------------- |
-| `libs/shared/src/feedback.ts`           | Types, the issue builder, the URL builder, the rules      |
-| `electron/feedback/feedback-service.ts` | Relay POST, browser fallback, launch counting             |
-| `electron/ipc/feedback-handlers.ts`     | `feedback:state` / `feedback:submit` / `feedback:dismiss` |
-| `src/features/feedback/`                | The store, the modal, the sidebar button                  |
-| `.github/ISSUE_TEMPLATE/feedback.yml`   | The hand-filed version of the same form                   |
+| Path                                                 | Holds                                                     |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| `libs/shared/src/feedback.ts`                        | Types, the issue builder, the URL builder, the rules      |
+| `apps/desktop/electron/feedback/feedback-service.ts` | Relay POST, browser fallback, launch counting             |
+| `apps/desktop/electron/ipc/feedback-handlers.ts`     | `feedback:state` / `feedback:submit` / `feedback:dismiss` |
+| `apps/desktop/src/features/feedback/`                | The store, the modal, the sidebar button                  |
+| `.github/ISSUE_TEMPLATE/feedback.yml`                | The hand-filed version of the same form                   |

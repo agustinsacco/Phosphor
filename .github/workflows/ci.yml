@@ -124,7 +124,7 @@ jobs:
     # can: that `electron-builder --win` still produces the NSIS installer and
     # its update manifest, and that the PACKAGED app boots on Windows and runs
     # an npm-installed pi — which reaches pi through node.exe + cli.js, not the
-    # `.cmd` shim Node refuses to spawn (electron/pi/win-launch.ts). The full
+    # `.cmd` shim Node refuses to spawn (apps/desktop/electron/pi/win-launch.ts). The full
     # unit and e2e suites stay on ubuntu/macOS; this runs in parallel with
     # them and finishes inside the e2e shards' wall time.
     name: Windows · package · packaged-app smoke
@@ -152,7 +152,7 @@ jobs:
       # everywhere; here it also proves node:path's win32 branch agrees with
       # the host.
       - name: Unit tests (Windows launcher, PATH handling)
-        run: npx vitest run electron/pi/win-launch.test.ts electron/pi/shell-env.test.ts
+        run: npx vitest run apps/desktop/electron/pi/win-launch.test.ts apps/desktop/electron/pi/shell-env.test.ts
 
       - name: Build (main · preload · renderer)
         run: npm run build
@@ -166,23 +166,23 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |
           set -euo pipefail
-          npx electron-builder --win --publish never
-          ls release
-          [ -f release/Phosphor-0.1.0-x64.exe ] || { echo "::error::installer missing"; exit 1; }
-          [ -f release/latest.yml ] || { echo "::error::latest.yml missing"; exit 1; }
+          npm run package --prefix apps/desktop -- --win --publish never
+          ls apps/desktop/release
+          [ -f apps/desktop/release/Phosphor-0.1.0-x64.exe ] || { echo "::error::installer missing"; exit 1; }
+          [ -f apps/desktop/release/latest.yml ] || { echo "::error::latest.yml missing"; exit 1; }
 
       # pi from npm, exactly as a user installs it, then the packaged app.
       - name: Install pi
         run: npm install -g @earendil-works/pi-coding-agent
 
       - name: Boot the packaged app and run pi
-        run: pwsh scripts/smoke-packaged-win.ps1
+        run: pwsh tools/scripts/smoke-packaged-win.ps1
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: windows-installer
-          path: release/Phosphor-*-x64.exe
+          path: apps/desktop/release/Phosphor-*-x64.exe
           retention-days: 7
 
   e2e:
@@ -221,12 +221,12 @@ jobs:
         run: npm ci
 
       - name: Rebuild native modules for Electron (node-pty)
-        run: npx electron-rebuild -f -w node-pty
+        run: npm run rebuild --prefix apps/desktop
 
       - name: Build
         run: npm run build
 
-      # `scripts/__tests__/adhoc-sign-mac.test.ts` is `skipIf(platform !==
+      # `apps/desktop/scripts/__tests__/adhoc-sign-mac.test.ts` is `skipIf(platform !==
       # 'darwin')` — codesign exists nowhere else — so the ubuntu unit-test job
       # skips it and CI never ran it at all. That is how a signer that fails
       # its own verification merged green and killed every macOS release build
@@ -234,16 +234,16 @@ jobs:
       # under a second.
       - name: Unit tests (macOS-only suites)
         if: runner.os == 'macOS'
-        run: npx vitest run scripts/__tests__/adhoc-sign-mac.test.ts
+        run: npx vitest run apps/desktop/scripts/__tests__/adhoc-sign-mac.test.ts
 
       # The Electron window needs a display server on Linux runners.
       - name: E2E (Linux, xvfb)
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum --server-args='-screen 0 1600x1200x24' npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1600x1200x24' npx playwright test --config apps/desktop/playwright.config.ts --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - name: E2E (macOS)
         if: runner.os == 'macOS'
-        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        run: npx playwright test --config apps/desktop/playwright.config.ts --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - uses: actions/upload-artifact@v4
         if: failure()

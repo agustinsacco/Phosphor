@@ -15,8 +15,8 @@
  * installed pi changes minor, then update `VERIFIED_PI_LINE` in
  * `src/lib/piDrift.ts`.
  *
- *   node scripts/pi-live-smoke.mjs
- *   PI_SMOKE_MODEL=claude-haiku-4-5 node scripts/pi-live-smoke.mjs
+ *   node tools/scripts/pi-live-smoke.mjs
+ *   PI_SMOKE_MODEL=claude-haiku-4-5 node tools/scripts/pi-live-smoke.mjs
  *
  * Exits 0 when every check passes, 1 otherwise.
  */
@@ -24,7 +24,7 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
+const REPO = join(dirname(fileURLToPath(import.meta.url)), '../..')
 const MODEL = process.env.PI_SMOKE_MODEL ?? 'claude-haiku-4-5'
 const TURN_TIMEOUT_MS = 240_000
 

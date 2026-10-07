@@ -37,7 +37,7 @@ manager, no orchestration agent, and the board spends nothing to render.
 4. **Feature-full.** Everything pi exposes ([pi-integration.md](pi-integration.md))
    is reachable from the UI. Even `/login`, which pi offers only as a TUI, is
    driven off-screen into a button and a browser tab
-   (`electron/pi/login-flow.ts`; see [settings.md](settings.md)), with a hosted
+   (`apps/desktop/electron/pi/login-flow.ts`; see [settings.md](settings.md)), with a hosted
    pi terminal as the escape hatch. Still unreached: `get_tree` (the tree view
    reads the `.jsonl` instead) and `get_fork_messages` (rewind reads the
    current branch from `get_entries`), both mirrored in `libs/shared/src/rpc.ts`.
@@ -70,7 +70,7 @@ accent rules and the mark all live there. What survives here is intent:
   without full-list re-render, 60fps pane dragging.
 - CI: typecheck, lint, tests and e2e on every PR; a release workflow producing
   macOS, Linux and Windows builds plus the install script
-  (`scripts/install.sh`).
+  (`tools/scripts/install.sh`).
 
 ## Reference material
 

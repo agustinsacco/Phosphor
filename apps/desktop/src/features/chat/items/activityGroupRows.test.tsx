@@ -646,7 +646,7 @@ describe('the gutter is one measurement', () => {
   it('hangs the expanded rails off that same length', () => {
     // The rails under an open thought and a sub-agent prompt have to line up
     // under the label, not under the card edge.
-    const source = readFileSync('src/features/chat/items/ActivityGroup.tsx', 'utf8')
+    const source = readFileSync('apps/desktop/src/features/chat/items/ActivityGroup.tsx', 'utf8')
     const rails = [...source.matchAll(/mb-1\.5 ml-(\d+) mr-2/g)].map((m) => m[1])
     expect(rails).toHaveLength(2)
     for (const rail of rails) expect(rail).toBe(step(ROW_INSET, 'pl'))

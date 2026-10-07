@@ -1,7 +1,7 @@
 {
-  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "name": "tooling",
-  "root": "scripts",
+  "root": "tools/scripts",
   "projectType": "library",
   "tags": ["scope:tooling"],
   "implicitDependencies": ["desktop", "runtime", "shared", "pi-extensions", "site", "schema"],
@@ -11,7 +11,7 @@
       "cache": false,
       "inputs": ["workspace"],
       "options": {
-        "command": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+        "command": "tsc --noEmit -p apps/desktop/tsconfig.node.json && tsc --noEmit -p apps/desktop/tsconfig.web.json",
         "cwd": "."
       }
     },
@@ -43,7 +43,7 @@
       "cache": false,
       "inputs": ["workspace"],
       "options": {
-        "command": "./scripts/validate.sh",
+        "command": "./tools/scripts/validate.sh",
         "cwd": "."
       }
     },
@@ -61,7 +61,7 @@
       "cache": false,
       "inputs": ["workspace"],
       "options": {
-        "command": "vitest run scripts/nx-projects.test.ts",
+        "command": "vitest run tools/scripts/nx-projects.test.ts",
         "cwd": "."
       }
     }

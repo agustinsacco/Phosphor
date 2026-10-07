@@ -13,8 +13,8 @@ Pick the lightest mode that can show the change:
 npx vite dev
 ```
 
-Open the printed localhost URL in a browser. `src/main.tsx` detects the
-missing `window.phosphor` and installs `src/dev/mockPhosphor.ts`: canned sessions,
+Open the printed localhost URL in a browser. `apps/desktop/src/main.tsx` detects the
+missing `window.phosphor` and installs `apps/desktop/src/dev/mockPhosphor.ts`: canned sessions,
 a scripted streaming reply, mock file tree/terminal. Good for layout, chat
 rendering, sidebar, theming. Useless for anything touching real IPC, pi, git,
 or PTYs. If your change added an IPC channel that a rendered screen calls,
@@ -55,5 +55,5 @@ the e2e suite drives. The env hooks only work unpackaged (`!app.isPackaged`)
 ## Verifying without eyes
 
 Prefer the Playwright suite for assertions (`/e2e` skill). For a one-off
-check, `npx playwright test e2e/smoke.spec.ts -g "<test name>"` after a build
+check, `npx playwright test --config apps/desktop/playwright.config.ts apps/desktop/e2e/smoke.spec.ts -g "<test name>"` after a build
 is faster than hand-driving the app.

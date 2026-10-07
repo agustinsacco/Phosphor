@@ -10,7 +10,7 @@ running control plane or an exposed host API.
 startup/readiness, event binding, command/provider/budget admission, resume reuse,
 per-owner path locks and stop-before-delete coordination. Desktop binds its existing
 preferences, accounts, package discovery, Headroom, recents, window delivery and
-Trash behavior in `electron/pi/session-runtime.ts` and `delete-lane.ts`.
+Trash behavior in `apps/desktop/electron/pi/session-runtime.ts` and `delete-lane.ts`.
 
 `session-service-headless.test.ts` bundles a plain Node entry and runs it against
 a deterministic fake pi subprocess. It checks streaming, resume reuse, provider
@@ -69,7 +69,7 @@ keys; do not publish it as production setup information.
 
 ## Opt-in transport probe
 
-`scripts/run-remote-probe.mjs` is a disposable diagnostic server, not a host daemon.
+`tools/scripts/run-remote-probe.mjs` is a disposable diagnostic server, not a host daemon.
 It binds only `127.0.0.1`, requires one exact HTTPS Origin and a random 32-byte
 hex token, and stops after five minutes, terminating existing streams. It exposes
 only `/probe`: authenticated GET and WebSocket diagnostic messages. No pi,
@@ -80,7 +80,7 @@ With Node and this repo's development dependencies installed, supply `PROBE_TOKE
 through a protected environment, not command arguments or a URL, then run:
 
 ```bash
-PROBE_ORIGIN=https://phosphor.saccolabs.com PROBE_PORT=18591 node scripts/run-remote-probe.mjs
+PROBE_ORIGIN=https://phosphor.saccolabs.com PROBE_PORT=18591 node tools/scripts/run-remote-probe.mjs
 ```
 
 For a real host, inspect `tailscale serve status --json` first. Only on an unused
@@ -92,7 +92,7 @@ remove the probe files after testing. Tailscale owns its certificate cache.
 The browser runner uses a fresh, isolated Playwright profile. Set `PROBE_CONFIG`
 to a mode-0600 JSON file containing `pageUrl`, `endpoint` and `token`; use the
 public page URL and the host's HTTPS `/probe` endpoint. Never commit this file.
-Run `node scripts/probe-browser.mjs` after installing the desired Playwright
+Run `node tools/scripts/probe-browser.mjs` after installing the desired Playwright
 browser. `PROBE_BROWSER` selects `chromium` (default), `webkit` or `firefox`.
 It tests real cross-origin fetch, token rejection, streaming and reconnect.
 

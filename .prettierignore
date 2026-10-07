@@ -8,12 +8,12 @@ release/
 coverage/
 playwright-report/
 test-results/
-build/*.icns
-build/*.ico
-build/*.png
+apps/desktop/build/*.icns
+apps/desktop/build/*.ico
+apps/desktop/build/*.png
 specs/screenshots/
-src/features/chat/__fixtures__/
-package-lock.json
+apps/desktop/src/features/chat/__fixtures__/
+**/package-lock.json
 site/.astro/
 site/dist/
 site/shots-raw/

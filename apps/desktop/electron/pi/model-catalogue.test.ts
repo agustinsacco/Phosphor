@@ -12,7 +12,7 @@ import type { Model } from '@shared/rpc'
 
 const fixtureDir = join(
   dirname(fileURLToPath(import.meta.url)),
-  '../../libs/session-runtime/src/pi/__fixtures__',
+  '../../../../libs/session-runtime/src/pi/__fixtures__',
 )
 const fakePi = join(fixtureDir, 'fake-pi.cjs')
 

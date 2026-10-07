@@ -8,9 +8,9 @@ description: Run or extend the Playwright-Electron e2e suite (deterministic pi s
 ```bash
 npm run test:e2e                      # full: build + all specs
 npm run build                         # rebuild after any main/renderer change
-npx playwright test                   # specs only (uses the existing build!)
-npx playwright test -g "sidebar"      # one test by title substring
-npx playwright test --headed          # watch it run
+npx playwright test --config apps/desktop/playwright.config.ts                   # specs only (uses the existing build!)
+npx playwright test --config apps/desktop/playwright.config.ts -g "sidebar"      # one test by title substring
+npx playwright test --config apps/desktop/playwright.config.ts --headed          # watch it run
 ```
 
 **Playwright runs `out/` — a stale build is the #1 source of confusing
@@ -18,9 +18,9 @@ failures.** If a spec fails right after you changed code, rebuild first.
 
 ## How it works
 
-- `e2e/smoke.spec.ts` — 8 serial specs, 1 worker; each test launches its own
+- `apps/desktop/e2e/smoke.spec.ts` — 8 serial specs, 1 worker; each test launches its own
   Electron instance via `_electron.launch`.
-- `e2e/fixtures/pi-stub.cjs` — a ~350-line deterministic RPC "pi": scripted
+- `apps/desktop/e2e/fixtures/pi-stub.cjs` — a ~350-line deterministic RPC "pi": scripted
   streamed reply, an edit tool call with a diff, an artifact tool call.
   No network, no API key.
 - Env contract (all gated on `!app.isPackaged`):
@@ -31,7 +31,7 @@ failures.** If a spec fails right after you changed code, rebuild first.
 - The stub writes a real session JSONL into the **mangled session dir** for
   the workspace (pi's `--<cwd with / → ->--` layout) — that's what makes
   sessions discoverable by the sidebar scanner. The mangling is duplicated
-  from `electron/pi/pi-paths.ts` in the stub; if a sidebar/scan test fails
+  from `apps/desktop/electron/pi/pi-paths.ts` in the stub; if a sidebar/scan test fails
   mysteriously, check the two haven't drifted.
 
 ## Adding a test
@@ -42,7 +42,7 @@ failures.** If a spec fails right after you changed code, rebuild first.
 - Composer buttons are icon buttons with aria-labels: "Send message",
   "Start session", "Stop", "Attach images".
 - New prefs/IPC used at boot need nothing special — the real handlers run;
-  only the *browser* mock (`src/dev/mockPhosphor.ts`) needs explicit cases.
+  only the *browser* mock (`apps/desktop/src/dev/mockPhosphor.ts`) needs explicit cases.
 - Keep tests serial-safe: fresh `mktemp` dirs per launch, no shared state.
 
 CI runs this matrix on ubuntu (xvfb) and macOS with `electron-rebuild` for

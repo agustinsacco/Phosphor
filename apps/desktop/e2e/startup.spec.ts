@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module'
 import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test'
 import { mkdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { scratchDir } from './fixtures/scratch'
@@ -19,11 +20,12 @@ async function launch(theme: 'light' | 'dark' | 'system', extraEnv: Record<strin
   delete env.NODE_ENV_ELECTRON_VITE
   delete env.ELECTRON_CLI_ARGS
   const app = await electron.launch({
-    args: [resolve('.')],
+    executablePath: createRequire(import.meta.url)('electron'),
+    args: [resolve(import.meta.dirname, '..')],
     env: {
       ...env,
       NODE_ENV: 'production',
-      PHOSPHOR_PI_STUB: resolve('e2e/fixtures/pi-stub.cjs'),
+      PHOSPHOR_PI_STUB: resolve(import.meta.dirname, 'fixtures/pi-stub.cjs'),
       PHOSPHOR_TEST_USER_DATA: userData,
       PI_CODING_AGENT_DIR: join(scratch, 'agent'),
       ...extraEnv,

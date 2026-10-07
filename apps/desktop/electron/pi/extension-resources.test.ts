@@ -22,7 +22,8 @@ import {
   bundledExtensions,
 } from '@phosphor/session-runtime/bundled-extensions'
 
-const root = resolve(import.meta.dirname, '../..')
+const appRoot = resolve(import.meta.dirname, '../..')
+const root = resolve(appRoot, '../..')
 const library = join(root, 'libs/pi-extensions')
 // This is the existing unpacked production inventory, including the imported
 // budget helper and optional gate. Python helpers remain source-only as before.
@@ -57,9 +58,9 @@ describe('standalone pi extension resources', () => {
     const temporary = mkdtempSync(join(tmpdir(), 'phosphor-extension-resources-'))
     try {
       const resources = join(temporary, 'resources')
-      const config = await getConfig(root, null, null)
+      const config = await getConfig(appRoot, null, null)
       const matchers = getFileMatchers(config, 'extraResources', resources, {
-        defaultSrc: root,
+        defaultSrc: appRoot,
         globalOutDir: join(temporary, 'output'),
         customBuildOptions: {},
         macroExpander: (path) => path,
@@ -94,7 +95,7 @@ describe('standalone pi extension resources', () => {
         write: false,
         outdir: 'unused',
         metafile: true,
-        tsconfig: join(root, 'tsconfig.node.json'),
+        tsconfig: join(appRoot, 'tsconfig.node.json'),
       })
       expect(Object.keys(bundle.metafile.inputs)).toContain('resources/pi-ext/context-budget.ts')
       expect(bundle.outputFiles).toHaveLength(6)

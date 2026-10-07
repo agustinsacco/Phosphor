@@ -12,7 +12,7 @@
 # Run from the repo root after `electron-builder --win`:
 #   pwsh scripts/smoke-packaged-win.ps1
 param(
-  [string]$Exe = 'release\win-unpacked\Phosphor.exe',
+  [string]$Exe = 'apps\desktop\release\win-unpacked\Phosphor.exe',
   [int]$TimeoutSec = 120
 )
 $ErrorActionPreference = 'Stop'

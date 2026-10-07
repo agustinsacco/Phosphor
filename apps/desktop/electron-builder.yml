@@ -16,7 +16,7 @@ files:
 extraResources:
   - from: build/icons/32x32.png
     to: routine-tray.png
-  - from: libs/pi-extensions/pi-ext
+  - from: ../../libs/pi-extensions/pi-ext
     to: pi-ext
     filter: ['**/*.ts', '!**/*.test.ts']
 

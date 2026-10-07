@@ -1,7 +1,7 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="build/icon.svg">
-  <source media="(prefers-color-scheme: light)" srcset="build/icon-light.svg">
-  <img src="build/icon.svg" alt="Phosphor" width="88" height="88">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/desktop/build/icon.svg">
+  <source media="(prefers-color-scheme: light)" srcset="apps/desktop/build/icon-light.svg">
+  <img src="apps/desktop/build/icon.svg" alt="Phosphor" width="88" height="88">
 </picture>
 
 # Phosphor
@@ -244,8 +244,8 @@ change this file has not caught will not compile.
 
 ```mermaid
 flowchart LR
-  R["Renderer · src/<br/>React, sandboxed, no Node"]
-  M["Main · electron/<br/>registry, pi client, fs, pty, updates"]
+  R["Renderer · apps/desktop/src/<br/>React, sandboxed, no Node"]
+  M["Main · apps/desktop/electron/<br/>registry, pi client, fs, pty, updates"]
   P["pi --mode rpc<br/>one subprocess per session"]
   S[("~/.pi — sessions, models, MCP")]
   R -- "typed IPC (libs/shared/src/ipc.ts)" --> M
@@ -257,11 +257,11 @@ Six facts that explain the rest:
 
 1. **The main process owns all side effects.** The renderer runs sandboxed
    (`contextIsolation`, no Node) and is pure UI over typed IPC. Disk, network
-   or a subprocess means `electron/`, not `src/`.
+   or a subprocess means `apps/desktop/electron/`, not `apps/desktop/src/`.
 2. **IPC is a typed contract.** A new channel is an entry in `libs/shared/src/ipc.ts`'s
-   `IpcInvokeMap`, a handler in the matching `electron/ipc/<prefix>-handlers.ts`,
-   and a case in `src/dev/mockPhosphor.ts`.
-3. **Stores (`src/stores/`) are projections of main-process state**, not a
+   `IpcInvokeMap`, a handler in the matching `apps/desktop/electron/ipc/<prefix>-handlers.ts`,
+   and a case in `apps/desktop/src/dev/mockPhosphor.ts`.
+3. **Stores (`apps/desktop/src/stores/`) are projections of main-process state**, not a
    second source of truth. The chat store keeps a session's live title, tokens
    and context meter honest while a turn runs.
 4. **Sessions are files.** pi writes a session's JSONL when a turn _ends_. The
@@ -290,7 +290,7 @@ npm run dev
 | -------------------- | -------------------------------------------------------------- |
 | `npm run dev`        | Electron + Vite dev server with HMR                            |
 | `npm run dev:web`    | Renderer alone, in a browser, against the mock preload API     |
-| `npm run build`      | Bundle main, preload and renderer to `out/`                    |
+| `npm run build`      | Bundle main, preload and renderer to `apps/desktop/out/`       |
 | `npm run typecheck`  | TypeScript project checks (main + renderer)                    |
 | `npm run lint`       | ESLint                                                         |
 | `npm run format`     | Prettier                                                       |
@@ -302,7 +302,7 @@ npm run dev
 | `npm run shots`      | Deterministic screenshots against the e2e pi stub (see below)  |
 | `npm run shots:live` | Re-shoot this README against a real pi instance (see below)    |
 
-Tests live beside their subject as `*.test.ts`, in `electron/`, `libs/shared/src/` and
+Tests live beside their subject as `*.test.ts`, in `apps/desktop/electron/`, `libs/shared/src/` and
 `libs/pi-extensions/pi-ext/` included.
 
 ### Nx task orchestration
@@ -324,21 +324,21 @@ explicit current-path ownership graph; `npx nx show project tooling --json`
 shows effective targets. `npm run nx:test -- --configuration=inventory` lists
 the same full unit suites without running them.
 
-| Project         | Current paths / ownership                                                  |
-| --------------- | -------------------------------------------------------------------------- |
-| `desktop`       | Root app configuration, `electron/`, `src/`, `e2e/`, `build/`, `docs/img/` |
-| `runtime`       | `libs/session-runtime/src/`, including plain-Node and fake-pi tests        |
-| `shared`        | `libs/shared/`                                                             |
-| `pi-extensions` | `libs/pi-extensions/pi-ext/`, including optional extension tests           |
-| `site`          | `site/`, with its independent install and lockfile                         |
-| `schema`        | `supabase/`, with explicit start/test/stop lifecycle                       |
-| `tooling`       | `scripts/`, including workspace-wide checks                                |
+| Project         | Current paths / ownership                                           |
+| --------------- | ------------------------------------------------------------------- |
+| `desktop`       | `apps/desktop/`, plus screenshot assets at `docs/img/`              |
+| `runtime`       | `libs/session-runtime/src/`, including plain-Node and fake-pi tests |
+| `shared`        | `libs/shared/`                                                      |
+| `pi-extensions` | `libs/pi-extensions/pi-ext/`, including optional extension tests    |
+| `site`          | `site/`, with its independent install and lockfile                  |
+| `schema`        | `supabase/`, with explicit start/test/stop lifecycle                |
+| `tooling`       | `tools/scripts/`, including workspace-wide checks                   |
 
 Every target starts uncached, with conservative whole-workspace inputs,
 including nested projects. Nx runs one task at a time by default, has no
 inference plugins, daemon or Cloud connection, and keeps per-worktree state
-in ignored `.nx/`. No affected-only selection or native-install lifecycle is
-introduced. Site targets use its existing npm commands from `site/`, retaining
+in ignored `.nx/`. No affected-only selection is introduced. Desktop owns its isolated native install
+and lifecycle, described in [desktop-build.md](docs/desktop-build.md). Site targets use its existing npm commands from `site/`, retaining
 its social-image prebuild; schema targets retain the pinned local Supabase
 commands and require explicit lifecycle cleanup. Neither is invoked by the
 normal root validator unless its existing opt-in applies.
@@ -349,9 +349,9 @@ production-boundary DAG: the optional permission-gate test imports a Desktop
 renderer helper, and tooling checks consume all projects while Desktop uses
 tooling scripts. These real back-edges are retained. Targets have no recursive
 `^test`/`^build` task dependencies, so their executable task graphs remain
-acyclic. `scripts/nx-projects.test.ts` checks the effective graph and targets,
-including missing-edge/target fixtures. Output `out/`, packaging
-and the native postinstall are unchanged.
+acyclic. `tools/scripts/nx-projects.test.ts` checks the effective graph and targets,
+including missing-edge/target fixtures. App-relative `out/`, packaging metadata and resource destinations are unchanged.
+Root npm aliases delegate to Desktop; the app owns its Electron postinstall.
 
 `@phosphor/shared` is a private source-only package at `libs/shared`. Its
 explicit subpath exports cover the complete shared module set, with adjacent
@@ -382,7 +382,7 @@ own `~/.pi`, real signed-in providers, a real repo, two metered model turns.
 npm run build && npm run shots:live
 ```
 
-The live runner (`scripts/capture-live-shots.mjs`) isolates app prefs but not
+The live runner (`tools/scripts/capture-live-shots.mjs`) isolates app prefs but not
 pi. It runs one small edit task in a disposable worktree and one artifact task,
 then shoots the transcript, panes, menus and popovers. It spends real tokens
 and leaves the sessions and worktree behind; delete them like any other
@@ -391,7 +391,7 @@ session. `ONLY=models,context` re-shoots a subset (the turns still run);
 screen are masked before every shot, and `REDACT='from=to,…'` masks anything
 else private, like an internal MCP server's name or host.
 
-`npm run shots` (`scripts/capture-readme-shots.mjs`) is the deterministic
+`npm run shots` (`tools/scripts/capture-readme-shots.mjs`) is the deterministic
 sibling: same mechanics, scratch workspace, the e2e `pi` stub, no key, no
 network. Use it to verify UI changes; use the live one to regenerate what this
 README shows.
@@ -403,7 +403,7 @@ This tree is the single source of truth for "what lives where". `CLAUDE.md` and
 copies.
 
 ```
-electron/            main process — owns every side effect
+apps/desktop/electron/            main process — owns every side effect
   main.ts            app lifecycle, window creation, quit teardown
   preload.ts         the contextBridge surface (one typed `subscribe` helper)
   ipc.ts             composition root: calls the per-domain handler registrars
@@ -446,7 +446,7 @@ libs/shared/src/     types and pure logic shared by main + renderer
   ipc.ts             the typed IpcInvokeMap contract
   rpc.ts             hand-mirrored copy of pi's RPC protocol + drift guards
   models.ts          model catalogue and shared app types
-src/                 renderer (React) — pure UI over typed IPC
+apps/desktop/src/                 renderer (React) — pure UI over typed IPC
   app/               shell: App, TopBar, workspace picker, global shortcuts
   features/          one folder per surface (15): chat, sessions, files,
                      terminal, artifacts, settings, home, worktrees,
@@ -463,8 +463,8 @@ src/                 renderer (React) — pure UI over typed IPC
 libs/pi-extensions/pi-ext/  the six pi extensions that run inside pi's process,
                      bundled into every session: artifacts, context-breakdown,
                      headroom, mcp-status, tool-name-guard, worktree-paths
-e2e/                 Playwright-Electron smoke tests + deterministic pi stub
-scripts/             install.sh, icon + screenshot generation, release and
+apps/desktop/e2e/                 Playwright-Electron smoke tests + deterministic pi stub
+tools/scripts/             install.sh, icon + screenshot generation, release and
                      validate helpers
 docs/                living technical docs — one file per surface, each
                      rewritten in the same diff as the behaviour it describes;

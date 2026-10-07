@@ -42,7 +42,7 @@ a list. Sections, in order:
 Eight curated OAuth connectors: Linear, Notion, Braintrust, Datadog, Supabase,
 Questrade, Fellow, Slack. Each endpoint is checked against the vendor's docs
 _and_ the server's own OAuth metadata, because a wrong URL fails as "broken
-auth" (`src/features/connectors/catalog.ts`).
+auth" (`apps/desktop/src/features/connectors/catalog.ts`).
 
 **Add starts the sign-in.** Add writes the `pi-global` entry and immediately
 runs the headless OAuth flow, so the row appears in Connected with its flow
@@ -62,7 +62,7 @@ account.
 **"Is it up?" is a button, not an inference.** The status chip comes from the
 adapter inside a live session, so with nothing open a row can only say
 `state unknown`. **Test** runs the adapter's own `/mcp-adapter reconnect <server>` in
-a throwaway `pi --mode rpc --no-session` (`electron/pi/connector-check.ts`),
+a throwaway `pi --mode rpc --no-session` (`apps/desktop/electron/pi/connector-check.ts`),
 which closes the connection, opens a fresh one, and reports the outcome.
 `parseReconnectNotice` (`libs/shared/src/connectors.ts`) turns that into a verdict:
 `Up · N tools`, `Needs sign-in`, `Down`, `Disabled`, `Not in config`. It fails
@@ -84,7 +84,7 @@ header reaches new sessions, not this one.
 finished sign-in, a session's own lazy connect, even pi in a terminal —
 rewrites the adapter's `mcp-cache.json`, and none of those is a Phosphor
 config write that could invalidate what was read from it. So main watches the
-file (`electron/pi/mcp-cache-watcher.ts`) and, when what it says changes
+file (`apps/desktop/electron/pi/mcp-cache-watcher.ts`) and, when what it says changes
 (`cachedAt` alone does not count; lazy servers re-cache on every call), it:
 
 - pushes `mcp:cacheChanged`, and the Connectors tab re-reads its tool lists;
@@ -107,7 +107,7 @@ Three rules hold this together:
    tokens**. Disconnect is `/mcp-adapter logout`, Reload `/mcp-adapter reconnect`. Two
    routes to that command:
    - **Headless** (`mcp:authorize`, the default): main spawns a throwaway
-     `pi --mode rpc --no-session` (`electron/pi/connector-auth.ts`), drives the
+     `pi --mode rpc --no-session` (`apps/desktop/electron/pi/connector-auth.ts`), drives the
      flow, opens the browser, and kills the process when it settles. No
      session file appears, nothing lands in the registry. This is what makes
      Settings usable on a fresh launch.
@@ -212,7 +212,7 @@ Later files win per server name; Phosphor records shadowed scopes.
 ## Rules
 
 - **Renderer sends scope enums, never paths.** Path resolution lives in
-  `electron/pi/mcp-config.ts` only. New servers are written to `pi-global` /
+  `apps/desktop/electron/pi/mcp-config.ts` only. New servers are written to `pi-global` /
   `pi-project`; disable/remove target the server's own file.
 - Malformed files are surfaced, never overwritten by structured writes. The raw
   JSON editor covers repair and validates on save.
@@ -234,17 +234,17 @@ extension above**, and that requires a live session. Without one the tab shows:
 
 ## Code map
 
-- Types: `libs/shared/src/mcp.ts`. Main: `electron/pi/mcp-config.ts` (injectable dirs
+- Types: `libs/shared/src/mcp.ts`. Main: `apps/desktop/electron/pi/mcp-config.ts` (injectable dirs
   for hermetic tests).
 - IPC: `mcp:readConfigs / upsertServer / removeServer / setDisabled /
 readCache / readFile / writeFile`, plus `mcp:authorize /
 mcp:submitAuthCallback / mcp:cancelAuth / mcp:checkServer` and the
-  `mcp:authState` broadcast (`electron/ipc/mcp-handlers.ts`). The in-session
+  `mcp:authState` broadcast (`apps/desktop/electron/ipc/mcp-handlers.ts`). The in-session
   route adds no IPC; it drives pi over `piCommand` and `app:openExternal`.
 - Connectors: `libs/shared/src/connectors.ts` (prompt/verdict parsers, shared by main
-  and renderer), `src/features/connectors/` (`catalog.ts`, `mcpStatus.ts`,
-  `FlowCard.tsx`, `ServerEditor.tsx`), `src/stores/connectors.ts`,
-  `electron/pi/connector-auth.ts`, `electron/pi/connector-check.ts`,
+  and renderer), `apps/desktop/src/features/connectors/` (`catalog.ts`, `mcpStatus.ts`,
+  `FlowCard.tsx`, `ServerEditor.tsx`), `apps/desktop/src/stores/connectors.ts`,
+  `apps/desktop/electron/pi/connector-auth.ts`, `apps/desktop/electron/pi/connector-check.ts`,
   `libs/pi-extensions/pi-ext/mcp-status.ts`.
-- UI: `src/features/settings/tabs/ConnectorsTab.tsx`. Mock cases in
-  `src/dev/mockPhosphor.ts`.
+- UI: `apps/desktop/src/features/settings/tabs/ConnectorsTab.tsx`. Mock cases in
+  `apps/desktop/src/dev/mockPhosphor.ts`.

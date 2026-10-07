@@ -19,7 +19,7 @@
 # PHOSPHOR_E2E_SHOW=1 runs the suite on your real display, for when you actually
 # want to watch it.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../../apps/desktop"
 
 if [[ "${PHOSPHOR_E2E_SHOW:-}" == "1" ]]; then
   exec npx playwright test "$@"

@@ -34,8 +34,8 @@ import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'no
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const buildDir = join(root, 'build')
+const root = join(dirname(fileURLToPath(import.meta.url)), '../..')
+const buildDir = join(root, 'apps/desktop/build')
 const tmp = join(buildDir, '.icon-tmp')
 const svg = readFileSync(join(buildDir, 'icon.svg'), 'utf8')
 

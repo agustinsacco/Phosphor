@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module'
 import {
   test,
   expect,
@@ -9,7 +10,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { newRoutine, type RoutineInput } from '../libs/shared/src/routines'
+import { newRoutine, type RoutineInput } from '../../../libs/shared/src/routines'
 import { configureTestTeardown } from './fixtures/shutdown'
 import type * as Sqlite from 'node:sqlite'
 import type * as NodePath from 'node:path'
@@ -28,6 +29,7 @@ async function launch(): Promise<void> {
   delete env.ELECTRON_CLI_ARGS
   delete env.NODE_ENV_ELECTRON_VITE
   app = await electron.launch({
+    executablePath: createRequire(import.meta.url)('electron'),
     args: [root],
     env: {
       ...env,

@@ -18,9 +18,10 @@ export default defineConfig({
   root: resolve(import.meta.dirname, 'src'),
   plugins: [react(), tailwindcss()],
   resolve: {
+    dedupe: ['luxon', 'cron-parser'],
     alias: {
-      '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
-      '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
+      '@shared': resolve(import.meta.dirname, '../../libs/shared/src'),
+      '@phosphor/shared': resolve(import.meta.dirname, '../../libs/shared/src'),
       '@': resolve(import.meta.dirname, 'src'),
     },
   },

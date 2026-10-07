@@ -165,7 +165,7 @@ describe('site-deploy-policy', () => {
 
 describe('deploy-site workflow trust and path wiring', () => {
   const source = readFileSync(
-    new URL('../.github/workflows/deploy-site.yml', import.meta.url),
+    new URL('../../.github/workflows/deploy-site.yml', import.meta.url),
     'utf8',
   )
 
@@ -252,7 +252,7 @@ esac
             'node',
             `#!/bin/bash
 set -eu
-test "$1" = scripts/site-deploy-policy.mjs
+test "$1" = tools/scripts/site-deploy-policy.mjs
 if [ "$#" -eq 1 ]; then
   echo preliminary >> "$RUNNER_TEMP/policy-calls"
   echo '{"state":"wait"}'

@@ -11,7 +11,7 @@ and `electron-updater` is imported lazily so an unpackaged run does not load it.
 
 ## Three paths, chosen once at startup
 
-`resolveUpdatePath()` in [electron/updates/updater.ts](../electron/updates/updater.ts)
+`resolveUpdatePath()` in [apps/desktop/electron/updates/updater.ts](../apps/desktop/electron/updates/updater.ts)
 picks one and caches it for the life of the process.
 
 | Path       | When                                                           | What a click does                   |
@@ -29,7 +29,7 @@ signature), for every Windows build, and only for macOS builds where
 **A `.deb` is deliberately `manual`.** The package manager owns those files.
 
 **Windows is `updater` even unsigned.** The NSIS installer is per-user
-(`perMachine: false` in [electron-builder.yml](../electron-builder.yml)), so
+(`perMachine: false` in [electron-builder.yml](../apps/desktop/electron-builder.yml)), so
 `electron-updater` can replace the install without elevation, and it only
 verifies the downloaded installer's Authenticode signature when the running
 app carries a `publisherName` to compare against — an unsigned build does not,
@@ -46,8 +46,8 @@ Phosphor ships ad-hoc signed (no Developer ID) and unnotarized, and nothing
 here is tested against Squirrel.Mac. Setting `phosphorSigned=true` for macOS
 would trade "opens a browser" for "errors silently".
 
-So [electron/updates/mac-installer.ts](../electron/updates/mac-installer.ts)
-does by hand what `scripts/install.sh` does by shell:
+So [apps/desktop/electron/updates/mac-installer.ts](../apps/desktop/electron/updates/mac-installer.ts)
+does by hand what `tools/scripts/install.sh` does by shell:
 
 1. Read `latest-mac.yml` and pick the zip matching `process.arch`. The
    manifest lists x64 first, so the arch test is two-sided; "first zip wins"
@@ -67,7 +67,7 @@ untouched.
 
 ## The relaunch must wait for the old process
 
-[electron/main.ts](../electron/main.ts) holds a single-instance lock, and
+[apps/desktop/electron/main.ts](../apps/desktop/electron/main.ts) holds a single-instance lock, and
 `before-quit` SIGTERMs every pi child, kills the PTYs and closes the watchers
 before quitting. A replacement that starts too early takes the
 `second-instance` path, focuses the window that is already dying, and exits,
@@ -133,7 +133,7 @@ build, so every auto-update would invalidate every grant and re-prompt for
 Downloads / Documents / Desktop. With a release on every green merge, that is
 roughly daily.
 
-[scripts/adhoc-sign-mac.mjs](../scripts/adhoc-sign-mac.mjs) therefore signs with
+[apps/desktop/scripts/adhoc-sign-mac.mjs](../apps/desktop/scripts/adhoc-sign-mac.mjs) therefore signs with
 an explicit `-r=designated => identifier "works.phosphor.app"`, stable across
 builds, and asserts the result before the build passes. It must be the inline
 `-r=<text>` form; as separate arguments `codesign` reads the text as a file
@@ -147,12 +147,12 @@ A real Developer ID gets a stable team-anchored requirement from
 electron-builder and skips this hook.
 
 The prompts still appear **once**, on first access to each folder;
-`mac.extendInfo` in [electron-builder.yml](../electron-builder.yml) supplies the
+`mac.extendInfo` in [electron-builder.yml](../apps/desktop/electron-builder.yml) supplies the
 `NS*FolderUsageDescription` strings so the dialog says why.
 
 ## The state machine
 
-[electron/updates/update-state.ts](../electron/updates/update-state.ts) is a
+[apps/desktop/electron/updates/update-state.ts](../apps/desktop/electron/updates/update-state.ts) is a
 pure reducer, so every transition is unit tested without a packaged app or a
 network. Phases: `idle`, `checking`, `downloading`, `installing`, `downloaded`,
 `manual-download`, `unsupported`. `installing` is macOS-only.

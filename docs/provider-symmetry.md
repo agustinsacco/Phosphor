@@ -24,21 +24,21 @@ changes.
 
 ## What both sides share
 
-| Surface                                                                                                             | Owner, on both                                                                                             | Guarded by                                                                                             |
-| ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| System prompt: pi's base prompt, context files (AGENTS.md, CLAUDE.md), the skills index, Phosphor's directive stack | pi. Claude Code's own CLAUDE.md, memory, skills, agents and project hooks are off; host guards still apply | `tests/context-policy.test.ts`, `tests/live-context-policy.test.ts`; `electron/pi/directives.test.ts`  |
-| Tool list: the request's active tools, with the same names, descriptions and schemas                                | pi                                                                                                         | `tests/pi-context.test.ts`, `tests/live-context-policy.test.ts`                                        |
-| Tool execution and every hook on it: `worktree-paths`, `tool-name-guard`, `headroom`, an installed permission gate  | pi. The CLI runs with `--tools ""`                                                                         | `libs/pi-extensions/pi-ext/*.test.ts`; `tests/live-pi-roundtrip.test.ts` enforces a pi guard on Claude |
-| MCP servers                                                                                                         | pi-mcp-adapter, inside pi. Claude Code's own MCP config and claude.ai connectors are off                   | [mcp.md](mcp.md)                                                                                       |
-| Long tool calls                                                                                                     | pi. A Claude handoff has no 60 s limit (provider 0.9.1+)                                                   | `tests/handoff-broker.test.ts`                                                                         |
-| Conversation record                                                                                                 | pi's session file only. No Claude transcript or resume sidecar                                             | `tests/live-context-policy.test.ts`                                                                    |
-| Compaction and retry                                                                                                | pi, with the same settings for every provider                                                              | `electron/pi/compaction-reset.test.ts`; `tests/live-pi-roundtrip.test.ts` compacts, then checks recall |
-| Context budget                                                                                                      | `libs/shared/src/context-budget.ts`, which never reads the provider                                        | `libs/shared/src/context-budget.test.ts`, `libs/pi-extensions/pi-ext/context-budget.test.ts`           |
-| Thinking level, and which levels a model offers                                                                     | pi. The provider sends the request pi's own Anthropic provider would (provider 0.10.0+)                    | `libs/shared/src/thinking.test.ts`; `tests/thinking-config.test.ts`, `tests/live-thinking.test.ts`     |
-| Model catalogue and context windows                                                                                 | pi's catalogue, not Claude Code's picker                                                                   | [extensions.md](extensions.md#updating-the-cli-does-not-add-new-models)                                |
-| Bundled extensions                                                                                                  | Phosphor loads the same six into every session                                                             | `bundledExtensions()` in `libs/session-runtime/src/bundled-extensions.ts`                              |
-| Transcript rendering: tool rows, thought rows, find                                                                 | One Phosphor code path for every provider                                                                  | `src/features/chat/items/activityGroupRows.test.tsx`                                                   |
-| Sub-agents: the `subagent` tool, its streamed progress, the `subagent-async` widget, the completion message         | `pi-subagents`, inside pi. Claude Code's own `Agent`/`Task` tools are off with the rest of its tools       | `src/features/chat/subagentRuns.test.ts`; the e2e `delegate` scenario ([chat.md](chat.md#sub-agents))  |
+| Surface                                                                                                             | Owner, on both                                                                                             | Guarded by                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| System prompt: pi's base prompt, context files (AGENTS.md, CLAUDE.md), the skills index, Phosphor's directive stack | pi. Claude Code's own CLAUDE.md, memory, skills, agents and project hooks are off; host guards still apply | `tests/context-policy.test.ts`, `tests/live-context-policy.test.ts`; `apps/desktop/electron/pi/directives.test.ts`  |
+| Tool list: the request's active tools, with the same names, descriptions and schemas                                | pi                                                                                                         | `tests/pi-context.test.ts`, `tests/live-context-policy.test.ts`                                                     |
+| Tool execution and every hook on it: `worktree-paths`, `tool-name-guard`, `headroom`, an installed permission gate  | pi. The CLI runs with `--tools ""`                                                                         | `libs/pi-extensions/pi-ext/*.test.ts`; `tests/live-pi-roundtrip.test.ts` enforces a pi guard on Claude              |
+| MCP servers                                                                                                         | pi-mcp-adapter, inside pi. Claude Code's own MCP config and claude.ai connectors are off                   | [mcp.md](mcp.md)                                                                                                    |
+| Long tool calls                                                                                                     | pi. A Claude handoff has no 60 s limit (provider 0.9.1+)                                                   | `tests/handoff-broker.test.ts`                                                                                      |
+| Conversation record                                                                                                 | pi's session file only. No Claude transcript or resume sidecar                                             | `tests/live-context-policy.test.ts`                                                                                 |
+| Compaction and retry                                                                                                | pi, with the same settings for every provider                                                              | `apps/desktop/electron/pi/compaction-reset.test.ts`; `tests/live-pi-roundtrip.test.ts` compacts, then checks recall |
+| Context budget                                                                                                      | `libs/shared/src/context-budget.ts`, which never reads the provider                                        | `libs/shared/src/context-budget.test.ts`, `libs/pi-extensions/pi-ext/context-budget.test.ts`                        |
+| Thinking level, and which levels a model offers                                                                     | pi. The provider sends the request pi's own Anthropic provider would (provider 0.10.0+)                    | `libs/shared/src/thinking.test.ts`; `tests/thinking-config.test.ts`, `tests/live-thinking.test.ts`                  |
+| Model catalogue and context windows                                                                                 | pi's catalogue, not Claude Code's picker                                                                   | [extensions.md](extensions.md#updating-the-cli-does-not-add-new-models)                                             |
+| Bundled extensions                                                                                                  | Phosphor loads the same six into every session                                                             | `bundledExtensions()` in `libs/session-runtime/src/bundled-extensions.ts`                                           |
+| Transcript rendering: tool rows, thought rows, find                                                                 | One Phosphor code path for every provider                                                                  | `apps/desktop/src/features/chat/items/activityGroupRows.test.tsx`                                                   |
+| Sub-agents: the `subagent` tool, its streamed progress, the `subagent-async` widget, the completion message         | `pi-subagents`, inside pi. Claude Code's own `Agent`/`Task` tools are off with the rest of its tools       | `apps/desktop/src/features/chat/subagentRuns.test.ts`; the e2e `delegate` scenario ([chat.md](chat.md#sub-agents))  |
 
 Paths under `tests/` are pi-claude-cli's; the rest are Phosphor's.
 
@@ -49,12 +49,12 @@ into these tables in the diff that finds it.
 
 ### What Claude Code adds to the prompt
 
-| Difference                                                                                               | Comes from                                              | Closable?                                                                                  |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| An identity line, "You are a Claude agent, built on Anthropic's Claude Agent SDK.", ahead of pi's prompt | Claude Code                                             | No: it is the official client                                                              |
-| For an account in an organization, that organization's instructions, also ahead of pi's prompt           | The Claude account                                      | No. pi never sees them, so its composition breakdown cannot attribute the context they use |
-| An environment block: working directory, platform, the model's name, today's date                        | Claude Code                                             | No                                                                                         |
-| One paragraph after pi's prompt, binding pi's tool names to their MCP names (text below)                 | `piSystemPrompt` in pi-claude-cli's `src/pi-context.ts` | Only if tools stop going through MCP                                                       |
+| Difference                                                                                               | Comes from                                                           | Closable?                                                                                  |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| An identity line, "You are a Claude agent, built on Anthropic's Claude Agent SDK.", ahead of pi's prompt | Claude Code                                                          | No: it is the official client                                                              |
+| For an account in an organization, that organization's instructions, also ahead of pi's prompt           | The Claude account                                                   | No. pi never sees them, so its composition breakdown cannot attribute the context they use |
+| An environment block: working directory, platform, the model's name, today's date                        | Claude Code                                                          | No                                                                                         |
+| One paragraph after pi's prompt, binding pi's tool names to their MCP names (text below)                 | `piSystemPrompt` in pi-claude-cli's `apps/desktop/src/pi-context.ts` | Only if tools stop going through MCP                                                       |
 
 The paragraph, verbatim: "Tools are supplied and executed by pi. Call each pi
 tool using its advertised mcp\_\_custom-tools\_\_ prefix and unchanged argument
@@ -84,7 +84,7 @@ The last paired run measured Claude Code's additions at about 680 tokens
 | A level changed while a tool runs reaches the rest of that turn on native pi, but only the next user turn on Claude | pi re-reads the level before every model call in its loop; Claude Code reads it once per user turn                                                   |
 | On Opus 5, Opus 5.5 and Fable 5.1, the first switch to a new effort level re-writes the prompt cache on Claude only | pi sends effort there as mid-conversation messages behind a beta Claude Code does not use. On other adaptive models both sides pay it once per level |
 | `PI_CLAUDE_CLI_THINKING_DISPLAY=omitted` makes adaptive models return thinking with a signature and no text         | An opt-out. The default, `summarized`, is pi's own default                                                                                           |
-| Thought headlines differ in shape: Codex opens each section with a `**Title**`, Claude writes prose                 | Different models. `src/features/chat/thoughts.ts` reads both                                                                                         |
+| Thought headlines differ in shape: Codex opens each section with a `**Title**`, Claude writes prose                 | Different models. `apps/desktop/src/features/chat/thoughts.ts` reads both                                                                            |
 
 How each level maps onto the request is in pi-claude-cli's
 [ARCHITECTURE.md](https://github.com/agustinsacco/pi-claude-cli/blob/main/docs/ARCHITECTURE.md#thinking-the-same-request-pi-would-send-0100).
@@ -112,17 +112,17 @@ that alters the prompt, the tools or compaction breaks the first table.
   (`libs/session-runtime/src/pi/provider-detect.ts`, with a Desktop re-export): the version check
   before a spawn (`session-policy.ts`), a model switch and a prompt
   (`libs/session-runtime/src/pi/session-service.ts`, used by Desktop IPC), and before a
-  routine runs (`electron/routines/runner.ts`).
+  routine runs (`apps/desktop/electron/routines/runner.ts`).
 - `claudeProviderSpawnEnv`: pins `PI_CLAUDE_CLI_CONTEXT=pi` on every spawn.
 - `claudeOneShotEnv`: every `pi -p` that may land on Claude. Session naming on
-  Claude uses `claude-haiku-4-5` (`electron/pi/session-naming.ts`).
-- `electron/claude/`: which Claude login bills the session, chosen at spawn.
+  Claude uses `claude-haiku-4-5` (`apps/desktop/electron/pi/session-naming.ts`).
+- `apps/desktop/electron/claude/`: which Claude login bills the session, chosen at spawn.
 - The `claude-*` status keys: plan limits, and the sub-agent chip for
   sessions recorded before 0.9.0
   ([extensions.md](extensions.md#the-status-channel-is-a-wire-contract)).
-- `electron/pi/compaction-reset.ts`: undoes, once, the Claude-only compaction
+- `apps/desktop/electron/pi/compaction-reset.ts`: undoes, once, the Claude-only compaction
   switch older Phosphor saved to pi's settings.
-- `electron/pi/session-deleter.ts`: also removes the session's Claude ledger
+- `apps/desktop/electron/pi/session-deleter.ts`: also removes the session's Claude ledger
   entry.
 - `items/transcriptRows.ts` and `ClaudeContextRecovery.tsx`: block shapes and
   the rebuild button for sessions recorded before provider 0.9.0.

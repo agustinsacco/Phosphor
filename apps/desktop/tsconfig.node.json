@@ -1,14 +1,14 @@
 {
-  "extends": "./tsconfig.base.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2023"],
     "types": ["node"]
   },
   "include": [
     "electron/**/*.ts",
-    "libs/session-runtime/src/**/*.ts",
-    "libs/shared/src/**/*.ts",
+    "../../libs/session-runtime/src/**/*.ts",
+    "../../libs/shared/src/**/*.ts",
     "electron.vite.config.ts",
-    "libs/pi-extensions/pi-ext/**/*.ts"
+    "../../libs/pi-extensions/pi-ext/**/*.ts"
   ]
 }

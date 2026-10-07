@@ -17,8 +17,13 @@ jobs:
   checks:
     name: Typecheck · lint · unit tests · build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -27,6 +32,18 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Shadow affected report (never skips checks)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const { shadowSelection } = await import(`${process.env.GITHUB_WORKSPACE}/tools/scripts/ci-selection.mjs`)
+              console.log(JSON.stringify(await shadowSelection(context, github)))
+            } catch {
+              console.log(JSON.stringify({ mode: 'full', reason: 'shadow adapter failed', base: null, head: context.sha,
+                projects: ['desktop', 'pi-extensions', 'runtime', 'schema', 'shared', 'site', 'tooling'] }))
+            }
 
       - name: Typecheck
         run: npm run typecheck

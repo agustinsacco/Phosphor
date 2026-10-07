@@ -2,8 +2,9 @@
 
 All targets are explicitly **uncached**, including lint, typecheck, unit and
 unsigned Desktop compilation. `nx:run-commands` defaults to `cache: false`.
-There is no affected skipping or CI selection change. The original npm
-commands and full validator do not depend on Nx.
+There is no affected skipping. CI logs a shadow affected report beside the
+original full checks. The original npm commands and full validator do not
+depend on Nx.
 
 ## Inputs and outputs
 
@@ -43,13 +44,35 @@ rebuild, install, interactive, probe, provider, package, sign, release and deplo
 operations are never cache candidates here. No node_modules, credentials,
 session/pi/browser homes or DB data are cache outputs.
 
+## Shadow CI selection
+
+The checks job fetches full history and logs actual HEAD, base and OSS Nx projects.
+No report controls skipping: all eight CI results, OS shards, packaged smoke,
+schema and site gates remain mandatory. Broad inputs select all seven projects
+for source/config/lock changes. Equal base/head is a shadow no-op only.
+
+Same-repository PRs verify main base and PR head ancestry against the checkout.
+Main pushes search successful completed CI push/main runs in the same repository,
+excluding the current run and requiring an available ancestor commit. Failed main
+runs do not advance the baseline. The read-only search checks at most 300 runs
+(three pages), with ten-second request timeouts. Exhaustion proves nothing about
+older runs.
+
+Forks, merge groups, unsupported events, checkout mismatches, shallow/missing
+history and API/Nx/parse failures fall back to all projects. Rollback removes the
+shadow step/helper, leaving full uncached checks and release/deployment unchanged.
+
+The full validator always runs an unsigned Desktop build, including with
+`SKIP_E2E=1`. Normal E2E retains its own build, deliberately duplicating it rather
+than changing the E2E command's freshness guarantee.
+
 ## Resource bounds
 
 Nx runs at most three tasks by default. Every Nx unit target bounds Vitest to
 two workers, including graph checks. Three simultaneous unit tasks can thus
-use six workers; choose a smaller `--parallel` on constrained machines. The
-original validator is unchanged; `VITEST_MAX_WORKERS=2 npm run validate` bounds
-its unit workers. Desktop E2E retains its single Playwright worker.
+use six workers; choose a smaller `--parallel` on constrained machines.
+`VITEST_MAX_WORKERS=2 npm run validate` bounds the validator's unit workers.
+Desktop E2E retains its single Playwright worker.
 
 There is no Cloud, daemon or inference. Explicit `cacheDirectory: .nx/cache`
 keeps default state per worktree instead of the pinned Nx version's per-user

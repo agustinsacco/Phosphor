@@ -1,21 +1,17 @@
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, isAbsolute, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import type {
-  ClaudeAuthStatus,
-  ClaudeStatus,
-  PiPackageEntry,
-  PiPackageResources,
-} from '@shared/models'
+import type { ClaudeAuthStatus, ClaudeStatus, PiPackageEntry } from '@shared/models'
 import { piAgentDir } from './pi-paths'
 import { claudeOneShotEnv, claudeProviderSpawnEnv } from './provider-detect'
 import { getLoginShellPath, piProcessEnv } from './shell-env'
 import { cachedPiHealth } from './health'
 import { pickWhereMatch, resolveWindowsLaunch } from './win-launch'
 import { readJsonFile } from './json-config'
+import { discoverResources, EMPTY_RESOURCES, resolvePackagePaths } from './package-resources'
 
 const execFileAsync = promisify(execFile)
 
@@ -104,66 +100,6 @@ async function readPackagesArray(settingsPath: string): Promise<RawPackageEntry[
   )
 }
 
-const EMPTY_RESOURCES: PiPackageResources = {
-  extensions: [],
-  skills: [],
-  prompts: [],
-  themes: [],
-}
-
-function listDir(path: string): string[] {
-  try {
-    return readdirSync(path)
-  } catch {
-    return []
-  }
-}
-
-/**
- * Resources a package directory provides: the `pi` manifest arrays when
- * declared (shown as written, exclusions dropped), else pi's convention
- * directories.
- */
-function discoverResources(installPath: string): PiPackageResources {
-  let stats
-  try {
-    stats = statSync(installPath)
-  } catch {
-    return EMPTY_RESOURCES
-  }
-  // A single-file package is one extension.
-  if (stats.isFile()) {
-    return { ...EMPTY_RESOURCES, extensions: [basename(installPath)] }
-  }
-
-  const manifest = readPackageJson(installPath)?.pi
-  if (manifest && typeof manifest === 'object') {
-    const fromManifest = (key: string): string[] => {
-      const value = (manifest as Record<string, unknown>)[key]
-      if (!Array.isArray(value)) return []
-      return value.filter((v): v is string => typeof v === 'string' && !v.startsWith('!'))
-    }
-    return {
-      extensions: fromManifest('extensions'),
-      skills: fromManifest('skills'),
-      prompts: fromManifest('prompts'),
-      themes: fromManifest('themes'),
-    }
-  }
-
-  const byExt = (dir: string, exts: string[]): string[] =>
-    listDir(join(installPath, dir)).filter((f) => exts.some((ext) => f.endsWith(ext)))
-  const skills = listDir(join(installPath, 'skills')).filter(
-    (entry) => entry.endsWith('.md') || existsSync(join(installPath, 'skills', entry, 'SKILL.md')),
-  )
-  return {
-    extensions: byExt('extensions', ['.ts', '.js']),
-    skills,
-    prompts: byExt('prompts', ['.md']),
-    themes: byExt('themes', ['.json']),
-  }
-}
-
 interface PackageJsonBits {
   name?: string
   version?: string
@@ -220,6 +156,29 @@ export async function listPackages(workspacePath?: string): Promise<PiPackageEnt
     }),
   )
   return perScope.flat()
+}
+
+/**
+ * Skill bundle directories of every installed package, for the Skills page's
+ * scan fallback: without them, a pi that could not be asked made every
+ * package skill vanish from the list.
+ */
+export async function packageSkillDirs(
+  workspacePath?: string,
+): Promise<Array<{ dir: string; scope: 'user' | 'project'; source: string }>> {
+  const found: Array<{ dir: string; scope: 'user' | 'project'; source: string }> = []
+  for (const entry of await listPackages(workspacePath)) {
+    if (!entry.installed || !entry.installPath) continue
+    for (const path of resolvePackagePaths(entry.installPath).skills) {
+      if (path.endsWith('.md')) continue
+      found.push({
+        dir: path,
+        scope: entry.scope === 'project' ? 'project' : 'user',
+        source: entry.spec,
+      })
+    }
+  }
+  return found
 }
 
 // ---------- job runner ----------

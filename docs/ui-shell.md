@@ -278,6 +278,9 @@ All switch together, live, no reload.
   Existing libraries remain expandable and searchable. Add is explicit,
   global, and installs only the skill bundle, not runtimes or dependencies.
   Yours retains source grouping, inspection, draft hiding, updates and deletion.
+  Your own roots come first, then one read-only group per package
+  (`Package · pi-subagents`), so each extension's skills are visible. When pi
+  cannot be asked, the fallback scan still reads installed packages' skills.
 - **Routines** — local scheduled tasks producing fresh lanes, with configuration,
   next-run previews, history, and explicit unattended access. Runs are owned by
   main, not this page; closing it never stops the scheduler. See [routines.md](routines.md).

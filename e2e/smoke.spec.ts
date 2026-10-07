@@ -3639,7 +3639,10 @@ test('extensions tab lists pi packages and reveals per-extension tabs', async ()
     // The installed fixture resolves against the real install-dir layout.
     await expect(page.getByText('demo-pack', { exact: true })).toBeVisible()
     await expect(page.getByText('v1.2.3')).toBeVisible()
-    await expect(page.getByText('npm:demo-pack — 1 extension')).toBeVisible()
+    await expect(page.getByText('npm:demo-pack', { exact: true })).toBeVisible()
+    // Contents are listed by name, resolved from the manifest.
+    await expect(page.getByText('Extensions (1)')).toBeVisible()
+    await expect(page.getByText('main.ts', { exact: true })).toBeVisible()
     // The declared-but-absent package is reported, not hidden.
     await expect(page.getByText('installs on next session start')).toBeVisible()
 

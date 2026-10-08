@@ -1,4 +1,6 @@
 import clsx from 'clsx'
+import { iconButtonClass } from '@/components/ComposerButtons'
+import { formatShortcut } from '@/lib/shortcuts'
 
 /**
  * The annotator's toolbar: tools, colour, size, history and the two image
@@ -19,126 +21,82 @@ export const SIZES: Record<Size, { stroke: number; text: number; step: number }>
 /** Red first: it is the colour that reads as "look here" on a screenshot. */
 export const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#111111', '#ffffff']
 
-const glyph = (children: React.ReactNode): React.JSX.Element => (
-  <svg
-    width={17}
-    height={17}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    {children}
-  </svg>
-)
+/** A stroked 24×24 glyph from one path (subpaths allowed). */
+function glyph(d: string): React.JSX.Element {
+  return (
+    <svg
+      width={17}
+      height={17}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={d} />
+    </svg>
+  )
+}
 
+const CIRCLE = 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0'
+
+/** Each tool's single-letter shortcut is its `key`. */
 export const TOOLS: { tool: Tool; key: string; label: string; icon: React.JSX.Element }[] = [
-  {
-    tool: 'select',
-    key: 'v',
-    label: 'Select and move',
-    icon: glyph(<path d="M5 3l6 17 2.5-7.5L21 10z" />),
-  },
-  {
-    tool: 'rect',
-    key: 'r',
-    label: 'Rectangle',
-    icon: glyph(<rect x="4" y="5" width="16" height="14" rx="1" />),
-  },
+  { tool: 'select', key: 'v', label: 'Select and move', icon: glyph('M5 3l6 17 2.5-7.5L21 10z') },
+  { tool: 'rect', key: 'r', label: 'Rectangle', icon: glyph('M4 5h16v14H4z') },
   {
     tool: 'ellipse',
     key: 'o',
     label: 'Circle',
-    icon: glyph(<ellipse cx="12" cy="12" rx="9" ry="7.5" />),
+    icon: glyph('M3 12a9 7.5 0 1 0 18 0a9 7.5 0 1 0 -18 0'),
   },
-  {
-    tool: 'arrow',
-    key: 'a',
-    label: 'Arrow',
-    icon: glyph(
-      <>
-        <path d="M5 19L19 5" />
-        <path d="M9 5h10v10" />
-      </>,
-    ),
-  },
+  { tool: 'arrow', key: 'a', label: 'Arrow', icon: glyph('M5 19L19 5M9 5h10v10') },
   {
     tool: 'pen',
     key: 'p',
     label: 'Draw',
-    icon: glyph(
-      <>
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" />
-      </>,
-    ),
+    icon: glyph('M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z'),
   },
   {
     tool: 'highlight',
     key: 'h',
     label: 'Highlight',
-    icon: glyph(
-      <>
-        <path d="M9 11l-6 6v3h9l3-3" />
-        <path d="M22 12l-4.6 4.6a2 2 0 01-2.8 0l-5.2-5.2a2 2 0 010-2.8L14 4" />
-      </>,
-    ),
+    icon: glyph('M9 11l-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 01-2.8 0l-5.2-5.2a2 2 0 010-2.8L14 4'),
   },
-  {
-    tool: 'text',
-    key: 't',
-    label: 'Text',
-    icon: glyph(
-      <>
-        <path d="M5 7V4h14v3" />
-        <path d="M12 4v16" />
-        <path d="M9 20h6" />
-      </>,
-    ),
-  },
-  {
-    tool: 'step',
-    key: 'n',
-    label: 'Numbered marker',
-    icon: glyph(
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M10.5 9l2-1.5V16" />
-      </>,
-    ),
-  },
+  { tool: 'text', key: 't', label: 'Text', icon: glyph('M5 7V4h14v3M12 4v16M9 20h6') },
+  { tool: 'step', key: 'n', label: 'Numbered marker', icon: glyph(`${CIRCLE}M10.5 9l2-1.5V16`) },
 ]
-
-const UNDO = glyph(
-  <>
-    <path d="M9 14L4 9l5-5" />
-    <path d="M4 9h10.5a5.5 5.5 0 010 11H11" />
-  </>,
-)
-const REDO = glyph(
-  <>
-    <path d="M15 14l5-5-5-5" />
-    <path d="M20 9H9.5a5.5 5.5 0 000 11H13" />
-  </>,
-)
-const TRASH = glyph(
-  <>
-    <path d="M3 6h18" />
-    <path d="M8 6V4h8v2" />
-    <path d="M6 6l1 14h10l1-14" />
-  </>,
-)
-
-const ICON_BUTTON =
-  'text-text-secondary hover:text-text hover:bg-bg-secondary flex h-8 w-8 items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-30'
 
 /** Keeps focus where it is (the text being typed) when a control is clicked. */
 const keepFocus = (event: React.MouseEvent): void => event.preventDefault()
 
+const TEXT_BUTTON =
+  'text-text-secondary hover:text-text hover:bg-bg-secondary rounded-md px-2 py-1 text-base'
+
 function Divider(): React.JSX.Element {
   return <div className="bg-border mx-1 h-5 w-px" />
+}
+
+function ActionButton(props: {
+  label: string
+  shortcut: string
+  icon: string
+  enabled: boolean
+  onClick: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      aria-label={props.label}
+      title={`${props.label} (${props.shortcut})`}
+      disabled={!props.enabled}
+      onClick={props.onClick}
+      className={iconButtonClass}
+    >
+      {glyph(props.icon)}
+    </button>
+  )
 }
 
 export function EditorToolbar(props: {
@@ -172,7 +130,7 @@ export function EditorToolbar(props: {
           title={`${label} (${key.toUpperCase()})`}
           onClick={() => props.onTool(tool)}
           className={clsx(
-            ICON_BUTTON,
+            iconButtonClass,
             props.tool === tool && 'bg-bg-secondary text-text ring-border-strong ring-1',
           )}
         >
@@ -209,7 +167,7 @@ export function EditorToolbar(props: {
           title={['Thin', 'Medium', 'Thick'][i]}
           onMouseDown={keepFocus}
           onClick={() => props.onSize(s)}
-          className={clsx(ICON_BUTTON, props.size === s && 'bg-bg-secondary text-text')}
+          className={clsx(iconButtonClass, props.size === s && 'bg-bg-secondary text-text')}
         >
           <span
             className="rounded-full bg-current"
@@ -218,50 +176,41 @@ export function EditorToolbar(props: {
         </button>
       ))}
       <Divider />
-      <button
-        type="button"
-        aria-label="Undo"
-        title="Undo (⌘Z)"
-        disabled={!props.canUndo}
+      <ActionButton
+        label="Undo"
+        shortcut={formatShortcut('mod', 'Z')}
+        icon="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 010 11H11"
+        enabled={props.canUndo}
         onClick={props.onUndo}
-        className={ICON_BUTTON}
-      >
-        {UNDO}
-      </button>
-      <button
-        type="button"
-        aria-label="Redo"
-        title="Redo (⇧⌘Z)"
-        disabled={!props.canRedo}
+      />
+      <ActionButton
+        label="Redo"
+        shortcut={formatShortcut('mod', 'shift', 'Z')}
+        icon="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 000 11H13"
+        enabled={props.canRedo}
         onClick={props.onRedo}
-        className={ICON_BUTTON}
-      >
-        {REDO}
-      </button>
-      <button
-        type="button"
-        aria-label="Delete selected"
-        title="Delete selected (⌫)"
-        disabled={!props.canDelete}
+      />
+      <ActionButton
+        label="Delete selected"
+        shortcut="Delete"
+        icon="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"
+        enabled={props.canDelete}
         onClick={props.onDelete}
-        className={ICON_BUTTON}
-      >
-        {TRASH}
-      </button>
+      />
       <div className="ml-auto flex items-center gap-1">
         <button
           type="button"
-          title="Put the clipboard's image on top (⌘V)"
+          title={`Put the clipboard's image on top (${formatShortcut('mod', 'V')})`}
           onClick={props.onPaste}
-          className="text-text-secondary hover:text-text hover:bg-bg-secondary rounded-md px-2 py-1 text-base"
+          className={TEXT_BUTTON}
         >
           Paste image
         </button>
         <button
           type="button"
-          title="Swap the screenshot underneath for the clipboard's image (⇧⌘V)"
+          title={`Swap the screenshot underneath for the clipboard's image (${formatShortcut('mod', 'shift', 'V')})`}
           onClick={props.onReplace}
-          className="text-text-secondary hover:text-text hover:bg-bg-secondary rounded-md px-2 py-1 text-base"
+          className={TEXT_BUTTON}
         >
           Replace image
         </button>

@@ -18,12 +18,11 @@ export function AttachmentChips({
 }: {
   attachments: PendingAttachment[]
   onRemove: (index: number) => void
-  onEdit: (index: number, image: PendingImage, replace: boolean) => void
+  onEdit: (index: number, image: PendingImage, replace: boolean) => boolean
 }): React.JSX.Element | null {
-  // The image is captured at open time: the drafts store swaps the attachment
-  // object for one carrying its blobId, and the editor must not reset on that.
-  const [editing, setEditing] = useState<{ index: number; image: PendingImage } | null>(null)
+  const [editing, setEditing] = useState<number | null>(null)
   if (attachments.length === 0) return null
+  const edited = editing === null ? undefined : attachments[editing]
   return (
     <div className="flex flex-wrap gap-2 px-3 pt-3" data-testid="attachment-chips">
       {attachments.map((attachment, index) => (
@@ -32,7 +31,7 @@ export function AttachmentChips({
             <ChatImage
               image={{ type: 'image', data: attachment.data, mimeType: attachment.mimeType }}
               className="border-border h-16 w-16 rounded-lg border object-cover"
-              onOpen={() => setEditing({ index, image: attachment })}
+              onOpen={() => setEditing(index)}
             />
           ) : (
             <div
@@ -54,13 +53,14 @@ export function AttachmentChips({
           </button>
         </div>
       ))}
-      {editing && (
+      {editing !== null && edited?.kind === 'image' && (
         <ImageEditor
-          image={editing.image}
+          image={edited}
           onCancel={() => setEditing(null)}
           onSave={(image, replace) => {
-            onEdit(editing.index, image, replace)
-            setEditing(null)
+            const accepted = onEdit(editing, image, replace)
+            if (accepted) setEditing(null)
+            return accepted
           }}
         />
       )}

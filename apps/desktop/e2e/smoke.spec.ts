@@ -1660,11 +1660,16 @@ test('annotating a pasted image replaces it by default, or keeps both', async ()
     }, annotatedSrc!)
     expect(redPixels).toBeGreaterThan(100)
 
-    // Unchecked, the annotated copy is attached next to the original.
+    // Unchecked, the annotated copy is attached next to the original. The
+    // checkbox keeps focus after the click; shortcuts must still work.
     await thumbnails.first().click()
-    await page.keyboard.press('o')
-    await drag([0.5, 0.2], [0.7, 0.7])
     await editor.getByLabel('Replace original').uncheck()
+    await page.keyboard.press('o')
+    await expect(editor.getByRole('button', { name: 'Circle' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await drag([0.5, 0.2], [0.7, 0.7])
     await editor.getByRole('button', { name: 'Done' }).click()
     await expect(thumbnails).toHaveCount(2)
     // The remove buttons only show on hover, hence `includeHidden`.
@@ -1674,6 +1679,21 @@ test('annotating a pasted image replaces it by default, or keeps both', async ()
     await expect(
       chips.getByRole('button', { name: 'Remove wide-annotated.png', includeHidden: true }),
     ).toHaveCount(1)
+
+    // Paste and Replace read the system clipboard through main.
+    await harness.app.evaluate(({ clipboard, nativeImage }, pngB64: string) => {
+      clipboard.writeImage(nativeImage.createFromBuffer(Buffer.from(pngB64, 'base64')))
+    }, PNG_1X1)
+    await thumbnails.first().click()
+    await expect(canvas).toHaveAttribute('width', '1800')
+    await editor.getByRole('button', { name: 'Paste image' }).click()
+    // The pasted layer arrives selected, ready to move or delete.
+    await expect(editor.getByRole('button', { name: 'Delete selected' })).toBeEnabled()
+    await editor.getByRole('button', { name: 'Replace image' }).click()
+    await expect(canvas).toHaveAttribute('width', '1')
+    await editor.getByRole('button', { name: 'Cancel' }).click()
+    await editor.getByRole('button', { name: 'Discard' }).click()
+    await expect(editor).toBeHidden()
 
     // Escape with unsaved marks asks first; a second Escape discards them.
     await thumbnails.first().click()

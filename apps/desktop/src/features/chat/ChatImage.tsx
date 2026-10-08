@@ -84,7 +84,10 @@ export function ChatImage({
         title={
           onOpen ? 'Click to annotate · right-click to copy' : 'Click to open · right-click to copy'
         }
-        className="hover:ring-accent/50 hover:shadow-md inline-flex max-w-full shrink-0 cursor-zoom-in overflow-hidden rounded-lg outline-none transition-all hover:ring-2"
+        className={clsx(
+          'hover:ring-accent/50 hover:shadow-md inline-flex max-w-full shrink-0 overflow-hidden rounded-lg outline-none transition-all hover:ring-2',
+          onOpen ? 'cursor-pointer' : 'cursor-zoom-in',
+        )}
       >
         <img
           src={src}

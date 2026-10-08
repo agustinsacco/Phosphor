@@ -3,28 +3,30 @@ import { ipcErrorText } from '@shared/errors'
 import { ModalOverlay } from '@/components/Modal'
 import { Button } from '@/components/form'
 import { bytesToBase64 } from '@/lib/base64'
+import { formatShortcut } from '@/lib/shortcuts'
 import { useExtensionUiStore } from '@/stores/extensionUi'
 import { annotatedName, type PendingImage } from '../attachments'
 import { COLORS, EditorToolbar, SIZES, TOOLS, type Size, type Tool } from './EditorToolbar'
 import {
   HANDLE_RADIUS,
+  contrastFor,
   decodeImage,
   drawScene,
   drawSelection,
   flattenScene,
   measureWith,
   textFont,
-  contrastFor,
 } from './render'
 import {
   TEXT_LINE_HEIGHT,
+  addShape,
   commit,
   dragHandle,
   handles,
   hitTest,
   initHistory,
   isDegenerate,
-  newShapeId,
+  newId,
   nextStep,
   normalizeBox,
   placeLayer,
@@ -76,7 +78,8 @@ export function ImageEditor({
 }: {
   image: PendingImage
   onCancel: () => void
-  onSave: (image: PendingImage, replace: boolean) => void
+  /** False when the composer refused it (too many bytes): the editor stays open. */
+  onSave: (image: PendingImage, replace: boolean) => boolean
 }): React.JSX.Element {
   const [history, setHistory] = useState<History | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -89,7 +92,8 @@ export function ImageEditor({
   const [discardArmed, setDiscardArmed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [stage, setStage] = useState({ w: 0, h: 0 })
-  const [, setDecoded] = useState(0)
+  /** Bumped as images finish decoding, so the canvas repaints with them. */
+  const [decodedCount, setDecodedCount] = useState(0)
 
   // Mirrors of in-flight state, read by handlers that can run before React
   // re-renders (a pointerup right after the last pointermove, a blur that
@@ -118,15 +122,17 @@ export function ImageEditor({
     setTextEditState(edit)
   }
 
-  const load = useCallback(async (data: string, mimeType: string, id = newShapeId()) => {
+  const load = useCallback(async (data: string, mimeType: string, id = newId()) => {
     const decoded = await decodeImage(data, mimeType)
     decodedImages.current.set(id, decoded.element)
-    setDecoded((n) => n + 1)
+    setDecodedCount((n) => n + 1)
     return { id, data, mimeType, width: decoded.width, height: decoded.height }
   }, [])
 
-  // Decode once, from the image the editor was opened on. Reopening an
-  // annotated image restores its layers rather than drawing on the flat PNG.
+  // Decode once, from the image the editor was opened on: the drafts store
+  // swaps the attachment for a copy carrying its blobId, and that must not
+  // reset the editor. Reopening an annotated image restores its layers rather
+  // than drawing on the flat PNG.
   const opened = useRef(image).current
   useEffect(() => {
     let cancelled = false
@@ -178,15 +184,23 @@ export function ImageEditor({
   const unit = zoom > 0 ? 1 / zoom : 1
   const selected = present?.shapes.find((s) => s.id === selectedId) ?? null
 
+  const hiddenId = textEdit && !textEdit.isNew ? textEdit.shape.id : undefined
   useEffect(() => {
     const ctx = canvasRef.current?.getContext('2d')
     if (!ctx || !scene) return
-    drawScene(ctx, scene, lookup, textEdit && !textEdit.isNew ? textEdit.shape.id : undefined)
+    drawScene(ctx, scene, lookup, hiddenId)
     const shown = scene.shapes.find((s) => s.id === selectedId)
     if (shown && tool === 'select') drawSelection(ctx, shown, unit, measure)
-  })
+  }, [scene, hiddenId, selectedId, tool, unit, lookup, measure, decodedCount, zoom])
 
   const apply = (next: Scene): void => setHistory((h) => (h ? commit(h, next) : h))
+  const stepHistory = (move: (h: History) => History): void => {
+    setHistory((h) => h && move(h))
+    setSelectedId(null)
+  }
+  /** Topmost shape under an image point, with a few screen pixels of slack. */
+  const shapeAt = (p: Pt): Shape | null =>
+    present ? hitTest(present.shapes, p, 6 * unit, measure) : null
 
   const setTool = (next: Tool): void => {
     if (next !== 'select') setSelectedId(null)
@@ -210,7 +224,7 @@ export function ImageEditor({
     } else if (original) {
       next = withShape(present, original.id, { ...edit.shape, text })
     } else {
-      next = { ...present, shapes: [...present.shapes, { ...edit.shape, text }] }
+      next = addShape(present, { ...edit.shape, text })
     }
     if (next !== present) apply(next)
     return next
@@ -235,14 +249,13 @@ export function ImageEditor({
       return
     }
     const p = toImagePoint(event)
-    const tolerance = 6 * unit
     if (tool === 'text') {
-      const hit = hitTest(present.shapes, p, tolerance, measure)
+      const hit = shapeAt(p)
       if (hit?.kind === 'text') startText(hit, false)
       else {
         const shape: TextShape = {
           kind: 'text',
-          id: newShapeId(),
+          id: newId(),
           color,
           at: p,
           text: '',
@@ -254,13 +267,16 @@ export function ImageEditor({
     }
     if (tool === 'step') {
       const n = nextStep(present.shapes)
-      apply({
-        ...present,
-        shapes: [
-          ...present.shapes,
-          { kind: 'step', id: newShapeId(), color, at: p, n, size: SIZES[size].step * unit },
-        ],
-      })
+      apply(
+        addShape(present, {
+          kind: 'step',
+          id: newId(),
+          color,
+          at: p,
+          n,
+          size: SIZES[size].step * unit,
+        }),
+      )
       return
     }
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -274,12 +290,12 @@ export function ImageEditor({
         gesture.current = { type: 'handle', handle: grip.handle, origin: selected }
         return
       }
-      const hit = hitTest(present.shapes, p, tolerance, measure)
+      const hit = shapeAt(p)
       setSelectedId(hit?.id ?? null)
       if (hit) gesture.current = { type: 'move', start: p, origin: hit }
       return
     }
-    const id = newShapeId()
+    const id = newId()
     const width = SIZES[size].stroke * unit
     const shape: Shape =
       tool === 'pen' || tool === 'highlight'
@@ -295,7 +311,7 @@ export function ImageEditor({
           ? { kind: 'arrow', id, color, width, from: p, to: p }
           : { kind: tool, id, color, width, x: p.x, y: p.y, w: 0, h: 0 }
     gesture.current = { type: 'draw', start: p, shape }
-    setLive({ ...present, shapes: [...present.shapes, shape] })
+    setLive(addShape(present, shape))
   }
 
   const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>): void => {
@@ -325,7 +341,7 @@ export function ImageEditor({
       return
     }
     g.shape = next
-    setLive({ ...present, shapes: [...present.shapes, next] })
+    setLive(addShape(present, next))
   }
 
   const onPointerUp = (): void => {
@@ -339,8 +355,8 @@ export function ImageEditor({
   }
 
   const onDoubleClick = (event: React.MouseEvent<HTMLCanvasElement>): void => {
-    if (!present || tool !== 'select') return
-    const hit = hitTest(present.shapes, toImagePoint(event), 6 * unit, measure)
+    if (tool !== 'select') return
+    const hit = shapeAt(toImagePoint(event))
     if (hit?.kind === 'text') startText(hit, false)
   }
 
@@ -382,7 +398,7 @@ export function ImageEditor({
         return
       }
       const shape = placeLayer(layer, current.base)
-      apply({ ...current, shapes: [...current.shapes, shape] })
+      apply(addShape(current, shape))
       setToolState('select')
       setSelectedId(shape.id)
     } catch (error) {
@@ -417,16 +433,15 @@ export function ImageEditor({
     setSaving(true)
     try {
       const data = await flattenScene(final, lookup)
-      onSave(
-        {
-          kind: 'image',
-          data,
-          mimeType: 'image/png',
-          name: annotatedName(opened.name, replace),
-          annotation: final,
-        },
+      const name = annotatedName(opened.name, replace)
+      const accepted = onSave(
+        { kind: 'image', data, mimeType: 'image/png', name, annotation: final },
         replace,
       )
+      if (!accepted) {
+        setSaving(false)
+        toast('No room for this image: send or remove some attachments first.', 'error')
+      }
     } catch (error) {
       setSaving(false)
       toast(`Could not save the annotated image: ${ipcErrorText(error)}`, 'error')
@@ -448,14 +463,15 @@ export function ImageEditor({
 
   const onKeyDown = (event: React.KeyboardEvent): void => {
     event.stopPropagation()
-    const target = event.target as HTMLElement
-    if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') return
+    // Only the annotation's own text field keeps its keys. The canvas never
+    // takes focus, so after the checkbox is clicked focus stays there, and
+    // ignoring inputs too left every shortcut dead until the next Tab.
+    if ((event.target as HTMLElement).tagName === 'TEXTAREA') return
     const mod = event.metaKey || event.ctrlKey
     const key = event.key.toLowerCase()
     if (mod && key === 'z') {
       event.preventDefault()
-      setHistory((h) => (h ? (event.shiftKey ? redo(h) : undo(h)) : h))
-      setSelectedId(null)
+      stepHistory(event.shiftKey ? redo : undo)
     } else if (mod && key === 'enter') {
       event.preventDefault()
       void done()
@@ -508,8 +524,8 @@ export function ImageEditor({
           onSize={resize}
           canUndo={(history?.past.length ?? 0) > 0}
           canRedo={(history?.future.length ?? 0) > 0}
-          onUndo={() => setHistory((h) => h && undo(h))}
-          onRedo={() => setHistory((h) => h && redo(h))}
+          onUndo={() => stepHistory(undo)}
+          onRedo={() => stepHistory(redo)}
           canDelete={selected !== null && tool === 'select'}
           onDelete={deleteSelected}
           onPaste={() => void fromClipboard('layer')}
@@ -600,7 +616,8 @@ export function ImageEditor({
           ) : (
             <>
               <span className="text-text-tertiary mr-auto text-sm">
-                Shift keeps squares and circles round · ⌘V pastes an image on top · Esc closes
+                Hold Shift for a square or circle · {formatShortcut('mod', 'V')} pastes an image on
+                top · Esc closes
               </span>
               <label
                 className="text-text-secondary flex cursor-pointer items-center gap-2 text-base"

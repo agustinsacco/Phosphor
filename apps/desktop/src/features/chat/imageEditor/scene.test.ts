@@ -113,6 +113,15 @@ describe('hitTest', () => {
     expect(at(90, 10)).toBeUndefined()
   })
 
+  it('keeps a shape selectable after a box is drawn around it', () => {
+    const inner: Shape = { ...arrow, id: 'inner', from: { x: 150, y: 130 }, to: { x: 250, y: 170 } }
+    // The box was drawn last, so it is on top, but only its outline is ink.
+    expect(hitTest([inner, rect], { x: 200, y: 150 }, 3, measure)?.id).toBe('inner')
+    expect(hitTest([inner, rect], { x: 101, y: 150 }, 3, measure)?.id).toBe('r')
+    // Empty inside still selects the box when nothing else is there.
+    expect(hitTest([inner, rect], { x: 120, y: 190 }, 3, measure)?.id).toBe('r')
+  })
+
   it('prefers the shape painted last', () => {
     const top: Shape = { ...rect, id: 'top' }
     expect(hitTest([rect, top], { x: 150, y: 150 }, 3, measure)?.id).toBe('top')

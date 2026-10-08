@@ -106,19 +106,30 @@ function inBox(p: Pt, b: Box, pad: number): boolean {
   return p.x >= b.x - pad && p.x <= b.x + b.w + pad && p.y >= b.y - pad && p.y <= b.y + b.h + pad
 }
 
-/** Does `p` touch `shape`? `tolerance` is in image pixels. */
+/** Where `p` sits relative to an ellipse: 1 on its outline, below 1 inside. */
+function ellipseDistance(shape: Box, p: Pt, grow: number): number {
+  const nx = (p.x - (shape.x + shape.w / 2)) / Math.max(shape.w / 2 + grow, 0.5)
+  const ny = (p.y - (shape.y + shape.h / 2)) / Math.max(shape.h / 2 + grow, 0.5)
+  return nx * nx + ny * ny
+}
+
+/**
+ * Does `p` touch the ink of `shape`? Boxes and ellipses are outlines, so only
+ * their stroke counts: an arrow drawn inside a box stays selectable after the
+ * box is drawn over it. `tolerance` is in image pixels.
+ */
 export function hits(shape: Shape, p: Pt, tolerance: number, measure: MeasureText): boolean {
   switch (shape.kind) {
-    case 'rect':
     case 'image':
     case 'text':
       return inBox(p, bounds(shape, measure), tolerance)
+    case 'rect': {
+      const reach = tolerance + shape.width / 2
+      return inBox(p, shape, reach) && !inBox(p, shape, -reach)
+    }
     case 'ellipse': {
-      const rx = shape.w / 2 + tolerance
-      const ry = shape.h / 2 + tolerance
-      const nx = (p.x - (shape.x + shape.w / 2)) / rx
-      const ny = (p.y - (shape.y + shape.h / 2)) / ry
-      return nx * nx + ny * ny <= 1
+      const reach = tolerance + shape.width / 2
+      return ellipseDistance(shape, p, reach) <= 1 && ellipseDistance(shape, p, -reach) >= 1
     }
     case 'arrow':
       return distToSegment(p, shape.from, shape.to) <= tolerance + shape.width / 2
@@ -136,17 +147,28 @@ export function hits(shape: Shape, p: Pt, tolerance: number, measure: MeasureTex
   }
 }
 
-/** Topmost shape under `p`, or null. Later shapes paint over earlier ones. */
+function encloses(shape: Shape, p: Pt): boolean {
+  if (shape.kind === 'rect') return inBox(p, shape, 0)
+  if (shape.kind === 'ellipse') return ellipseDistance(shape, p, 0) <= 1
+  return false
+}
+
+/**
+ * Topmost shape under `p`, or null; later shapes paint over earlier ones. Ink
+ * wins over the empty inside of a box, which still selects when nothing else
+ * is there.
+ */
 export function hitTest(
   shapes: Shape[],
   p: Pt,
   tolerance: number,
   measure: MeasureText,
 ): Shape | null {
-  for (let i = shapes.length - 1; i >= 0; i--) {
-    if (hits(shapes[i]!, p, tolerance, measure)) return shapes[i]!
-  }
-  return null
+  return (
+    shapes.findLast((s) => hits(s, p, tolerance, measure)) ??
+    shapes.findLast((s) => encloses(s, p)) ??
+    null
+  )
 }
 
 /** Draggable handles: box corners, or the two ends of an arrow. */
@@ -225,7 +247,7 @@ export function placeLayer(layer: LayerImage, base: LayerImage): Shape {
   const h = layer.height * scale
   return {
     kind: 'image',
-    id: newShapeId(),
+    id: newId(),
     image: layer,
     x: (base.width - w) / 2,
     y: (base.height - h) / 2,
@@ -287,6 +309,10 @@ export function redo(history: History): History {
   return { past: [...history.past, history.present], present: next, future: rest }
 }
 
+export function addShape(scene: Scene, shape: Shape): Scene {
+  return { ...scene, shapes: [...scene.shapes, shape] }
+}
+
 /** Replace one shape by id (or drop it when `next` is null). */
 export function withShape(scene: Scene, id: string, next: Shape | null): Scene {
   const shapes = next
@@ -303,9 +329,7 @@ export function sceneBytes(scene: Scene): number {
   )
 }
 
-let idCounter = 0
-
-export function newShapeId(): string {
-  idCounter += 1
-  return `s${Date.now().toString(36)}${idCounter}`
+/** Identity for shapes and decoded images; never persisted. */
+export function newId(): string {
+  return crypto.randomUUID()
 }

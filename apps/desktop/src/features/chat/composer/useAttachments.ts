@@ -23,6 +23,8 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 /** Refuse a paste that would push the pending set past this. */
 export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024
 
+const TOO_MANY_IMAGES = 'Too many images attached — send some before adding more.'
+
 export interface AttachmentsApi {
   /** True while a file drag is over the drop zone. */
   dragging: boolean
@@ -30,9 +32,10 @@ export interface AttachmentsApi {
   remove: (index: number) => void
   /**
    * Store an annotated image: in place of the one at `index`, or (when
-   * `replace` is false) right after it, so both stay attached.
+   * `replace` is false) right after it, so both stay attached. False when
+   * it was refused for size.
    */
-  edit: (index: number, image: PendingImage, replace: boolean) => void
+  edit: (index: number, image: PendingImage, replace: boolean) => boolean
   handlePaste: (event: React.ClipboardEvent) => void
   handleDragOver: (event: React.DragEvent) => void
   handleDragLeave: (event: React.DragEvent) => void
@@ -79,7 +82,7 @@ export function useAttachments({
           if (!attachment) return
           const next = [...latest.current, attachment]
           if (totalAttachmentBytes(next) > MAX_ATTACHMENT_BYTES) {
-            onReject?.('Too many images attached — send some before adding more.')
+            onReject?.(TOO_MANY_IMAGES)
             return
           }
           latest.current = next
@@ -102,13 +105,14 @@ export function useAttachments({
   const edit = useCallback(
     (index: number, image: PendingImage, replace: boolean) => {
       const next = placeAnnotated(latest.current, index, image, replace)
-      if (next === latest.current) return
+      if (next === latest.current) return false
       if (totalAttachmentBytes(next) > MAX_ATTACHMENT_BYTES) {
-        onReject?.('Too many images attached — send some before adding more.')
-        return
+        onReject?.(TOO_MANY_IMAGES)
+        return false
       }
       latest.current = next
       onChange(next)
+      return true
     },
     [onChange, onReject],
   )

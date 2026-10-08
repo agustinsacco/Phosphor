@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { join } from 'node:path'
 import type { PiHealth } from '@shared/models'
 import {
   prepareSessionLaunch,
@@ -24,7 +25,8 @@ const runtime: SessionLaunchRuntime = {
     stub
       ? { ELECTRON_RUN_AS_NODE: '1' }
       : { ...(await piProcessEnv()), ...claudeProviderSpawnEnv() },
-  resourceRoot: () => (app.isPackaged ? process.resourcesPath : app.getAppPath()),
+  resourceRoot: () =>
+    app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'libs/pi-extensions'),
 }
 
 export function prepareDesktopSessionLaunch() {

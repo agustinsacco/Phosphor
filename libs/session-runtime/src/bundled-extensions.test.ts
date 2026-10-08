@@ -8,7 +8,7 @@ const root = resolve(import.meta.dirname, '../../..')
 describe('bundledExtensions', () => {
   it('includes production extension entry points, without helpers, tests or optional packages', () => {
     // context-budget is imported by context-breakdown, not loaded separately with -e.
-    const files = readdirSync(join(root, 'pi-ext')).filter(
+    const files = readdirSync(join(root, 'libs/pi-extensions/pi-ext')).filter(
       (name) => name.endsWith('.ts') && !name.endsWith('.test.ts') && name !== 'context-budget.ts',
     )
     expect([...BUNDLED_EXTENSION_FILES].sort()).toEqual(files.sort())
@@ -16,7 +16,11 @@ describe('bundledExtensions', () => {
   })
 
   it('uses the supplied development, packaged or standalone resource root', () => {
-    for (const base of [root, join(root, 'resources'), join(root, 'host', 'version with spaces')]) {
+    for (const base of [
+      join(root, 'libs/pi-extensions'),
+      join(root, 'resources'),
+      join(root, 'host', 'version with spaces'),
+    ]) {
       expect(bundledExtensions(base)).toEqual(
         BUNDLED_EXTENSION_FILES.map((name) => join(base, 'pi-ext', name)),
       )

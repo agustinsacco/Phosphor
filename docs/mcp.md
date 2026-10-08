@@ -92,7 +92,7 @@ file (`electron/pi/mcp-cache-watcher.ts`) and, when what it says changes
   `mcp__<server>__*` `/` commands. The home composer's per-folder list is
   dropped and every live session re-asks `get_commands`.
 
-The context meter follows too: `pi-ext/context-breakdown.ts` re-measures when
+The context meter follows too: `libs/pi-extensions/pi-ext/context-breakdown.ts` re-measures when
 the adapter's status snapshot changes, since a reload runs no turn and would
 otherwise leave direct-tool costs stale until the next message.
 
@@ -181,7 +181,7 @@ Linear.
 
 ## Per-server status
 
-`pi-ext/mcp-status.ts` forwards the adapter's `pi-mcp-adapter/status/v1`
+`libs/pi-extensions/pi-ext/mcp-status.ts` forwards the adapter's `pi-mcp-adapter/status/v1`
 snapshots to the renderer under status key `phosphor-mcp-status` (lowercase, a
 string literal matched on both sides with no type to catch a mismatch). That is
 the only structured source of per-server state: connected / needs-auth /
@@ -245,6 +245,6 @@ mcp:submitAuthCallback / mcp:cancelAuth / mcp:checkServer` and the
   and renderer), `src/features/connectors/` (`catalog.ts`, `mcpStatus.ts`,
   `FlowCard.tsx`, `ServerEditor.tsx`), `src/stores/connectors.ts`,
   `electron/pi/connector-auth.ts`, `electron/pi/connector-check.ts`,
-  `pi-ext/mcp-status.ts`.
+  `libs/pi-extensions/pi-ext/mcp-status.ts`.
 - UI: `src/features/settings/tabs/ConnectorsTab.tsx`. Mock cases in
   `src/dev/mockPhosphor.ts`.

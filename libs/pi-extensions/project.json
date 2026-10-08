@@ -1,7 +1,8 @@
 {
-  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "name": "pi-extensions",
-  "root": "pi-ext",
+  "root": "libs/pi-extensions",
+  "sourceRoot": "libs/pi-extensions/pi-ext",
   "projectType": "library",
   "tags": ["scope:pi-extensions"],
   "implicitDependencies": ["desktop"],
@@ -11,7 +12,7 @@
       "cache": false,
       "inputs": ["workspace"],
       "options": {
-        "command": "vitest run pi-ext",
+        "command": "vitest run libs/pi-extensions",
         "cwd": "."
       }
     }

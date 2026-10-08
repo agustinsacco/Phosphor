@@ -270,7 +270,7 @@ Six facts that explain the rest:
    sessions list is a scan of pi's session directory. Phosphor appends to those
    files for bookmarks, branch jumps and forks, which is only safe while no pi
    process owns the file.
-5. **Six extensions run inside pi's process** (`pi-ext/`, loaded with `-e` into
+5. **Six extensions run inside pi's process** (`libs/pi-extensions/pi-ext/`, loaded with `-e` into
    every session): `artifacts`, `context-breakdown`, `headroom`, `mcp-status`,
    `tool-name-guard`, `worktree-paths`. Two of them can change or refuse what
    the model did: [docs/extensions.md](docs/extensions.md).
@@ -305,7 +305,7 @@ npm run dev
 | `npm run shots:live` | Re-shoot this README against a real pi instance (see below)    |
 
 Tests live beside their subject as `*.test.ts`, in `electron/`, `libs/shared/src/` and
-`pi-ext/` included.
+`libs/pi-extensions/pi-ext/` included.
 
 ### Nx task orchestration
 
@@ -331,7 +331,7 @@ the same full unit suites without running them.
 | `desktop`       | Root app configuration, `electron/`, `src/`, `e2e/`, `build/`, `docs/img/` |
 | `runtime`       | `libs/session-runtime/src/`, including plain-Node and fake-pi tests        |
 | `shared`        | `libs/shared/`                                                             |
-| `pi-extensions` | `pi-ext/`, including optional extension tests                              |
+| `pi-extensions` | `libs/pi-extensions/pi-ext/`, including optional extension tests           |
 | `site`          | `site/`, with its independent install and lockfile                         |
 | `schema`        | `supabase/`, with explicit start/test/stop lifecycle                       |
 | `tooling`       | `scripts/`, including workspace-wide checks                                |
@@ -462,7 +462,7 @@ src/                 renderer (React) — pure UI over typed IPC
   styles/            the Phosphor design tokens
   assets/            the bundled fonts
   dev/               browser-only mock of the preload API (never bundled)
-pi-ext/              the six pi extensions that run inside pi's process,
+libs/pi-extensions/pi-ext/  the six pi extensions that run inside pi's process,
                      bundled into every session: artifacts, context-breakdown,
                      headroom, mcp-status, tool-name-guard, worktree-paths
 e2e/                 Playwright-Electron smoke tests + deterministic pi stub

@@ -114,7 +114,7 @@ duplicated here; the copy drifted (it named a `types/ipc.ts` that never existed,
 listed 6 of the feature folders, and 2 pi extensions), so this section is a
 pointer now. As of today `src/features/` has **15** folders (artifacts, chat,
 connectors, extension-ui, files, home, palette, sessions, settings, skills,
-terminal, updates, workspaces, worktrees, routines) and `pi-ext/` has **6** modules —
+terminal, updates, workspaces, worktrees, routines) and `libs/pi-extensions/pi-ext/` has **6** modules —
 `artifacts`, `context-breakdown`, `worktree-paths`, `tool-name-guard`,
 `mcp-status`, `headroom` — **all six** loaded into every session by
 `bundledExtensions()` in `libs/session-runtime/src/bundled-extensions.ts`, called by

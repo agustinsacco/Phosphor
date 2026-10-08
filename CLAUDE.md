@@ -160,7 +160,7 @@ you want to watch.
   gives most Claude models a 1M window, so pi's own threshold
   (`contextWindow - reserveTokens`) alone lets such a session reach ~984k
   before it compacts. The bundled context extension loads
-  `pi-ext/context-budget.ts` to cap session-local model metadata via
+  `libs/pi-extensions/pi-ext/context-budget.ts` to cap session-local model metadata via
   `pi.setModel`, without changing the catalogue. pi 0.87.1+ then compacts
   before prompts and between tool cycles, reserving response headroom below
   the budget. In-run cap changes wait for `turn_end`: model-select hooks can
@@ -170,7 +170,7 @@ you want to watch.
   native in-loop compaction remains enabled for routines. See
   [cli-providers.md](docs/cli-providers.md#one-context-budget).
 
-- **Phosphor ships six extensions that run inside pi's process** (`pi-ext/`,
+- **Phosphor ships six extensions that run inside pi's process** (`libs/pi-extensions/pi-ext/`,
   loaded with `-e` into every session; listed in `bundledExtensions()` in
   `libs/session-runtime/src/bundled-extensions.ts`). They are the only Phosphor code with a
   say inside a turn. The context extension caps the session window for native
@@ -191,9 +191,9 @@ you want to watch.
     request (`Member must satisfy regular expression pattern: [a-zA-Z0-9_-]+`),
     bricking the thread permanently. The guard turns it into plain text.
 - **Five UI surfaces are fed by extensions, not by RPC.** The context meter's
-  composition section comes from `pi-ext/context-breakdown.ts` (bundled, `-e`
-  into every session), per-server MCP state from `pi-ext/mcp-status.ts`, and
-  headroom/compression state from `pi-ext/headroom.ts`; its plan-limits
+  composition section comes from `libs/pi-extensions/pi-ext/context-breakdown.ts` (bundled, `-e`
+  into every session), per-server MCP state from `libs/pi-extensions/pi-ext/mcp-status.ts`, and
+  headroom/compression state from `libs/pi-extensions/pi-ext/headroom.ts`; its plan-limits
   section and the sub-agent chip come from the Claude provider package. All
   arrive over `ctx.ui.setStatus` into `stores/extensionUi.ts`. **The status
   keys are lowercase `phosphor-*` / `claude-*` string literals, unchecked on
@@ -234,7 +234,7 @@ you want to watch.
 ## Conventions
 
 - Tests live beside their subject as `*.test.ts` — **everywhere**, `electron/`
-  and `libs/shared/src/` and `pi-ext/` included. One `__tests__/` directory is left
+  and `libs/shared/src/` and `libs/pi-extensions/pi-ext/` included. One `__tests__/` directory is left
   (`scripts/__tests__/`); the rest were moved next to their subjects. Shared
   inputs go in a sibling `__fixtures__/`.
   DOM suites opt in per file with `// @vitest-environment jsdom`. Prefer

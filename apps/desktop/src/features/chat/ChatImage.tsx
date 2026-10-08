@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
+import { ipcErrorText } from '@shared/errors'
 import type { ImageContent } from '@shared/rpc'
 import { ModalOverlay } from '@/components/Modal'
 import { useExtensionUiStore } from '@/stores/extensionUi'
@@ -24,7 +25,7 @@ export async function copyChatImage(img: ImageContent): Promise<void> {
     })
     useExtensionUiStore.getState().pushToast('Image copied')
   } catch (error) {
-    useExtensionUiStore.getState().pushToast(`Copy failed: ${(error as Error).message}`, 'error')
+    useExtensionUiStore.getState().pushToast(`Copy failed: ${ipcErrorText(error)}`, 'error')
   }
 }
 

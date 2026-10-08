@@ -48,4 +48,23 @@ describe('copyChatImage', () => {
       expect.objectContaining({ message: 'Copy failed: clipboard unavailable', kind: 'error' }),
     ])
   })
+
+  it.each([
+    ['a thrown string', 'clipboard busy', 'Copy failed: clipboard busy'],
+    [
+      "Electron's IPC wrapper",
+      new Error("Error invoking remote method 'clipboard:writeImage': Error: unsupported image"),
+      'Copy failed: unsupported image',
+    ],
+  ])('names the real failure for %s', async (_, rejection, message) => {
+    ;(globalThis as unknown as { window: { phosphor: unknown } }).window.phosphor = {
+      invoke: () => Promise.reject(rejection),
+    }
+
+    await copyChatImage(image)
+
+    expect(useExtensionUiStore.getState().toasts).toEqual([
+      expect.objectContaining({ message, kind: 'error' }),
+    ])
+  })
 })

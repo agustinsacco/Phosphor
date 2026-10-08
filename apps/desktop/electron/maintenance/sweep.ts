@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { stat } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import type { MaintenancePrefs, MaintenanceReport } from '@shared/models'
-import { git } from '../fs/git-exec'
+import { git } from '@phosphor/session-runtime/git/git-exec'
 import {
   isBranchMerged,
   landedViaPullRequest,

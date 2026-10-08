@@ -12,6 +12,18 @@
       "types": "./src/file-log.ts",
       "default": "./src/file-log.ts"
     },
+    "./git/git-exec": {
+      "types": "./src/git/git-exec.ts",
+      "default": "./src/git/git-exec.ts"
+    },
+    "./git/git-info": {
+      "types": "./src/git/git-info.ts",
+      "default": "./src/git/git-info.ts"
+    },
+    "./git/git-info-cache": {
+      "types": "./src/git/git-info-cache.ts",
+      "default": "./src/git/git-info-cache.ts"
+    },
     "./pi/context-budget": {
       "types": "./src/pi/context-budget.ts",
       "default": "./src/pi/context-budget.ts"

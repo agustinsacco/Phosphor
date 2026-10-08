@@ -445,7 +445,8 @@ apps/desktop/electron/            main process — owns every side effect
   headroom/          Headroom proxy supervisor (adopt/spawn/kill) + install job
   optimization/      the Advisor rules engine (pure functions, advice only)
   pty/               node-pty manager + spawn-helper repair
-  fs/                file service, git layer (git-exec/info/sync/worktrees),
+  fs/                file service, git service/sync/worktrees (over the
+                     runtime library's git/),
                      workspace watcher, workspace search (worker thread)
   artifacts/         the `phosphor-artifact://` protocol — model HTML on its
                      own origin, so it runs JS without weakening the app CSP;
@@ -459,6 +460,7 @@ libs/session-runtime/src/  Electron-free source modules, not a separate service
                      session ownership, startup/policy preparation, command/resume
                      admission and deletion coordination with machine-local ports
   file-log.ts        injected file logging
+  git/               the one git runner, repository/worktree info and its cache
   bundled-extensions.ts  bundled extension paths
 supabase/            isolated control-directory migrations and local RLS tests
 libs/shared/src/     types and pure logic shared by main + renderer

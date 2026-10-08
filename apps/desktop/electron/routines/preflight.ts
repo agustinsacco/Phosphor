@@ -1,5 +1,5 @@
 import { realpathSync } from 'node:fs'
-import { gitInfo } from '../fs/git-info'
+import { gitInfo } from '@phosphor/session-runtime/git/git-info'
 import { registry } from '../registry'
 import type { RoutineInput } from '@shared/routines'
 

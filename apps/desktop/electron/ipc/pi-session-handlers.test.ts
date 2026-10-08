@@ -62,7 +62,7 @@ vi.mock('../claude/accounts', () => ({
   primaryAccount: vi.fn(),
 }))
 vi.mock('../headroom/proxy', () => ({ headroomSupervisor: () => ({ sessionEnv: () => ({}) }) }))
-vi.mock('../fs/git-info', () => ({
+vi.mock('@phosphor/session-runtime/git/git-info', () => ({
   gitInfoBatch: vi.fn().mockResolvedValue({ '/repo': { isRepo: false } }),
 }))
 vi.mock('../store', () => ({

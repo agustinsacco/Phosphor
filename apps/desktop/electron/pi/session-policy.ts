@@ -1,6 +1,6 @@
 import type { SessionPolicyRuntime } from '@phosphor/session-runtime/pi/session-policy'
 import { getPrefs } from '../store'
-import { gitInfoBatch } from '../fs/git-info'
+import { gitInfoBatch } from '@phosphor/session-runtime/git/git-info'
 import { accountForSpawn, claudeAccountEnv } from '../claude/accounts'
 import { headroomSupervisor } from '../headroom/proxy'
 import { readAgentSettings } from './agent-settings'

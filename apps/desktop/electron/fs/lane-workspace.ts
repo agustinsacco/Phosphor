@@ -1,7 +1,7 @@
 import { basename } from 'node:path'
 import { branchNameFor, normalizePrefix } from '@shared/branchName'
 import { errorText } from '@shared/errors'
-import { gitInfo } from './git-info'
+import { gitInfo } from '@phosphor/session-runtime/git/git-info'
 import { addWorktree, listBranches, listWorktrees, startPoint } from './git-worktrees'
 
 /**

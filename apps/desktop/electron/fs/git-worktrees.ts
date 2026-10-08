@@ -4,8 +4,13 @@ import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { existsSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AddWorktreeBranch, BranchInfo, StartPoint, WorktreeInfo } from '@shared/models'
-import { abortMergeAndCollectConflicts, dirtyCount, git, gitErrorText } from './git-exec'
-import { gitInfoCache } from './git-info-cache'
+import {
+  abortMergeAndCollectConflicts,
+  dirtyCount,
+  git,
+  gitErrorText,
+} from '@phosphor/session-runtime/git/git-exec'
+import { gitInfoCache } from '@phosphor/session-runtime/git/git-info-cache'
 import { ghCommitTree, ghMergedPrHeads } from './gh-cli'
 
 const execFileAsync = promisify(execFile)

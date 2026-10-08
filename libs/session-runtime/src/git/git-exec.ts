@@ -7,7 +7,7 @@ import { gitInfoCache } from './git-info-cache'
 const execFileAsync = promisify(execFile)
 
 /**
- * The one `git` runner for the main process.
+ * The one `git` runner for machine-local code.
  *
  * `git-info`, `git-service`, `git-sync` and `git-worktrees` each used to
  * declare their own, and the limits had drifted to four different values for

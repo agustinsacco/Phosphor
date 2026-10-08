@@ -2,7 +2,7 @@ import chokidar, { type FSWatcher } from 'chokidar'
 import { opendirSync, type Dir, type Stats } from 'node:fs'
 import { normalize, relative } from 'node:path'
 import { BrowserWindow } from 'electron'
-import { gitInfoCache } from './git-info-cache'
+import { gitInfoCache } from '@phosphor/session-runtime/git/git-info-cache'
 
 const watchers = new Map<string, FSWatcher>()
 const watcherFilters = new Map<string, WatchFilter>()

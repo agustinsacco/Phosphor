@@ -4,8 +4,7 @@ import { listSessions, readSessionTree, workspaceStats } from '../pi/session-sca
 import { deleteLane } from '../pi/delete-lane'
 import { appendBranchJump, appendLabel, forkSessionAt } from '../pi/session-writer'
 import { claudeSessionIdFor } from '../pi/claude-session-map'
-import { forkClaudeLedgerForClone, resetClaudeLedgerPairing } from '../pi/claude-ledger'
-import { log } from '../debug-log'
+import { forkClaudeLedgerForClone } from '../pi/claude-ledger'
 
 /** On-disk session discovery, tree reading and history rewrites. */
 export function registerSessionsHandlers(): void {
@@ -46,12 +45,4 @@ export function registerSessionsHandlers(): void {
   handle('sessions:forkClaudeLedger', (_event, cloneSessionFile: string) =>
     forkClaudeLedgerForClone(cloneSessionFile),
   )
-
-  handle('sessions:resetClaudeContext', async (_event, sessionFilePath: string) => {
-    const result = await resetClaudeLedgerPairing(sessionFilePath)
-    // Worth a log line: the next turn's token cost jumps, and this is the only
-    // record of why.
-    log('claude', 'context reset', { sessionFilePath, ...result })
-    return result
-  })
 }

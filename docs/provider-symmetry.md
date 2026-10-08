@@ -126,10 +126,6 @@ that alters the prompt, the tools or compaction breaks the first table.
   entry.
 - `items/transcriptRows.ts`: block shapes for sessions recorded before
   provider 0.9.0.
-- `ClaudeContextRecovery.tsx` (via `errorRemedies.ts`): the rebuild button for
-  the "context policy changed" error. Only the legacy policy raises it; with
-  `PI_CLAUDE_CLI_CONTEXT=pi` pinned, the provider never resumes a mapped CLI
-  session, so a current session cannot reach it.
 
 ## Checking a change
 

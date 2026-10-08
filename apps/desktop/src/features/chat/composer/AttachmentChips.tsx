@@ -1,19 +1,28 @@
+import { useState } from 'react'
 import { ChatImage } from '../ChatImage'
-import { formatFileSize, type PendingAttachment } from '../attachments'
+import { formatFileSize, type PendingAttachment, type PendingImage } from '../attachments'
+import { ImageEditor } from '../imageEditor/ImageEditor'
 
 /**
  * The pending-attachment chip row, shared by both composers.
  *
- * Images render as the same openable/copyable `ChatImage` the transcript uses;
- * everything else is a path chip, because pi's protocol has no document type.
+ * Images render as the same copyable `ChatImage` the transcript uses, but a
+ * click opens the annotator rather than the lightbox: a pending image is still
+ * editable. Everything else is a path chip, because pi's protocol has no
+ * document type.
  */
 export function AttachmentChips({
   attachments,
   onRemove,
+  onEdit,
 }: {
   attachments: PendingAttachment[]
   onRemove: (index: number) => void
+  onEdit: (index: number, image: PendingImage, replace: boolean) => void
 }): React.JSX.Element | null {
+  // The image is captured at open time: the drafts store swaps the attachment
+  // object for one carrying its blobId, and the editor must not reset on that.
+  const [editing, setEditing] = useState<{ index: number; image: PendingImage } | null>(null)
   if (attachments.length === 0) return null
   return (
     <div className="flex flex-wrap gap-2 px-3 pt-3" data-testid="attachment-chips">
@@ -23,6 +32,7 @@ export function AttachmentChips({
             <ChatImage
               image={{ type: 'image', data: attachment.data, mimeType: attachment.mimeType }}
               className="border-border h-16 w-16 rounded-lg border object-cover"
+              onOpen={() => setEditing({ index, image: attachment })}
             />
           ) : (
             <div
@@ -44,6 +54,16 @@ export function AttachmentChips({
           </button>
         </div>
       ))}
+      {editing && (
+        <ImageEditor
+          image={editing.image}
+          onCancel={() => setEditing(null)}
+          onSave={(image, replace) => {
+            onEdit(editing.index, image, replace)
+            setEditing(null)
+          }}
+        />
+      )}
     </div>
   )
 }

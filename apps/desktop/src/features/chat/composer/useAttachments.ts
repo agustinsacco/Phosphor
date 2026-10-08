@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
-import { toAttachment, type PendingAttachment } from '../attachments'
+import {
+  placeAnnotated,
+  toAttachment,
+  type PendingAttachment,
+  type PendingImage,
+} from '../attachments'
+import { sceneBytes } from '../imageEditor/scene'
 
 /**
  * Paste / drag-drop / pick plumbing shared by the chat composer and the home
@@ -22,6 +28,11 @@ export interface AttachmentsApi {
   dragging: boolean
   addFiles: (files: File[]) => void
   remove: (index: number) => void
+  /**
+   * Store an annotated image: in place of the one at `index`, or (when
+   * `replace` is false) right after it, so both stay attached.
+   */
+  edit: (index: number, image: PendingImage, replace: boolean) => void
   handlePaste: (event: React.ClipboardEvent) => void
   handleDragOver: (event: React.DragEvent) => void
   handleDragLeave: (event: React.DragEvent) => void
@@ -31,7 +42,9 @@ export interface AttachmentsApi {
 /** Bytes a pending attachment costs us to keep. Paths cost nothing. */
 export function attachmentBytes(attachment: PendingAttachment): number {
   // base64 is 4 chars per 3 bytes; the string itself is what we store.
-  return attachment.kind === 'image' ? attachment.data.length : 0
+  if (attachment.kind !== 'image') return 0
+  // An annotated image also holds its unflattened layers.
+  return attachment.data.length + (attachment.annotation ? sceneBytes(attachment.annotation) : 0)
 }
 
 export function totalAttachmentBytes(attachments: PendingAttachment[]): number {
@@ -86,6 +99,20 @@ export function useAttachments({
     [onChange],
   )
 
+  const edit = useCallback(
+    (index: number, image: PendingImage, replace: boolean) => {
+      const next = placeAnnotated(latest.current, index, image, replace)
+      if (next === latest.current) return
+      if (totalAttachmentBytes(next) > MAX_ATTACHMENT_BYTES) {
+        onReject?.('Too many images attached — send some before adding more.')
+        return
+      }
+      latest.current = next
+      onChange(next)
+    },
+    [onChange, onReject],
+  )
+
   const handlePaste = useCallback(
     (event: React.ClipboardEvent) => {
       const files = [...event.clipboardData.items]
@@ -130,5 +157,14 @@ export function useAttachments({
     [addFiles],
   )
 
-  return { dragging, addFiles, remove, handlePaste, handleDragOver, handleDragLeave, handleDrop }
+  return {
+    dragging,
+    addFiles,
+    remove,
+    edit,
+    handlePaste,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  }
 }

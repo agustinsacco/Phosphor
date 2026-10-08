@@ -1,5 +1,6 @@
 import type { ImageContent } from '@shared/rpc'
 import { bytesToBase64 } from '@/lib/base64'
+import type { Scene } from './imageEditor/scene'
 
 /**
  * Composer attachments.
@@ -34,6 +35,12 @@ export interface PendingImage {
    * been saved does not have one. See `src/stores/drafts.ts`.
    */
   blobId?: string
+  /**
+   * The annotator's layers, kept so reopening the editor can still move or
+   * delete a shape. `data` is always the flattened PNG and is all pi sees.
+   * Memory only: a restored draft comes back flattened.
+   */
+  annotation?: Scene
 }
 
 export interface PendingFile {
@@ -117,4 +124,27 @@ export function fromImageContents(images: ImageContent[]): PendingImage[] {
     mimeType: image.mimeType,
     name: `image-${index + 1}`,
   }))
+}
+
+/** `shot.png` stays `shot.png` in place; a kept-alongside copy is `shot-annotated.png`. */
+export function annotatedName(name: string, replace: boolean): string {
+  const stem = name.replace(/\.[^./]+$/, '')
+  if (replace || stem.endsWith('-annotated')) return `${stem}.png`
+  return `${stem}-annotated.png`
+}
+
+/**
+ * Where an annotated image lands: in place of the one it was made from, or
+ * right after it so both stay attached and the user removes either.
+ */
+export function placeAnnotated(
+  attachments: PendingAttachment[],
+  index: number,
+  image: PendingImage,
+  replace: boolean,
+): PendingAttachment[] {
+  if (!attachments[index]) return attachments
+  return replace
+    ? attachments.map((a, i) => (i === index ? image : a))
+    : [...attachments.slice(0, index + 1), image, ...attachments.slice(index + 1)]
 }

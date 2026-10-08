@@ -6,6 +6,7 @@
  */
 import type { PhosphorApi } from '@shared/ipc'
 import { mockRoutineCall, onMockRoutinesChanged } from './mockRoutines'
+import { bytesToBase64 } from '../lib/base64'
 import type { ConnectorAuthPush, ConnectorAuthState, SessionPush } from '@shared/models'
 import type { ConnectorCheckResult } from '@shared/connectors'
 import { DEFAULT_APP_PREFS, MIN_PI_VERSION } from '@shared/models'
@@ -694,6 +695,20 @@ function runMockJob(lines: string[], exitCode = 0): { jobId: string } {
  * png first. Permission or type failures are swallowed — a copy attempt
  * must never crash the harness.
  */
+/** Best-effort: the web clipboard needs permission and offers png only. */
+async function mockClipboardReadImage(): Promise<{ data: string; mimeType: string } | null> {
+  try {
+    for (const item of await navigator.clipboard.read()) {
+      if (!item.types.includes('image/png')) continue
+      const blob = await item.getType('image/png')
+      return { data: bytesToBase64(await blob.arrayBuffer()), mimeType: 'image/png' }
+    }
+  } catch {
+    // Permission refused or no clipboard: same as an empty one.
+  }
+  return null
+}
+
 async function mockClipboardWriteImage(image: { data: string; mimeType: string }): Promise<void> {
   const write = (mime: string, blob: Blob): Promise<void> =>
     navigator.clipboard.write([new ClipboardItem({ [mime]: blob })])
@@ -1621,6 +1636,8 @@ export function installMockPhosphor(): void {
           return Promise.resolve(undefined)
         case 'clipboard:writeImage':
           return mockClipboardWriteImage(args[0] as { data: string; mimeType: string })
+        case 'clipboard:readImage':
+          return mockClipboardReadImage()
         case 'gh:available':
           return Promise.resolve(true)
         case 'gh:prForBranch':

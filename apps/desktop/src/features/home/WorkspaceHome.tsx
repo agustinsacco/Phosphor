@@ -284,7 +284,11 @@ export function WorkspaceHome({ workspacePath }: { workspacePath: string }): Rea
             )}
           >
             <DropOverlay visible={attachments.dragging} />
-            <AttachmentChips attachments={images} onRemove={attachments.remove} />
+            <AttachmentChips
+              attachments={images}
+              onRemove={attachments.remove}
+              onEdit={attachments.edit}
+            />
             <ComposerField
               value={text}
               textareaRef={textareaRef}

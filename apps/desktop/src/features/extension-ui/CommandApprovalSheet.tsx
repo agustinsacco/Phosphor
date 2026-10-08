@@ -12,7 +12,7 @@ import {
   toCommandLines,
   type CommandApproval,
   type CommandRisk,
-} from './commandApproval'
+} from '@shared/command-approval'
 
 /** Above this, the command opens folded to the flagged lines. */
 const FOLD_THRESHOLD = 14

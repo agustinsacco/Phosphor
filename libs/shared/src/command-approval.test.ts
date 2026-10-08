@@ -5,8 +5,8 @@ import {
   focusLines,
   parseCommandApproval,
   toCommandLines,
-} from './commandApproval'
-import type { ExtensionUIRequest } from '@shared/rpc'
+} from './command-approval'
+import type { ExtensionUIRequest } from './rpc'
 
 /** The exact prose the permission-gate extension convention emits. */
 function gateSelect(command: string): ExtensionUIRequest {

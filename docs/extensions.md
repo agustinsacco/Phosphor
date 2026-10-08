@@ -107,8 +107,9 @@ arrives is an ordinary `extension_ui_request` whose title is **prose the
 extension wrote, with the whole command inside it**. Rendered generically, a
 60-line heredoc becomes a dialog _title_.
 
-`apps/desktop/src/features/extension-ui/commandApproval.ts` claims those dialogs and
-`CommandApprovalSheet.tsx` renders them as a review surface. Two pure steps:
+`libs/shared/src/command-approval.ts` claims those dialogs and
+`apps/desktop/src/features/extension-ui/CommandApprovalSheet.tsx` renders them
+as a review surface. Two pure steps:
 
 - **`parseCommandApproval`** recognises the shape (a heading naming a
   command, the command, a trailing `Allow?` / `Proceed?`, and for a `select`

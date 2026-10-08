@@ -1,5 +1,5 @@
-import { stripAnsi } from '@shared/ansi'
-import type { ExtensionUIRequest } from '@shared/rpc'
+import { stripAnsi } from './ansi'
+import type { ExtensionUIRequest } from './rpc'
 
 /**
  * Command-approval dialogs, recognised and explained.

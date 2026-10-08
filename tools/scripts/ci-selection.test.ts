@@ -180,7 +180,11 @@ describe('actual Nx affected measurements (per-app inputs)', () => {
         },
       ),
     )
-  const desktop = ['desktop', 'pi-extensions', 'runtime', 'tooling']
+  // No library depends on Desktop, so a Desktop change selects only itself and
+  // the whole-workspace checks. A library change selects everything above it.
+  const desktop = ['desktop', 'tooling']
+  const runtime = ['desktop', 'runtime', 'tooling']
+  const extensions = ['desktop', 'pi-extensions', 'runtime', 'tooling']
   const libraries = ['desktop', 'pi-extensions', 'runtime', 'shared', 'tooling']
   // Site and Desktop never select each other; docs and CI select only the
   // whole-workspace checks. Root install/config keep Nx's select-everything rule.
@@ -194,8 +198,8 @@ describe('actual Nx affected measurements (per-app inputs)', () => {
     ['tools/scripts/fix-node-pty.mjs', desktop],
     ['tools/scripts/install.sh', desktop],
     ['.github/workflows/release-continuous.yml', desktop],
-    ['libs/pi-extensions/pi-ext/headroom.ts', desktop],
-    ['libs/session-runtime/src/pi/session-service.ts', desktop],
+    ['libs/pi-extensions/pi-ext/headroom.ts', extensions],
+    ['libs/session-runtime/src/pi/session-service.ts', runtime],
     ['libs/shared/src/ipc.ts', libraries],
     ['supabase/config.toml', ['schema', 'tooling']],
     ['tools/scripts/validate.sh', ['tooling']],

@@ -50,7 +50,7 @@ const commands = {
   },
 }
 // These edges include non-import resources and test-only consumers, not just
-// production imports. Cyclic project ownership must not become recursive tasks.
+// production imports. No library depends on Desktop, and targets never recurse.
 // Nothing depends on `tooling` (the whole-workspace checks) and the site depends
 // on nothing: its image is built from apps/site alone, and its screenshots are
 // captured by hand and committed. Otherwise every change affects every app and
@@ -59,7 +59,7 @@ const dependencies = {
   desktop: ['runtime', 'shared', 'pi-extensions'],
   runtime: ['shared', 'pi-extensions'],
   shared: [],
-  'pi-extensions': ['desktop'],
+  'pi-extensions': ['shared'],
   site: [],
   schema: [],
   tooling: ['desktop', 'runtime', 'shared', 'pi-extensions', 'site', 'schema'],
@@ -188,7 +188,7 @@ describe('explicit Nx project contract', () => {
     }
   })
 
-  it('rejects missing edge fixtures, including the real extension test back-edge', () => {
+  it('rejects missing edge fixtures, including the extension test edge to shared', () => {
     for (const [name, edges] of Object.entries(dependencies)) {
       const config = readJson(join(projects[name as keyof typeof projects], 'project.json'))
       for (const edge of edges) {
@@ -198,12 +198,12 @@ describe('explicit Nx project contract', () => {
         expect(() => assertEdges(name as keyof typeof dependencies, removed)).toThrow()
       }
     }
-    expect(
-      readFileSync(
-        join(root, 'libs/pi-extensions/pi-ext/optional/permission-gate.test.ts'),
-        'utf8',
-      ),
-    ).toContain('../../../../apps/desktop/src/features/extension-ui/commandApproval')
+    const gateTest = readFileSync(
+      join(root, 'libs/pi-extensions/pi-ext/optional/permission-gate.test.ts'),
+      'utf8',
+    )
+    expect(gateTest).toContain("from '@phosphor/shared/command-approval'")
+    expect(gateTest).not.toContain('apps/desktop')
     expect(readFileSync(join(root, 'apps/desktop/electron-builder.yml'), 'utf8')).toContain(
       'from: ../../libs/pi-extensions/pi-ext',
     )

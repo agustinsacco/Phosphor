@@ -1,22 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { claudeProjectDirForCwd } from './pi-paths'
 
-/** As in session-deleter.test.ts: assert what we ASK to trash, never unlink. */
-const trashed: string[] = []
-vi.mock('electron', () => ({
-  shell: {
-    trashItem: (path: string) => {
-      trashed.push(path)
-      return Promise.resolve()
-    },
-  },
-}))
-
-const { forkClaudeLedgerForClone, resetClaudeLedgerPairing } = await import('./claude-ledger')
+const { forkClaudeLedgerForClone } = await import('./claude-ledger')
 
 const OLD_PI_ID = '01a07dbb-7dea-75b1-9d10-5abdf1499cf9'
 const NEW_PI_ID = '01a07ecb-f990-7149-879a-dcc27b874128'
@@ -29,12 +18,11 @@ let oldPiFile: string
 let newPiFile: string
 
 /**
- * Both suites build the same two trees — pi's session files and the CLI's
+ * Every test builds the same two trees — pi's session files and the CLI's
  * project dir — in a sandbox, via the same env overrides the real programs
  * honour. `old` is a plain session; `new` is a clone of it.
  */
 beforeEach(async () => {
-  trashed.length = 0
   root = await mkdtemp(join(tmpdir(), 'phosphor-ledger-'))
   cwd = join(root, 'workspace')
   stateDir = join(root, 'state')
@@ -169,72 +157,5 @@ describe('forkClaudeLedgerForClone', () => {
     await writeLedger([JSON.stringify({ sessionId: OLD_CLI_ID })])
     expect(await forkClaudeLedgerForClone(newPiFile)).toBe(true)
     expect(await readdir(join(stateDir, 'sysprompt'))).toEqual([])
-  })
-})
-
-/**
- * The recovery for a Claude session whose stored prompt carries the other
- * context policy: the provider refuses to resume it, so the pairing has to go
- * and the next turn reimports. What matters is that the pi transcript is never
- * touched, and that the orphaned CLI ledger is only trashed once nothing
- * points at it.
- */
-describe('resetClaudeLedgerPairing', () => {
-  it('removes the pairing, drops the stored prompt and trashes the orphan', async () => {
-    await writeMap({ [OLD_PI_ID]: OLD_CLI_ID, 'unrelated-session': 'unrelated-cli' })
-    const ledger = await writeLedger([JSON.stringify({ sessionId: OLD_CLI_ID })])
-    await writeFile(join(stateDir, 'sysprompt', `${OLD_CLI_ID}.txt`), 'legacy prompt', 'utf8')
-
-    expect(await resetClaudeLedgerPairing(oldPiFile)).toEqual({
-      cleared: true,
-      claudeSessionId: OLD_CLI_ID,
-    })
-
-    const map = await readMap()
-    expect(map[OLD_PI_ID]).toBeUndefined()
-    // Every other session's pairing survives — this is one key, not a purge.
-    expect(map['unrelated-session']).toBe('unrelated-cli')
-    expect(await readdir(join(stateDir, 'sysprompt'))).toEqual([])
-    expect(trashed).toEqual([ledger])
-    // pi is the system of record and keeps the conversation.
-    expect(await readFile(oldPiFile, 'utf8')).toContain(OLD_PI_ID)
-  })
-
-  it('reports no-op when there is no pairing, which is already the goal state', async () => {
-    await writeMap({ 'someone-else': 'their-cli' })
-    expect(await resetClaudeLedgerPairing(oldPiFile)).toEqual({
-      cleared: false,
-      claudeSessionId: null,
-    })
-    expect(trashed).toEqual([])
-  })
-
-  it('leaves a ledger another session still points at', async () => {
-    // Shouldn't happen — a clone gets its own copy — but deleting a transcript
-    // something can still resume is the one unrecoverable mistake here.
-    await writeMap({ [OLD_PI_ID]: OLD_CLI_ID, [NEW_PI_ID]: OLD_CLI_ID })
-    await writeLedger([JSON.stringify({ sessionId: OLD_CLI_ID })])
-
-    expect((await resetClaudeLedgerPairing(oldPiFile)).cleared).toBe(true)
-    expect(trashed).toEqual([])
-    expect(await readdir(claudeProjectDirForCwd(cwd))).toEqual([`${OLD_CLI_ID}.jsonl`])
-  })
-
-  it('survives a missing ledger and a missing stored prompt', async () => {
-    await writeMap({ [OLD_PI_ID]: OLD_CLI_ID })
-    expect((await resetClaudeLedgerPairing(oldPiFile)).cleared).toBe(true)
-    expect((await readMap())[OLD_PI_ID]).toBeUndefined()
-  })
-
-  it('does nothing for a file that is not a pi session', async () => {
-    await writeMap({ [OLD_PI_ID]: OLD_CLI_ID })
-    const notASession = join(root, 'notes.txt')
-    await writeFile(notASession, 'hello\n', 'utf8')
-
-    expect(await resetClaudeLedgerPairing(notASession)).toEqual({
-      cleared: false,
-      claudeSessionId: null,
-    })
-    expect((await readMap())[OLD_PI_ID]).toBe(OLD_CLI_ID)
   })
 })

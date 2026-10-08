@@ -115,7 +115,9 @@ against a 4.5:1 bar for normal text (`apps/desktop/src/styles/index.css`). Indiv
 has been migrated to secondary ink, but the tokens themselves are unchanged.
 
 **R13 — deleting a never-reopened session from a sandbox renamed by an older
-build orphans the Claude transcript.** `apps/desktop/electron/pi/session-deleter.ts` derives
+build orphans the Claude transcript.** Only sessions recorded before provider
+0.9.0 have one; current Claude sessions write none.
+`apps/desktop/electron/pi/session-deleter.ts` derives
 the CLI's copy from the cwd frozen in pi's own header, so a stale header sends
 `trashIfPresent` where nothing is and leaves a megabytes-sized file behind.
 Mostly closed: `apps/desktop/electron/pi/session-cwd.ts` now rewrites that header for the
@@ -134,18 +136,6 @@ retires and sits beside the real one until the next scan that agrees. Only
 reproduces when the pi agent directory is reached through a symlink (`/tmp` on
 macOS, so the routines e2e hits it; a normal `~/.pi/agent` does not). Fixing it
 means picking one path identity for a session file and using it on both sides.
-
-**R16 — jumping to another branch in the tree view leaves a Claude Code
-session answering from the old one.** `jumpHere`
-(`apps/desktop/src/features/sessions/TreeViewModal.tsx`) appends the branch jump and
-reopens the same pi session id. Nothing drops its `pi-claude-cli` pairing, so
-the provider resumes the same CLI session. That session's transcript still
-holds the abandoned branch, and the provider only sends the messages after the
-new branch's last assistant turn. Its staleness check only catches an
-assistant turn from another provider. So the model keeps the turns the user
-navigated away from. Every other branching path mints a new pi session id and
-reimports. `resetClaudeLedgerPairing` is the existing fix to apply after the
-jump.
 
 ## Code health
 

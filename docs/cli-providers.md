@@ -92,7 +92,7 @@ request and imports the current pi history. No manual reset or fresh pi session
 is needed. Old Claude transcripts are retained as archives, never resumed.
 Historical native-tool markers may contain only previews; missing historical
 results cannot be recovered from those pi records. New tool calls/results are
-normal pi messages. Legacy markers and rebuild UI remain readable for old records.
+normal pi messages. Legacy markers remain readable for old records.
 
 ### One context budget
 

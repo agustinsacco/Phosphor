@@ -127,11 +127,13 @@ you want to watch.
 - Session-dir watchers are per-workspace chokidar handles tied to sidebar
   group visibility (expanded ⇒ watched, collapsed ⇒ unwatched, all closed on
   quit). Don't add unbounded watch paths.
-- **Not every session was produced by a pi-native provider.** Sessions run on
-  the Claude Code provider (`@saccolabs/pi-claude-cli`) contain block shapes
-  pi itself never emits: CLI-side tools arrive as `[Claude Code · Name {…}]`
-  marker text blocks (a wire contract — `parseExternalToolMarker` turns them
-  into activity steps), their outcomes as paired
+- **Not every session was produced by a pi-native provider.** Sessions
+  recorded on the Claude Code provider (`@saccolabs/pi-claude-cli`) before
+  0.9.0 contain block shapes pi itself never emits (current ones do not, but
+  old transcripts still open): CLI-side tools arrive as
+  `[Claude Code · Name {…}]` marker text blocks (a wire contract —
+  `parseExternalToolMarker` turns them into activity steps), their outcomes
+  as paired
   `[Claude Code · result #<id> {…}]` markers that fold into the row the call
   already made (never a row of their own), and some models emit thinking with
   a signature and no plaintext. Before touching transcript rendering, tool UX

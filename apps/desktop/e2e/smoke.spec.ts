@@ -4318,6 +4318,11 @@ test('an artifact outlives its session’s context, a restart and the session it
     await expect(first.page.getByTestId('right-pane')).toContainText('E2E Linked Doc', {
       timeout: 30_000,
     })
+    // The turn's last message: by then the result is in the session file.
+    // Closing earlier kills pi before it writes it, as it would real pi.
+    await expect(first.page.getByRole('link', { name: 'Preview the design' })).toBeVisible({
+      timeout: 30_000,
+    })
     await expect(first.page.locator('[data-testid="session-row"]:not([data-pending])')).toHaveCount(
       1,
       { timeout: 30_000 },

@@ -108,10 +108,28 @@ computer awake.
 ## Deployment and identity
 
 The existing Docker/nginx image and `.infra/phosphor-site/` manifests serve this
-one site on port 5015. The Deploy Site workflow builds, tests, pins the image
-digest, and verifies rollout on green main changes. There is no second site or
-new routing service. nginx resolves guide directories to their `index.html`.
-The edge route and four deployment secrets remain external configuration.
+one site on port 5015. Deploy Site retains path-filtered main pushes for
+`site/**`, `.infra/phosphor-site/**`, its workflow and deployment-policy helpers.
+It waits up to thirty minutes for successful CI from this repository's main push
+at the exact checked-out SHA. Missing, failed, cancelled or unverifiable CI
+cannot deploy. GitHub's push-range path filter includes multi-commit pushes;
+PR CI completions never trigger or cancel production deployment.
+
+The actual commit's `Skip-Release: true` trailer also holds site deployment
+using the Desktop release trailer parser. The repository variable
+`SITE_DEPLOY_HOLD` permits deployment only when absent/empty or literally
+`false`; every other value holds it. Structural migration commits retain the
+trailer. Manual operation requires selecting `main`, explicitly checking
+`confirm`, and passing the same exact-SHA CI and hold checks. It does not bypass
+the hold. Rejected manual refs cannot cancel production work. The workflow
+rechecks that its SHA is still current main before publishing the image and
+before rollout, including after any `site-production` environment approval.
+
+CI tests the site before Deploy Site builds the immutable image, pins its
+digest and verifies rollout. The image name, namespace, port and environment
+remain unchanged. There is no second site or new routing service. nginx
+resolves guide directories to their `index.html`. The edge route and four
+deployment secrets remain external configuration.
 
 The header/footer favicon and social preview use the canonical beacon.
 `npm run build` regenerates `public/og.png` from `scripts/social.mjs`; browser

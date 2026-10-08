@@ -236,7 +236,8 @@ The private `@phosphor/pi-extensions` source package keeps these standalone
 files and adjacent tests together. Development resolves the resource root at
 `libs/pi-extensions`; packaged apps still read `resources/pi-ext`, outside the
 asar. The builder copies the same non-test TypeScript inventory, including
-`context-budget.ts` imported by `context-breakdown.ts` and the optional gate.
+`context-budget.ts` imported by `context-breakdown.ts`, `artifact-store.ts`
+imported by `artifacts.ts`, and the optional gate.
 Optional Python helpers remain in the source tree, not the shipped resource filter.
 
 | File                   | Why it must run inside pi                                                                    |
@@ -255,14 +256,14 @@ token cost is **entirely the arguments the model writes**: the payload riding
 in `details` never reaches the model and is free. What is not free is
 resending a document to change part of it.
 
-| Tool              | Cost                             | Use                                       |
-| ----------------- | -------------------------------- | ----------------------------------------- |
-| `artifact_help`   | authoring guide, on demand       | load before creating or restyling         |
-| `artifact_create` | the whole document               | new artifact                              |
-| `artifact_edit`   | just the changed region          | **the default way to revise**             |
-| `artifact_update` | the whole document, again        | rewrites that touch most of the content   |
-| `artifact_read`   | the whole document, into context | recovering text after compaction, to edit |
-| `artifact_list`   | ids and sizes only               | recovering ids after compaction           |
+| Tool              | Cost                          | Use                                       |
+| ----------------- | ----------------------------- | ----------------------------------------- |
+| `artifact_help`   | authoring guide, on demand    | load before creating or restyling         |
+| `artifact_create` | the whole document            | new artifact                              |
+| `artifact_edit`   | just the changed region       | **the default way to revise**             |
+| `artifact_update` | the whole document, again     | rewrites that touch most of the content   |
+| `artifact_read`   | the document, or a line range | recovering text after compaction, to edit |
+| `artifact_list`   | ids and sizes only            | recovering ids after compaction           |
 
 The style guide lives in `artifact_help` results, not in the always-loaded tool
 schema or system guidelines. Coding turns carry only a short instruction to
@@ -286,7 +287,63 @@ inline-code and bare forms models actually write (`` `artifact://x` ``) into
 links, keeping the `<code>` look.
 
 `session_start` rebuilds the full artifact record, content included, because
-an edit has to apply to the live text in a resumed session.
+an edit has to apply to the live text in a resumed session. `session_tree`
+and `session_compact` rebuild it too, so tree navigation lands on that
+branch's versions.
+
+### The artifact store
+
+Artifacts outlive their session's context. Compaction drops old tool results
+from what `get_messages` returns, and a provider switch restarts pi, so a pane
+rebuilt only from `get_messages` used to come back empty. The session file
+still holds every version; the store indexes it.
+
+- **Layout.** `<userData>/artifacts/blobs/<sha256>` holds each distinct
+  content once. `sessions/<sessionId>.json` holds one session's artifacts,
+  every version on every branch with an `onBranch` flag, plus the scan
+  position. The format and read side live in `libs/pi-extensions/pi-ext/artifact-store.ts`;
+  ids and slugs are regex-checked before they reach a path.
+- **Main is the only writer** (`apps/desktop/electron/artifacts/`:
+  `artifact-indexer.ts` reads one file, `artifact-library.ts` owns the store,
+  `artifact-sync.ts` wires it up). It indexes a session file incrementally
+  (resuming at the last byte read, rescanning when the file was rewritten or
+  the branch moved under old versions) on `agent_end`, `compaction_end` and pi
+  exit, when a pane asks, right before a delete, and in a one-file-at-a-time
+  backfill of `~/.pi/agent/sessions` 20s after launch. It reads only results
+  pi wrote, so native and Claude sessions, forks, routines and sessions run
+  outside Phosphor all index the same way.
+- **The session file stays the source of truth.** The store is a rebuildable
+  cache, with one exception: a session whose file is gone, however it went
+  (deleted in Phosphor, in Finder, by pi), keeps its artifacts, marked
+  deleted, until they are removed from the Artifacts page. A gone session with
+  no artifacts leaves nothing behind.
+- **pi reads it.** Phosphor passes `PHOSPHOR_ARTIFACT_STORE` at spawn. Without
+  it (plain pi), this session's artifacts work as before and the cross-session
+  features say they are unavailable.
+
+What the model can do with it, all optional parameters on the same tools:
+
+| Call                                              | Does                                                |
+| ------------------------------------------------- | --------------------------------------------------- |
+| `artifact_list({ scope: "all", query })`          | lists other sessions' artifacts as refs             |
+| `artifact_read({ id: "<session>/<slug>[@vN]" })`  | reads another session's artifact, read-only         |
+| `artifact_read({ id, version, offset, limit })`   | reads an older version, or a 1-based line range     |
+| `artifact_create({ title, from: "<ref or id>" })` | copies an artifact into this session, to edit there |
+
+A ref's session may be a unique prefix of 8+ characters. A foreign read
+records `details: { ref, foreign: true }` with no `id` or `content`, so no
+`session_start` rebuild, current or older, adopts it as this session's own.
+Sessions never edit each other's artifacts; `from` makes a local copy. A ref
+to the session itself is just a local id, and its `@vN` copies an older
+version.
+
+**After compaction the model gets a short index.** The `context` hook inserts
+a hidden `custom` message (`phosphor-artifact-index`) right after the
+compaction summary, listing the artifacts written before the latest
+compaction (id, version, type, title; at most 40). It is request-local, never
+persisted, and stable between requests so the prompt cache holds. It costs
+about 20 tokens per artifact and points the model at `artifact_read` for the
+content and `artifact_list` for current versions.
 
 **Artifacts execute JavaScript, on their own origin.** They are NOT rendered
 with `srcdoc`: a srcdoc document inherits the app's policy container, so the

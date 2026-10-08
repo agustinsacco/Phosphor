@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./artifact-store": {
+      "types": "./pi-ext/artifact-store.ts",
+      "default": "./pi-ext/artifact-store.ts"
+    },
     "./artifacts": {
       "types": "./pi-ext/artifacts.ts",
       "default": "./pi-ext/artifacts.ts"

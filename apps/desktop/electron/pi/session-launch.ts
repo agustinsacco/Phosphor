@@ -9,6 +9,7 @@ import { checkPiHealth } from './health'
 import { piStubPath } from './stub'
 import { piProcessEnv } from './shell-env'
 import { claudeProviderSpawnEnv } from './provider-detect'
+import { artifactStoreEnv } from '../artifacts/artifact-store-root'
 
 let cachedHealth: PiHealth | null = null
 const runtime: SessionLaunchRuntime = {
@@ -24,7 +25,7 @@ const runtime: SessionLaunchRuntime = {
   readEnvironment: async ({ stub }) =>
     stub
       ? { ELECTRON_RUN_AS_NODE: '1' }
-      : { ...(await piProcessEnv()), ...claudeProviderSpawnEnv() },
+      : { ...(await piProcessEnv()), ...claudeProviderSpawnEnv(), ...artifactStoreEnv() },
   resourceRoot: () =>
     app.isPackaged ? process.resourcesPath : join(app.getAppPath(), '../../libs/pi-extensions'),
 }

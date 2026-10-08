@@ -1,5 +1,6 @@
 import { registerPiSessionHandlers } from './ipc/pi-session-handlers'
 import { registerAppHandlers, registerDebugLogHandlers } from './ipc/app-handlers'
+import { registerArtifactsHandlers } from './ipc/artifacts-handlers'
 import { registerClipboardHandlers } from './ipc/clipboard-handlers'
 import { registerPiConfigHandlers } from './ipc/pi-config-handlers'
 import { registerPiAuthHandlers } from './ipc/pi-auth-handlers'
@@ -27,6 +28,7 @@ export function registerIpcHandlers(): void {
   registerPiSessionHandlers()
   registerAppHandlers()
   registerDebugLogHandlers()
+  registerArtifactsHandlers()
   registerClipboardHandlers()
   registerPiConfigHandlers()
   registerPiAuthHandlers()

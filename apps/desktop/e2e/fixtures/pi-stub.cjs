@@ -918,27 +918,34 @@ function runTextTurn(
  * `javascript:`, so the click did nothing at all.
  */
 function runArtifactLinkTurn() {
+  const details = {
+    id: 'e2e-linked-doc',
+    title: 'E2E Linked Doc',
+    type: 'markdown',
+    content: '# E2E Linked Doc\n\nThe artifact the chat link points at.\n',
+    version: 1,
+  }
   play([
     () => out({ type: 'agent_start' }),
     () => out({ type: 'turn_start' }),
     () => out({ type: 'message_start', message: { role: 'assistant', content: [] } }),
-    () =>
-      out({
-        type: 'message_end',
-        message: {
-          role: 'assistant',
-          content: [
-            {
-              type: 'toolCall',
-              id: 'call_link_art',
-              name: 'artifact_create',
-              arguments: { title: 'E2E Linked Doc' },
-            },
-          ],
-          stopReason: 'toolUse',
-          timestamp: Date.now(),
-        },
-      }),
+    () => {
+      const message = {
+        role: 'assistant',
+        content: [
+          {
+            type: 'toolCall',
+            id: 'call_link_art',
+            name: 'artifact_create',
+            arguments: { title: 'E2E Linked Doc' },
+          },
+        ],
+        stopReason: 'toolUse',
+        timestamp: Date.now(),
+      }
+      persist(message)
+      out({ type: 'message_end', message })
+    },
     () =>
       out({
         type: 'tool_execution_start',
@@ -952,16 +959,20 @@ function runArtifactLinkTurn() {
         toolCallId: 'call_link_art',
         toolName: 'artifact_create',
         isError: false,
-        result: {
-          content: [{ type: 'text', text: 'Created artifact' }],
-          details: {
-            id: 'e2e-linked-doc',
-            title: 'E2E Linked Doc',
-            type: 'markdown',
-            content: '# E2E Linked Doc\n\nThe artifact the chat link points at.\n',
-            version: 1,
-          },
-        },
+        result: { content: [{ type: 'text', text: 'Created artifact' }], details },
+      }),
+    // Real pi records the result in the session file. It is how the artifact
+    // outlives the session's context: `get_messages` here answers nothing at
+    // all, exactly like a real session whose artifact was compacted away.
+    () =>
+      persist({
+        role: 'toolResult',
+        toolCallId: 'call_link_art',
+        toolName: 'artifact_create',
+        content: [{ type: 'text', text: 'Created artifact' }],
+        details,
+        isError: false,
+        timestamp: Date.now(),
       }),
     // A fresh assistant message, so the tool row keeps its own activity group.
     () => out({ type: 'message_start', message: { role: 'assistant', content: [] } }),

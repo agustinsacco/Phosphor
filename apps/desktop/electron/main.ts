@@ -11,6 +11,7 @@ import { installRoutineBackground, routinesKeepRunning } from './routines/backgr
 import { dirname, join } from 'node:path'
 import { existsSync, renameSync } from 'node:fs'
 import { registerIpcHandlers } from './ipc'
+import { startArtifactSync } from './artifacts/artifact-sync'
 import { recordAppLaunch } from './feedback/feedback-service'
 import { maintenanceScheduler } from './ipc/maintenance-handlers'
 import { registry } from './registry'
@@ -225,6 +226,10 @@ if (!singleInstance) {
     // the app's theme class, so this has to be right at first paint.
     applyThemeSource(getPrefs().theme)
     registerIpcHandlers()
+    // Before anything can start a session (routines do, at launch): indexes
+    // each session's artifacts as its turns end, then catches up with every
+    // session file on disk once per launch.
+    startArtifactSync()
     // One count per app start, and the only thing gating the feedback nudge —
     // it waits for real use rather than interrupting a fresh install.
     recordAppLaunch()

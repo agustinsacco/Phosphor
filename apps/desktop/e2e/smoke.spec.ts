@@ -908,7 +908,7 @@ test('workspace → session → streamed answer, diff and artifact render', asyn
     // The global Artifacts page (sidebar row) indexes it across sessions…
     await page.getByRole('button', { name: 'Artifacts', exact: true }).click()
     const globalPage = page.getByTestId('global-page')
-    await expect(globalPage.getByText('Everything your open sessions have produced')).toBeVisible()
+    await expect(globalPage.getByText('Everything your sessions have produced')).toBeVisible()
     const row = globalPage.getByRole('button', { name: /E2E Card/ })
     await expect(row).toBeVisible()
 
@@ -4302,6 +4302,75 @@ test('an artifact link the model wrote opens the Artifacts pane', async () => {
     await expect(page.getByTestId('artifact-scroll')).toBeVisible({ timeout: 10_000 })
   } finally {
     await shutdown(harness)
+  }
+})
+
+test('an artifact outlives its session’s context, a restart and the session itself', async () => {
+  const userDataDir = await scratchDir('phosphor-e2e-artifact-store-')
+  const first = await launch({ userDataDir })
+  const { workspace } = first
+  try {
+    await openWorkspace(first.page)
+    await first.page
+      .getByPlaceholder('Describe a task or ask a question')
+      .fill('artifactlink please')
+    await first.page.getByRole('button', { name: /Start session/i }).click()
+    await expect(first.page.getByTestId('right-pane')).toContainText('E2E Linked Doc', {
+      timeout: 30_000,
+    })
+    // The turn's last message: by then the result is in the session file.
+    // Closing earlier kills pi before it writes it, as it would real pi.
+    await expect(first.page.getByRole('link', { name: 'Preview the design' })).toBeVisible({
+      timeout: 30_000,
+    })
+    await expect(first.page.locator('[data-testid="session-row"]:not([data-pending])')).toHaveCount(
+      1,
+      { timeout: 30_000 },
+    )
+  } finally {
+    await first.app.close()
+  }
+
+  const second = await launch({ workspace, userDataDir })
+  const { page } = second
+  try {
+    // The stub's get_messages answers nothing: the same view of the transcript
+    // pi gives once compaction has dropped the artifact from context. This is
+    // what emptied the pane on a provider switch.
+    const row = page.getByTestId('session-row')
+    await expect(row).toHaveCount(1, { timeout: 30_000 })
+    await row.click()
+    await expect(page.getByPlaceholder(/Describe a task…/i)).toBeVisible({ timeout: 20_000 })
+    if (!(await page.getByTestId('artifact-scroll').isVisible())) {
+      await page.getByRole('button', { name: 'Artifacts pane', exact: true }).click()
+    }
+    await expect(page.getByTestId('right-pane')).toContainText('E2E Linked Doc', {
+      timeout: 10_000,
+    })
+
+    // The global page lists it, and keeps it once the session is deleted.
+    await page.getByRole('button', { name: 'Artifacts', exact: true }).click()
+    const listed = page.getByTestId('global-page').getByRole('button', { name: /E2E Linked Doc/ })
+    await expect(listed).toBeVisible({ timeout: 10_000 })
+    await expect(listed).not.toContainText('Session deleted')
+
+    await row.click({ button: 'right' })
+    await page
+      .getByTestId('context-menu')
+      .getByRole('button', { name: /^Delete/ })
+      .click()
+    await page.getByRole('button', { name: 'Delete session', exact: true }).click()
+    await expect(row).toHaveCount(0)
+    await expect(listed).toContainText('Session deleted', { timeout: 10_000 })
+
+    // It opens read-only, here, and can then be removed for good.
+    await listed.click()
+    await expect(page.getByText('The artifact the chat link points at.')).toBeVisible()
+    await page.getByRole('button', { name: 'Remove', exact: true }).click()
+    await expect(page.getByText('No artifacts yet')).toBeVisible()
+  } finally {
+    await shutdown(second)
+    await rm(userDataDir, { recursive: true, force: true })
   }
 })
 

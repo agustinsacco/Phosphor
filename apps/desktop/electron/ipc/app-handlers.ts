@@ -15,8 +15,6 @@ import { registry } from '../registry'
 import { syncContextBudget, withBudgetCompaction } from '../pi/context-budget'
 import { piStubPath } from '../pi/stub'
 import { handle } from './handle'
-import { stageArtifactHtml } from '../artifacts/artifact-protocol'
-import { exportArtifactPdf } from '../artifacts/artifact-pdf'
 import { applyThemeSource, applyTitleBarOverlay, applyZoom } from '../window-chrome'
 import { debugLogPath } from '../debug-log'
 import { externalUrl } from '../external-links'
@@ -164,10 +162,6 @@ export function registerAppHandlers(): void {
   handle('app:setPinnedSessions', (_event, paths) => {
     setPinnedSessions(paths)
   })
-
-  handle('artifacts:stageHtml', (_event, html, theme) => stageArtifactHtml(html, theme))
-
-  handle('artifacts:exportPdf', (_event, request) => exportArtifactPdf(request))
 
   handle('app:setLanePrefs', (_event, lanes) => {
     setLanePrefs(lanes)

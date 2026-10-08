@@ -3,7 +3,11 @@ import { join } from 'node:path'
 import { MIN_PI_VERSION, type PiHealth } from '@shared/models'
 
 const h = vi.hoisted(() => ({
-  app: { isPackaged: false, getAppPath: vi.fn(() => '/repo/apps/desktop') },
+  app: {
+    isPackaged: false,
+    getAppPath: vi.fn(() => '/repo/apps/desktop'),
+    getPath: vi.fn(() => '/user-data'),
+  },
   health: vi.fn<() => Promise<PiHealth>>(),
   environment: vi.fn(async () => ({ PATH: '/login-shell/bin', PI_CLAUDE_CLI_CONTEXT: 'old' })),
   provider: vi.fn(() => ({ PI_CLAUDE_CLI_CONTEXT: 'pi' })),
@@ -43,7 +47,12 @@ it('retains shell PATH, provider overrides, Windows prefix arguments and dev res
     binaryPath: '/tools/node',
     prefixArgs: ['/tools/pi.js'],
     stub: false,
-    env: { PATH: '/login-shell/bin', PI_CLAUDE_CLI_CONTEXT: 'pi' },
+    env: {
+      PATH: '/login-shell/bin',
+      PI_CLAUDE_CLI_CONTEXT: 'pi',
+      // The artifacts extension reads other sessions' artifacts from here.
+      PHOSPHOR_ARTIFACT_STORE: join('/user-data', 'artifacts'),
+    },
   })
   expect(launch.extensions[0]).toBe(
     join('/repo/apps/desktop', '../../libs/pi-extensions/pi-ext', 'artifacts.ts'),

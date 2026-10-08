@@ -25,7 +25,9 @@ const state = vi.hoisted(() => {
     runPrintMode: vi.fn(),
   }
 })
-vi.mock('electron', () => ({ app: { isPackaged: false, getAppPath: () => '/app' } }))
+vi.mock('electron', () => ({
+  app: { isPackaged: false, getAppPath: () => '/app', getPath: () => '/user-data' },
+}))
 vi.mock('./handle', () => ({
   handle: (name: string, cb: (...args: unknown[]) => unknown) => state.handlers.set(name, cb),
 }))

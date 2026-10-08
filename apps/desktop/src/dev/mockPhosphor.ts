@@ -9,6 +9,7 @@ import { mockRoutineCall, onMockRoutinesChanged } from './mockRoutines'
 import { bytesToBase64 } from '../lib/base64'
 import type { ConnectorAuthPush, ConnectorAuthState, SessionPush } from '@shared/models'
 import type { ConnectorCheckResult } from '@shared/connectors'
+import type { ArtifactListing, ArtifactSnapshot } from '@shared/artifacts'
 import { DEFAULT_APP_PREFS, MIN_PI_VERSION } from '@shared/models'
 import {
   compileSearch,
@@ -27,6 +28,42 @@ const fixtureEvents: PiEvent[] = fixtureRaw
   .split('\n')
   .map((line) => JSON.parse(line) as { type: string })
   .filter((record) => record.type !== 'response') as PiEvent[]
+
+/** The harness's one stored artifact, from a session that was deleted. */
+const MOCK_STORED_ARTIFACT: { listing: ArtifactListing; artifact: ArtifactSnapshot } = {
+  listing: {
+    key: '01a10e05-0000-7000-8000-000000000001/release-checklist',
+    sessionId: '01a10e05-0000-7000-8000-000000000001',
+    id: 'release-checklist',
+    sessionFile: '/Users/you/.pi/agent/sessions/--mock--/deleted.jsonl',
+    cwd: '/Users/you/projects/phosphor',
+    sessionName: 'Plan the 0.2 release',
+    title: 'Release checklist',
+    type: 'markdown',
+    version: 2,
+    versionCount: 2,
+    updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+    revision: 'call-release-checklist-2',
+    sessionDeleted: true,
+    workspaceExists: true,
+  },
+  artifact: {
+    id: 'release-checklist',
+    title: 'Release checklist',
+    type: 'markdown',
+    versions: [
+      { version: 1, title: 'Release checklist', content: '# Release\n\n- [ ] Tag', createdAt: 0 },
+      {
+        version: 2,
+        title: 'Release checklist',
+        content: '# Release\n\n- [x] Tag\n- [ ] Notes',
+        createdAt: 0,
+      },
+    ],
+  },
+}
+
+let mockStoredArtifactRemoved = false
 
 const listeners = new Map<string, Set<(push: SessionPush) => void>>()
 const ptyListeners = new Map<string, Set<(data: string) => void>>()
@@ -1666,6 +1703,24 @@ export function installMockPhosphor(): void {
           return Promise.resolve({
             savedTo: `/Users/you/Downloads/${(args[0] as { title: string }).title}.pdf`,
           })
+        case 'artifacts:forSession':
+          // Mock sessions carry no stored artifacts; live ones arrive as events.
+          return Promise.resolve([])
+        case 'artifacts:list':
+          // One artifact from a deleted session, so the page's
+          // "Session deleted" row and its read-only viewer are reachable.
+          return Promise.resolve(mockStoredArtifactRemoved ? [] : [MOCK_STORED_ARTIFACT.listing])
+        case 'artifacts:read':
+          return Promise.resolve(
+            !mockStoredArtifactRemoved && args[0] === MOCK_STORED_ARTIFACT.listing.key
+              ? MOCK_STORED_ARTIFACT
+              : null,
+          )
+        case 'artifacts:remove': {
+          const removed = !mockStoredArtifactRemoved && args[0] === MOCK_STORED_ARTIFACT.listing.key
+          mockStoredArtifactRemoved ||= removed
+          return Promise.resolve(removed)
+        }
         case 'app:setLanePrefs':
           return Promise.resolve(undefined)
         case 'app:setLaneMarkers':

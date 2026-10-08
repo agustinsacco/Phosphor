@@ -204,7 +204,11 @@ palette or the shortcuts above.
    Opens itself on a session's **first** artifact, and only when that session
    has no pane open already. A background session never yanks the foreground
    pane, and a new version never steals selection from an artifact you are
-   reading. The cross-session index is the global Artifacts _page_, below.
+   reading. A resumed session's pane fills from the artifact store
+   ([extensions.md](extensions.md#the-artifact-store)), so artifacts that
+   compaction or a provider switch dropped from pi's context still show; it
+   falls back to replaying `get_messages` if the store fails. The
+   cross-session index is the global Artifacts _page_, below.
 
 The artifacts toolbar carries **two exports that are not the same thing**, and
 they no longer share a glyph: a tray saves the _source_ through a dialog, a page
@@ -267,8 +271,13 @@ All switch together, live, no reload.
   overlays belonging to no session, so they work from the home screen; any
   session activation closes them. Skills lives only here: browse, create,
   import/export and install into pi's global or project roots. The Artifacts
-  page indexes every open session's artifacts; opening one jumps to its
-  session with the pane on it.
+  page lists every artifact in the artifact store, from open, closed and
+  deleted sessions. Forks that still share a version fold into one row,
+  preferring an open session. Opening one jumps to its session with the pane
+  on it, resuming a closed session first. A session that cannot be resumed is
+  tagged ("Session deleted", or "Folder missing" when its workspace is gone)
+  and its artifact opens read-only on the page; a deleted session's can be
+  removed there.
 - **Skills discovery** is a capability workbench: outcome filters, task fit,
   evidence and limitations precede an expandable review/install section.
   Vercel React guidance and NVIDIA cuOpt routing install at reviewed commit

@@ -72,7 +72,8 @@ terminal and use `/login`, or put API keys / a local endpoint in
   bookmark it.
 - **Artifacts.** A bundled extension adds `artifact_create` / `artifact_edit` /
   `artifact_update`. Deliverables land in a versioned side panel with previews
-  and diffs, and survive restarts through session replay.
+  and diffs, and survive compaction, restarts and session deletion in an
+  artifact store.
 - **Your machine, your models.** Sign in to providers, pick models, set themes,
   mount MCP servers from Settings. MCP OAuth belongs to the adapter, never to
   Phosphor: [docs/mcp.md](docs/mcp.md).
@@ -164,7 +165,8 @@ them, so the transcript never loses its place.
 ### Artifacts
 
 Long documents, HTML pages, SVG, Mermaid and chart documents the model creates
-for you. Versioned, previewable, diffable, rebuilt from the session on reopen.
+for you. Versioned, previewable, diffable, and kept in a store that outlives
+compaction and the session itself.
 
 ![A long document open in the artifacts pane](docs/img/artifacts.png)
 
@@ -421,8 +423,8 @@ apps/desktop/electron/            main process — owns every side effect
   main.ts            app lifecycle, window creation, quit teardown
   preload.ts         the contextBridge surface (one typed `subscribe` helper)
   ipc.ts             composition root: calls the per-domain handler registrars
-  ipc/               one module per channel-prefix family — 18 of them today
-                     (app, claude-auth, clipboard, feedback, fs, git,
+  ipc/               one module per channel-prefix family — 19 of them today
+                     (app, artifacts, claude-auth, clipboard, feedback, fs, git,
                       maintenance, mcp, optimization, packages, pi-auth,
                       pi-config, pi-session, pty, routines, sessions, skills,
                       updates) plus handle.ts, the
@@ -444,7 +446,8 @@ apps/desktop/electron/            main process — owns every side effect
   fs/                file service, git layer (git-exec/info/sync/worktrees),
                      workspace watcher, workspace search (worker thread)
   artifacts/         the `phosphor-artifact://` protocol — model HTML on its
-                     own origin, so it runs JS without weakening the app CSP
+                     own origin, so it runs JS without weakening the app CSP;
+                     and the artifact store's indexer and library
   maintenance/       worktree reclaim: a pure policy that judges, a sweep that
                      does the git and the disk, a scheduler that rate-limits it
   updates/           update check + download state machine

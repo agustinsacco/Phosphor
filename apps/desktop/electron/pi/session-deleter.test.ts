@@ -20,7 +20,15 @@ const trashItem = vi.fn()
 
 vi.mock('electron', () => ({ shell: { trashItem: (path: string) => trashItem(path) } }))
 
-const { deleteSession } = await import('./session-deleter')
+const { deleteSession, onBeforeSessionDelete } = await import('./session-deleter')
+
+/** Registered once, like the artifact store does at startup. */
+const observed: Array<{ path: string; trashedYet: number }> = []
+let observerFails = false
+onBeforeSessionDelete(async (path) => {
+  observed.push({ path, trashedYet: trashed.length })
+  if (observerFails) throw new Error('store unavailable')
+})
 
 const SESSION_ID = '01a0272a-7be5-76ed-b420-36b363924622'
 /** What the provider's sidecar maps that pi session to under observer mode. */
@@ -119,6 +127,19 @@ describe('deleteSession', () => {
     await mkdir(claudeDir, { recursive: true })
     await writeFile(claudeLedger, line({ type: 'summary', summary: 'the CLI copy' }), 'utf8')
   }
+
+  it('lets an observer read the transcript before it goes, and never waits on its failure', async () => {
+    await writeFile(piPath, transcript(workspace, 'openai-codex'), 'utf8')
+    observed.length = 0
+    observerFails = true
+    try {
+      await deleteSession(piPath)
+    } finally {
+      observerFails = false
+    }
+    expect(observed).toEqual([{ path: piPath, trashedYet: 0 }])
+    expect(trashed).toEqual([piPath])
+  })
 
   it('trashes the CLI copy alongside pi’s transcript', async () => {
     await writeFile(piPath, transcript(workspace, 'pi-claude-cli'), 'utf8')

@@ -12,6 +12,10 @@
       "types": "./src/ansi.ts",
       "default": "./src/ansi.ts"
     },
+    "./artifacts": {
+      "types": "./src/artifacts.ts",
+      "default": "./src/artifacts.ts"
+    },
     "./branchName": {
       "types": "./src/branchName.ts",
       "default": "./src/branchName.ts"

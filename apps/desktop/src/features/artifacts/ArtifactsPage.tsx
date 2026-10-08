@@ -1,46 +1,83 @@
-import { memo, useMemo } from 'react'
-import { useArtifactsStore, type Artifact } from '@/stores/artifacts'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import type { ArtifactListing } from '@shared/artifacts'
+import { ipcErrorText } from '@shared/errors'
+import {
+  normalizeArtifactType,
+  openArtifact,
+  useArtifactsStore,
+  type Artifact,
+} from '@/stores/artifacts'
 import { useSessionsStore } from '@/stores/sessions'
 import { useChatStore } from '@/stores/chat'
-import { useLayoutStore } from '@/stores/layout'
+import { useExtensionUiStore } from '@/stores/extensionUi'
 import { PageShell } from '@/components/PageShell'
 import { PaneTitle } from '@/components/PaneShell'
 import { sessionTitle } from '@/lib/sessionTitle'
 import { projectName } from '@/lib/path'
 import { relativeTimeShort } from '@/lib/time'
 import { artifactGlyph } from './artifactKinds'
-
-interface GlobalArtifactRow {
-  sessionId: string
-  artifact: Artifact
-}
-
-/** Every open session's artifacts as one list, newest first. */
-export function flattenSessionArtifacts(
-  bySession: Record<string, Record<string, Artifact>>,
-): GlobalArtifactRow[] {
-  return Object.entries(bySession)
-    .flatMap(([sessionId, byId]) =>
-      Object.values(byId).map((artifact) => ({ sessionId, artifact })),
-    )
-    .sort((a, b) => b.artifact.updatedAt - a.artifact.updatedAt)
-}
+import { ArtifactWorkspace } from './ArtifactsPane'
+import { mergeGlobalArtifacts, type GlobalArtifactRow } from './globalArtifacts'
 
 /**
- * Global Artifacts page (sidebar → Artifacts): a cross-session index of every
- * artifact the OPEN sessions hold, newest first. Clicking a row jumps into
- * that artifact's own session with the per-session artifacts pane open — the
- * pane stays the viewer, because viewing an artifact next to its chat is the
- * point of it; this page is how you find one without remembering which lane
- * produced it.
+ * Global Artifacts page (sidebar → Artifacts): every artifact Phosphor's
+ * artifact store holds, from every session, open, closed or deleted, newest
+ * first. The store lives in the main process and outlives compaction,
+ * restarts and the session itself.
  *
- * Scope is honest about the store behind it: artifacts live in the renderer,
- * ingested from each session's history at bootstrap and dropped on dispose,
- * so a session that is not open contributes nothing here.
+ * Opening a row lands in that artifact's own session, with the pane on it,
+ * resuming the session first when it is closed: viewing an artifact next to
+ * its chat is the point of it. A deleted session's artifact has no chat to
+ * open, so it opens here, read-only, where it can also be removed.
  */
 export const ArtifactsPage = memo(function ArtifactsPage(): React.JSX.Element {
   const bySession = useArtifactsStore((s) => s.bySession)
-  const rows = useMemo(() => flattenSessionArtifacts(bySession), [bySession])
+  const live = useSessionsStore((s) => s.live)
+  // Reload when a session opens, closes or changes on disk, so a session
+  // deleted while this page is open shows as deleted instead of going stale.
+  const liveIds = useSessionsStore((s) => Object.keys(s.live).join('\n'))
+  const disk = useSessionsStore((s) => s.disk)
+  const [stored, setStored] = useState<ArtifactListing[] | null>(null)
+  const [viewing, setViewing] = useState<string | null>(null)
+
+  const reload = useCallback(() => {
+    const paths = Object.values(useSessionsStore.getState().live).flatMap((l) =>
+      l.diskPath ? [l.diskPath] : [],
+    )
+    window.phosphor
+      .invoke('artifacts:list', paths)
+      .then(setStored)
+      .catch(() => setStored([]))
+  }, [])
+  useEffect(reload, [reload, liveIds, disk])
+
+  const rows = useMemo(
+    () =>
+      mergeGlobalArtifacts(
+        stored ?? [],
+        Object.values(live).map((l) => ({
+          phosphorId: l.phosphorId,
+          diskPath: l.diskPath,
+          workspacePath: l.workspacePath,
+          artifacts: bySession[l.phosphorId] ?? {},
+        })),
+      ),
+    [stored, live, bySession],
+  )
+
+  if (viewing) {
+    return (
+      <StoredArtifactView
+        key={viewing}
+        artifactKey={viewing}
+        onBack={() => setViewing(null)}
+        onRemoved={() => {
+          setViewing(null)
+          reload()
+        }}
+      />
+    )
+  }
 
   return (
     <PageShell
@@ -50,24 +87,24 @@ export const ArtifactsPage = memo(function ArtifactsPage(): React.JSX.Element {
         {rows.length === 0 ? (
           <div className="flex h-full items-center justify-center px-6">
             <div className="max-w-md text-center">
-              <div className="text-text-tertiary text-lg">No artifacts in your open sessions</div>
-              <div className="text-text-tertiary mt-1 text-sm">
-                Ask a session for a dashboard mockup, diagram or report — substantial deliverables
-                land here, and closed sessions reload theirs when reopened.
+              <div className="text-text-tertiary text-lg">
+                {stored === null ? 'Loading artifacts…' : 'No artifacts yet'}
               </div>
+              {stored !== null && (
+                <div className="text-text-tertiary mt-1 text-sm">
+                  Ask a session for a dashboard mockup, diagram or report: substantial deliverables
+                  land here, from every session, and stay after the session is gone.
+                </div>
+              )}
             </div>
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
             <div className="text-text-tertiary pb-2 text-sm">
-              Everything your open sessions have produced. Opening one jumps to its session.
+              Everything your sessions have produced. Opening one jumps to its session.
             </div>
-            {rows.map(({ sessionId, artifact }) => (
-              <ArtifactRow
-                key={`${sessionId}:${artifact.id}`}
-                sessionId={sessionId}
-                artifact={artifact}
-              />
+            {rows.map((row) => (
+              <ArtifactRow key={row.key} row={row} onView={setViewing} />
             ))}
           </div>
         )}
@@ -77,53 +114,173 @@ export const ArtifactsPage = memo(function ArtifactsPage(): React.JSX.Element {
 })
 
 function ArtifactRow({
-  sessionId,
-  artifact,
+  row,
+  onView,
 }: {
-  sessionId: string
-  artifact: Artifact
+  row: GlobalArtifactRow
+  onView: (key: string) => void
 }): React.JSX.Element {
   // A live session's own name beats the scanned one (pi writes the session
   // file only when a turn ends), same rule as the sidebar rows.
-  const liveName = useChatStore((s) => s.sessions[sessionId]?.meta?.sessionName)
-  const workspacePath = useSessionsStore((s) => s.live[sessionId]?.workspacePath)
-  const diskPath = useSessionsStore((s) => s.live[sessionId]?.diskPath)
-  const diskMeta = useSessionsStore((s) =>
-    workspacePath ? s.disk[workspacePath]?.find((m) => m.path === diskPath) : undefined,
+  const liveName = useChatStore((s) =>
+    row.phosphorId ? s.sessions[row.phosphorId]?.meta?.sessionName : undefined,
   )
-  const git = useSessionsStore((s) => (workspacePath ? s.gitByCwd[workspacePath] : undefined))
+  const git = useSessionsStore((s) => s.gitByCwd[row.cwd])
   const title =
     sessionTitle({
-      explicitName: liveName ?? diskMeta?.name,
-      firstUserText: diskMeta?.firstUserText,
+      explicitName: liveName ?? row.sessionName,
+      firstUserText: row.firstUserText,
     }) ?? 'Untitled session'
 
-  const open = (): void => {
-    // activate() closes this page; the pane + selection land the reader on
-    // exactly the artifact they clicked.
-    useSessionsStore.getState().activate(sessionId)
-    useArtifactsStore.getState().select(sessionId, artifact.id)
-    useLayoutStore.getState().setRightPane('artifacts', sessionId)
+  const open = async (): Promise<void> => {
+    if (row.sessionDeleted) {
+      onView(row.key)
+      return
+    }
+    try {
+      let phosphorId = row.phosphorId
+      if (!phosphorId) {
+        // A closed session: resume it, then land on the artifact.
+        const sessions = useSessionsStore.getState()
+        await sessions.refreshDisk(row.cwd)
+        const meta = useSessionsStore
+          .getState()
+          .disk[row.cwd]?.find((m) => m.path === row.sessionFile)
+        if (!meta) throw new Error('That session is no longer on disk.')
+        phosphorId = await sessions.openDiskSession(row.cwd, meta)
+      } else {
+        // activate() closes this page.
+        useSessionsStore.getState().activate(phosphorId)
+      }
+      if (!openArtifact(phosphorId, row.id)) {
+        throw new Error('That artifact is not on the session’s current branch.')
+      }
+    } catch (error) {
+      useExtensionUiStore.getState().pushToast(ipcErrorText(error), 'error')
+    }
   }
 
   return (
     <button
-      onClick={open}
+      onClick={() => void open()}
       className="hover:bg-bg-secondary flex w-full cursor-pointer items-start gap-2.5 rounded-md px-2 py-1.5 text-left"
     >
-      <span className="shrink-0 pt-0.5 text-base leading-none">{artifactGlyph(artifact.type)}</span>
+      <span className="shrink-0 pt-0.5 text-base leading-none">{artifactGlyph(row.type)}</span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
-          <span className="min-w-0 truncate text-base font-medium">{artifact.title}</span>
+          <span className="min-w-0 truncate text-base font-medium">{row.title}</span>
           <span className="text-text-tertiary shrink-0 text-sm">
-            v{artifact.versions.length} · {relativeTimeShort(artifact.updatedAt)}
+            v{row.version} · {relativeTimeShort(row.updatedAt)}
           </span>
         </span>
         <span className="text-text-tertiary block truncate text-sm">
+          {row.sessionDeleted && <DeletedTag />}
           {title}
-          {workspacePath ? ` · ${projectName(workspacePath, git)}` : ''}
+          {row.cwd ? ` · ${projectName(row.cwd, git)}` : ''}
+          {row.copies > 0 ? ` · also in ${row.copies} fork${row.copies === 1 ? '' : 's'}` : ''}
         </span>
       </span>
     </button>
+  )
+}
+
+function DeletedTag(): React.JSX.Element {
+  return (
+    <span className="border-border text-text-secondary mr-1.5 rounded-sm border px-1 py-px text-xs">
+      Session deleted
+    </span>
+  )
+}
+
+/** A deleted session's artifact, read-only, with a way back and a way to remove it. */
+function StoredArtifactView({
+  artifactKey,
+  onBack,
+  onRemoved,
+}: {
+  artifactKey: string
+  onBack: () => void
+  onRemoved: () => void
+}): React.JSX.Element {
+  const [loaded, setLoaded] = useState<
+    { artifact: Artifact; cwd: string; deleted: boolean } | null | undefined
+  >(undefined)
+
+  useEffect(() => {
+    window.phosphor
+      .invoke('artifacts:read', artifactKey)
+      .then((found) =>
+        setLoaded(
+          found
+            ? {
+                cwd: found.listing.cwd,
+                deleted: found.listing.sessionDeleted,
+                artifact: {
+                  id: found.artifact.id,
+                  title: found.artifact.title,
+                  type: normalizeArtifactType(found.artifact.type),
+                  language: found.artifact.language,
+                  versions: found.artifact.versions,
+                  updatedAt: found.listing.updatedAt,
+                },
+              }
+            : null,
+        ),
+      )
+      .catch(() => setLoaded(null))
+  }, [artifactKey])
+
+  const remove = async (): Promise<void> => {
+    try {
+      if (await window.phosphor.invoke('artifacts:remove', artifactKey)) onRemoved()
+    } catch (error) {
+      useExtensionUiStore.getState().pushToast(ipcErrorText(error), 'error')
+    }
+  }
+
+  const back = (
+    <button
+      onClick={onBack}
+      title="All artifacts"
+      className="text-text-secondary hover:text-text hover:bg-bg-secondary shrink-0 rounded-sm px-1.5 py-0.5 text-sm"
+    >
+      ← All
+    </button>
+  )
+
+  if (!loaded) {
+    return (
+      <PageShell title={back}>
+        <div className="text-text-tertiary flex h-full items-center justify-center text-sm">
+          {loaded === undefined ? 'Loading…' : 'This artifact is no longer in the store.'}
+        </div>
+      </PageShell>
+    )
+  }
+
+  return (
+    <ArtifactWorkspace
+      artifact={loaded.artifact}
+      list={[loaded.artifact]}
+      workspacePath={loaded.cwd}
+      onSelect={() => undefined}
+      page={{
+        leading: (
+          <>
+            {back}
+            {loaded.deleted && <DeletedTag />}
+            {loaded.deleted && (
+              <button
+                onClick={() => void remove()}
+                title="Remove this artifact for good"
+                className="text-text-secondary hover:text-text hover:bg-bg-secondary shrink-0 rounded-sm px-1.5 py-0.5 text-sm"
+              >
+                Remove
+              </button>
+            )}
+          </>
+        ),
+      }}
+    />
   )
 }

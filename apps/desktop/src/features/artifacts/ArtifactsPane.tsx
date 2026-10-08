@@ -4,6 +4,7 @@ import { useArtifactsStore, type Artifact } from '@/stores/artifacts'
 import { useSessionsStore } from '@/stores/sessions'
 import { openFileInWorkspace } from '@/stores/layout'
 import { PaneShell, PaneTitle } from '@/components/PaneShell'
+import { PageShell } from '@/components/PageShell'
 import { PopupMenu, MenuRow } from '@/components/PopupMenu'
 import { ChevronDownIcon } from '@/components/icons'
 import { Markdown } from '@/components/markdown/Markdown'
@@ -109,12 +110,13 @@ export const ArtifactsPane = memo(function ArtifactsPane({
  * share tab + version state, so they are one component — remounted per
  * artifact by its `key`, which is what resets the view on a switch.
  */
-function ArtifactWorkspace({
+export function ArtifactWorkspace({
   artifact,
   list,
   workspacePath,
   onSelect,
   requestedVersion,
+  page,
 }: {
   artifact: Artifact
   list: Artifact[]
@@ -122,7 +124,14 @@ function ArtifactWorkspace({
   onSelect: (id: string) => void
   /** Version explicitly navigated to (e.g. a chat card's "Open in panel"). */
   requestedVersion?: number
+  /**
+   * Render on a global page instead of in the right pane: the page's chrome
+   * (no pane side, fullscreen or close), `leading` before the title, and no
+   * "write into workspace", since there is no live workspace to open it in.
+   */
+  page?: { leading: React.ReactNode }
 }): React.JSX.Element {
+  const Shell = page ? PageArtifactShell : PaneShell
   const latest = artifact.versions[artifact.versions.length - 1]!
   const [mode, setMode] = useState<ViewMode>('preview')
   const [exporting, setExporting] = useState(false)
@@ -223,9 +232,14 @@ function ArtifactWorkspace({
   }
 
   return (
-    <PaneShell
+    <Shell
       rootRef={paneRef}
-      title={<ArtifactSwitcher list={list} selected={artifact} onSelect={onSelect} />}
+      title={
+        <>
+          {page?.leading}
+          <ArtifactSwitcher list={list} selected={artifact} onSelect={onSelect} />
+        </>
+      }
       actions={
         /*
          * Shrinkable and scrollable, following the terminal's tab strip: the
@@ -279,12 +293,14 @@ function ArtifactWorkspace({
           >
             <PdfExportIcon />
           </ActionIcon>
-          <ActionIcon
-            title="Write into workspace and open in Files"
-            onClick={() => void openInFiles()}
-          >
-            <FileIcon size={12} />
-          </ActionIcon>
+          {!page && (
+            <ActionIcon
+              title="Write into workspace and open in Files"
+              onClick={() => void openInFiles()}
+            >
+              <FileIcon size={12} />
+            </ActionIcon>
+          )}
         </div>
       }
     >
@@ -344,7 +360,21 @@ function ArtifactWorkspace({
           )}
         </div>
       </div>
-    </PaneShell>
+    </Shell>
+  )
+}
+
+/** PageShell with PaneShell's props, so one viewer serves the pane and a page. */
+function PageArtifactShell({
+  rootRef,
+  ...shell
+}: React.ComponentProps<typeof PageShell> & {
+  rootRef?: React.Ref<HTMLDivElement>
+}): React.JSX.Element {
+  return (
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col">
+      <PageShell {...shell} />
+    </div>
   )
 }
 

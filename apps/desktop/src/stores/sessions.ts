@@ -938,13 +938,21 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
 
       // Resume: hydrate history before metadata so the transcript paints fast.
       if (options.sessionPath) {
+        // Asked in parallel with the transcript. The store, not pi's messages,
+        // is what fills the pane: messages stop at the last compaction, so a
+        // compacted session that restarted (a provider switch, a relaunch)
+        // used to come back with an empty pane.
+        const stored = window.phosphor
+          .invoke('artifacts:forSession', options.sessionPath)
+          .catch(() => null)
         try {
           const messages = await rehydrateTranscript(phosphorId)
-          if (messages) {
-            // Rebuild artifacts by replaying persisted toolResult messages.
-            const { useArtifactsStore } = await import('./artifacts')
-            useArtifactsStore.getState().ingestFromHistory(phosphorId, messages)
-          }
+          const { useArtifactsStore } = await import('./artifacts')
+          const snapshots = await stored
+          if (snapshots) useArtifactsStore.getState().hydrate(phosphorId, snapshots)
+          // The old path, for when the store could not answer: replaying the
+          // toolResult messages pi still has in context.
+          else if (messages) useArtifactsStore.getState().ingestFromHistory(phosphorId, messages)
         } catch {
           // non-fatal
         } finally {

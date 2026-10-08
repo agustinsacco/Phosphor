@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { normalizeArtifactType, useArtifactsStore } from './artifacts'
+import { mergeSnapshots, normalizeArtifactType, useArtifactsStore } from './artifacts'
 import { useLayoutStore } from './layout'
 
 const SESSION = 'session-1'
@@ -93,5 +93,52 @@ describe('artifacts store — selection', () => {
 
     useArtifactsStore.getState().select(SESSION, 'doc-a')
     expect(useArtifactsStore.getState().selectedVersion[SESSION]).toBeUndefined()
+  })
+})
+
+describe('artifacts store — hydrating from the artifact store', () => {
+  const snapshot = (versions: number[]) => ({
+    id: 'guide',
+    title: 'Guide',
+    type: 'html',
+    versions: versions.map((version) => ({
+      version,
+      title: `Guide v${version}`,
+      content: `<p>${version}</p>`,
+      createdAt: 1_000 * version,
+    })),
+  })
+
+  it('fills a resumed session with versions pi no longer has in context', () => {
+    useArtifactsStore.getState().hydrate(SESSION, [snapshot([1, 2, 3])])
+    const guide = useArtifactsStore.getState().bySession[SESSION]!.guide!
+    expect(guide.versions.map((v) => v.version)).toEqual([1, 2, 3])
+    expect(guide.title).toBe('Guide v3')
+    // Dated by when it was made, not by when the pane opened.
+    expect(guide.updatedAt).toBe(3_000)
+    // Never opens the pane, and nothing counts as unseen.
+    expect(useLayoutStore.getState().bySession[SESSION]).toBeUndefined()
+    expect(useArtifactsStore.getState().unseen[SESSION]).toBeUndefined()
+  })
+
+  it('merges with what arrived live instead of replacing it', () => {
+    create('guide', { type: 'html', version: 4, content: '<p>live</p>', title: 'Guide live' })
+    useArtifactsStore.getState().hydrate(SESSION, [snapshot([1, 2])])
+    const guide = useArtifactsStore.getState().bySession[SESSION]!.guide!
+    expect(guide.versions.map((v) => v.version)).toEqual([1, 2, 4])
+    expect(guide.versions[2]!.content).toBe('<p>live</p>')
+    expect(guide.title).toBe('Guide live')
+  })
+
+  it('keeps a live version over a stored copy of the same number', () => {
+    create('guide', { type: 'html', version: 1, content: '<p>live</p>' })
+    const merged = mergeSnapshots(useArtifactsStore.getState().bySession[SESSION]!, [snapshot([1])])
+    expect(merged.guide!.versions).toHaveLength(1)
+    expect(merged.guide!.versions[0]!.content).toBe('<p>live</p>')
+  })
+
+  it('normalizes a stored type it does not know', () => {
+    useArtifactsStore.getState().hydrate(SESSION, [{ ...snapshot([1]), type: 'update' }])
+    expect(useArtifactsStore.getState().bySession[SESSION]!.guide!.type).toBe('code')
   })
 })

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AgentMessage, ToolResultMessage } from '@shared/rpc'
+import type { ArtifactSnapshot } from '@shared/artifacts'
 import { drop } from './keyedSlice'
 import { isArtifactWriteTool } from '@/lib/artifactTools'
 import { useLayoutStore, sessionPanes } from './layout'
@@ -60,6 +61,12 @@ interface ArtifactsState {
     opts?: { autoOpen?: boolean },
   ) => void
   ingestFromHistory: (sessionId: string, messages: AgentMessage[]) => void
+  /**
+   * Fill a session from the artifact store (`artifacts:forSession`). Unlike
+   * `ingestFromHistory`, this sees past compaction: pi's messages stop at the
+   * last one, the store holds the whole branch. Never opens the pane.
+   */
+  hydrate: (sessionId: string, snapshots: ArtifactSnapshot[]) => void
   addLocal: (
     sessionId: string,
     artifact: { title: string; type: ArtifactType; language?: string; content: string },
@@ -80,6 +87,44 @@ export function normalizeArtifactType(
   fallback: ArtifactType = 'code',
 ): ArtifactType {
   return VALID_TYPES.has(type ?? '') ? (type as ArtifactType) : fallback
+}
+
+/**
+ * Merge stored snapshots into a session's artifacts. Versions are matched by
+ * number and a version already held wins: it arrived live, from the same tool
+ * result the store indexed. Timestamps are the session's own, so a resumed
+ * pane dates its artifacts by when they were made, not by when it opened.
+ */
+export function mergeSnapshots(
+  current: Record<string, Artifact>,
+  snapshots: ArtifactSnapshot[],
+): Record<string, Artifact> {
+  const next = { ...current }
+  for (const snapshot of snapshots) {
+    const existing = next[snapshot.id]
+    const byVersion = new Map<number, ArtifactVersion>()
+    for (const v of snapshot.versions) {
+      byVersion.set(v.version, {
+        version: v.version,
+        content: v.content,
+        title: v.title,
+        createdAt: v.createdAt,
+      })
+    }
+    for (const v of existing?.versions ?? []) byVersion.set(v.version, v)
+    const versions = [...byVersion.values()].sort((a, b) => a.version - b.version)
+    const latest = versions[versions.length - 1]
+    if (!latest) continue
+    next[snapshot.id] = {
+      id: snapshot.id,
+      title: latest.title,
+      type: existing?.type ?? normalizeArtifactType(snapshot.type),
+      language: existing?.language ?? snapshot.language,
+      versions,
+      updatedAt: Math.max(existing?.updatedAt ?? 0, latest.createdAt),
+    }
+  }
+  return next
 }
 
 export const useArtifactsStore = create<ArtifactsState>((set, get) => ({
@@ -166,6 +211,16 @@ export const useArtifactsStore = create<ArtifactsState>((set, get) => ({
       if (result.isError) continue
       get().ingest(sessionId, result.toolName, result.details, { autoOpen: false })
     }
+  },
+
+  hydrate: (sessionId, snapshots) => {
+    if (snapshots.length === 0) return
+    set((state) => ({
+      bySession: {
+        ...state.bySession,
+        [sessionId]: mergeSnapshots(state.bySession[sessionId] ?? {}, snapshots),
+      },
+    }))
   },
 
   addLocal: (sessionId, artifact) => {

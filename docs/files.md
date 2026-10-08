@@ -65,7 +65,7 @@ key, grouped by file. Each line keeps its match in view however narrow the
 pane: the text after the match gives way first, then the text before it. The
 Match case / Whole word / Regex toggles and their ⌥C, ⌥W, ⌥R keys are the same
 ones find uses. The ⋯ header toggle shows **Files to include** and **Files to
-exclude**: comma-separated globs (`shared/glob.ts`). `*.ts` matches at any
+exclude**: comma-separated globs (`libs/shared/src/glob.ts`). `*.ts` matches at any
 depth, a folder name covers everything under it, and a leading `/` anchors a
 pattern at the workspace root. Matching ignores case.
 
@@ -85,7 +85,7 @@ The search runs in main, in a worker thread
 (`electron/fs/workspace-search-service.ts`). Each keystroke's search replaces
 the window's last one, and a regex that backtracks without end is terminated
 with its worker instead of freezing the app. The query and globs are compiled
-once, by the same code in the panel and in main (`shared/workspace-search.ts`),
+once, by the same code in the panel and in main (`libs/shared/src/workspace-search.ts`),
 so a bad regex or glob says so as you type. It reads the files the fuzzy finder
 lists: git's tracked and untracked files without the ignored ones, or a bounded
 walk outside a repository. It never follows a symlink, to a file or through a
@@ -139,7 +139,7 @@ Revert failures are shown as errors rather than disappearing silently.
 ## Previews
 
 Images, video, audio, PDFs, HTML and markdown open in a viewer instead of
-Monaco. The extension decides (`shared/file-kinds.ts`); the size cap does not
+Monaco. The extension decides (`libs/shared/src/file-kinds.ts`); the size cap does not
 apply to media, so a multi-gigabyte video opens and seeks. HTML, SVG and
 markdown keep a Preview/Source toggle; the HTML/SVG preview shows the saved
 file, and says so while the buffer has unsaved edits. Every other file that

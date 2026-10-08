@@ -186,7 +186,7 @@ case, whole word and regex. A one-line selection seeds the query, Esc closes
 the bar, and the count stops at 10,000.
 
 The bar (`components/search/FindBar.tsx`) is shared with find in an artifact.
-Its toggles and the matching (`shared/text-search.ts`) are shared with the
+Its toggles and the matching (`libs/shared/src/text-search.ts`) are shared with the
 Files pane's search too ([files.md](files.md#search-in-files)), which has its
 own panel. Each surface reaches its own text, and has its own limits.
 
@@ -331,7 +331,7 @@ in the **top bar** (`app/TopBar.tsx` → `SessionMenu`).
   ones a model offers is per model: a non-reasoning model has only `off`,
   `xhigh`/`max` are opt-in. A live session asks pi
   (`get_available_thinking_levels`); the home picker derives the same answer
-  from `shared/thinking.ts`. The chip is hidden unless the model has more than
+  from `libs/shared/src/thinking.ts`. The chip is hidden unless the model has more than
   one level.
 - **Two owners, one chip.** `ModelPicker` drives a live session over RPC
   (`set_model`). `HomeModelPicker` has no process to talk to, so it reads and
@@ -342,7 +342,7 @@ in the **top bar** (`app/TopBar.tsx` → `SessionMenu`).
   `agent_end` and on demand), warn state near the compaction threshold, and
   the popover below. The denominator is pi's context window, or the
   **context budget** where one applies (Settings → Agent → Context budget,
-  200k unless set; `sessionContextBudget` in `shared/context-budget.ts`): a
+  200k unless set; `sessionContextBudget` in `libs/shared/src/context-budget.ts`): a
   session whose catalogue capacity is at least the budget gets a capped
   effective window on every provider
   ([cli-providers.md](cli-providers.md#one-context-budget)). pi compacts before

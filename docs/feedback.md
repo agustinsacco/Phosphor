@@ -18,7 +18,7 @@ gh issue list --repo agustinsacco/Phosphor --label feedback --label rating:1
 answers ("what's working, what isn't" and "features you'd like to see"), an
 anonymity choice, an optional contact, and an opt-out for attaching the app
 version and platform. Nothing else about the machine, the code or any session
-is ever attached — `buildFeedbackIssue` in `shared/feedback.ts` is the whole
+is ever attached — `buildFeedbackIssue` in `libs/shared/src/feedback.ts` is the whole
 payload, and it only reads the draft.
 
 Submit needs at least one of the two text answers. A rating alone is a number
@@ -26,7 +26,7 @@ with no story behind it.
 
 ## Two ways in, and only one of them can be anonymous
 
-`shared/feedback.ts` is the contract; `electron/feedback/feedback-service.ts`
+`libs/shared/src/feedback.ts` is the contract; `electron/feedback/feedback-service.ts`
 runs it. Which path is live depends only on whether a relay is configured.
 
 | Mode               | When                            | Who the issue is from         |
@@ -84,7 +84,7 @@ hand, so a browser-filed issue and an app-filed one read the same way.
 
 | Path                                    | Holds                                                     |
 | --------------------------------------- | --------------------------------------------------------- |
-| `shared/feedback.ts`                    | Types, the issue builder, the URL builder, the rules      |
+| `libs/shared/src/feedback.ts`           | Types, the issue builder, the URL builder, the rules      |
 | `electron/feedback/feedback-service.ts` | Relay POST, browser fallback, launch counting             |
 | `electron/ipc/feedback-handlers.ts`     | `feedback:state` / `feedback:submit` / `feedback:dismiss` |
 | `src/features/feedback/`                | The store, the modal, the sidebar button                  |

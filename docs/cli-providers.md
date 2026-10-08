@@ -99,7 +99,7 @@ normal pi messages. Legacy markers and rebuild UI remain readable for old record
 Interactive sessions share a **context budget** (Settings → Agent → Context
 budget, `AppPrefs.contextBudget`, default 200k): an effective context window,
 never larger than the model's catalogue capacity, whatever its provider.
-The rule is `sessionContextBudget` in `shared/context-budget.ts`.
+The rule is `sessionContextBudget` in `libs/shared/src/context-budget.ts`.
 
 It matters most on Claude Code. pi's catalogue gives most Claude models a 1M
 window, so pi's own threshold (`contextWindow - reserveTokens`) would let a
@@ -166,7 +166,7 @@ up that is reachable through the binary and not the backend.
 
 The load-bearing design decision either way: **the adapter is a pi extension,
 not a Phosphor feature.** It registers a provider inside pi's process. Phosphor
-learned nothing, and `shared/rpc.ts` did not change once.
+learned nothing, and `libs/shared/src/rpc.ts` did not change once.
 
 ```mermaid
 flowchart TB

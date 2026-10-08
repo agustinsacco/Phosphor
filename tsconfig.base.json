@@ -15,7 +15,8 @@
     "useDefineForClassFields": true,
     "noEmit": true,
     "paths": {
-      "@shared/*": ["./shared/*"],
+      "@phosphor/shared/*": ["./libs/shared/src/*"],
+      "@shared/*": ["./libs/shared/src/*"],
       "@/*": ["./src/*"]
     }
   }

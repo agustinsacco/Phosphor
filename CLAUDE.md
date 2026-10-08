@@ -3,7 +3,7 @@
 Phosphor is an Electron desktop app that wraps the **pi coding agent**
 (`@earendil-works/pi-coding-agent`) — one `pi --mode rpc` subprocess per live
 session, spoken to over JSONL on stdio. Phosphor never imports pi's code; the
-protocol is hand-mirrored in `shared/rpc.ts`.
+protocol is hand-mirrored in `libs/shared/src/rpc.ts`.
 
 **Two maps before you start.** [README.md](README.md#repo-layout) has the repo
 tree — the single copy, since three copies drifted.
@@ -50,7 +50,7 @@ you want to watch.
    (contextIsolation, no Node) and is pure UI over typed IPC. If a feature
    needs disk/network/subprocess, it goes in `electron/`, not `src/`.
 2. **IPC is a typed contract.** A new channel = an entry in
-   `shared/ipc.ts` `IpcInvokeMap` + a handler in
+   `libs/shared/src/ipc.ts` `IpcInvokeMap` + a handler in
    `electron/ipc/<prefix>-handlers.ts` (the module matching the channel prefix
    — 18 of them, listed in [README.md](README.md#repo-layout)) + a case in
    `src/dev/mockPhosphor.ts` if the browser harness should exercise it.
@@ -60,7 +60,7 @@ you want to watch.
    unwraps the `{success, data?, error?}` envelope and surfaces failures on
    the session's chat. Calling `window.phosphor.piCommand` directly means you own
    the error branch — half the original call sites forgot, so don't.
-4. **`shared/rpc.ts` is a mirror of pi's protocol** with compile-time drift
+4. **`libs/shared/src/rpc.ts` is a mirror of pi's protocol** with compile-time drift
    guards (`_NoMissingResponseKeys` / `_NoExtraResponseKeys`). Adding an RPC
    command means updating both the command union and `RpcResponseDataMap`, or
    it won't compile — that's intentional.
@@ -154,7 +154,7 @@ you want to watch.
   [provider-symmetry.md](docs/provider-symmetry.md) and re-run its checks.
 
 - **Interactive sessions share an absolute context budget (default 200k),
-  Claude included.** `shared/context-budget.ts` (`sessionContextBudget`) is
+  Claude included.** `libs/shared/src/context-budget.ts` (`sessionContextBudget`) is
   the rule, and it never looks at the provider; the pref is
   `AppPrefs.contextBudget` (Settings → Agent → Context budget). pi's catalogue
   gives most Claude models a 1M window, so pi's own threshold
@@ -234,7 +234,7 @@ you want to watch.
 ## Conventions
 
 - Tests live beside their subject as `*.test.ts` — **everywhere**, `electron/`
-  and `shared/` and `pi-ext/` included. One `__tests__/` directory is left
+  and `libs/shared/src/` and `pi-ext/` included. One `__tests__/` directory is left
   (`scripts/__tests__/`); the rest were moved next to their subjects. Shared
   inputs go in a sibling `__fixtures__/`.
   DOM suites opt in per file with `// @vitest-environment jsdom`. Prefer
@@ -261,7 +261,8 @@ you want to watch.
   two rules as artifacts. A new scheme goes into the single
   `protocol.registerSchemesAsPrivileged` call in `electron/main.ts`: Electron
   honours only one call, so a second one silently drops the first.
-- Renderer path aliases: `@/` → `src/`, `@shared/` → `shared/`.
+- Renderer path aliases: `@/` → `src/`, `@phosphor/shared/` → `libs/shared/src/`.
+  `@shared/` remains a compatibility alias to that same source until installation closure.
 - Browser-only dev (vite without Electron) auto-installs
   `src/dev/mockPhosphor.ts` when `window.phosphor` is undefined — new IPC channels
   used by screens the harness renders need a mock case.

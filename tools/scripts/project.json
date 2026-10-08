@@ -1,0 +1,69 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "tooling",
+  "root": "tools/scripts",
+  "projectType": "library",
+  "tags": ["scope:tooling"],
+  "implicitDependencies": ["desktop", "runtime", "shared", "pi-extensions", "site", "schema"],
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "tsc --noEmit -p apps/desktop/tsconfig.node.json && tsc --noEmit -p apps/desktop/tsconfig.web.json",
+        "cwd": "."
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "eslint .",
+        "cwd": "."
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "vitest run",
+        "cwd": "."
+      },
+      "configurations": {
+        "inventory": {
+          "command": "vitest list --filesOnly --json"
+        }
+      }
+    },
+    "validate": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "./tools/scripts/validate.sh",
+        "cwd": "."
+      }
+    },
+    "format-check": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "prettier --check .",
+        "cwd": "."
+      }
+    },
+    "test:graph": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "vitest run tools/scripts/nx-projects.test.ts",
+        "cwd": "."
+      }
+    }
+  }
+}

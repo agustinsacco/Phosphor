@@ -21,6 +21,7 @@ Start with [overview.md](overview.md) for what Phosphor is, or
 | -------------------------------------- | ------------------------------------------------------------ |
 | [overview.md](overview.md)             | Product definition, non-negotiables, engineering quality bar |
 | [architecture.md](architecture.md)     | Process model, the IPC prefixes, cross-cutting requirements  |
+| [desktop-build.md](desktop-build.md)   | Desktop paths, native install ownership and packaging        |
 | [pi-integration.md](pi-integration.md) | pi's RPC protocol and session format                         |
 
 The [remote-access foundation](remote-access.md) documents the control-directory

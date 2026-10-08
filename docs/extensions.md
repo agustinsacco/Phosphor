@@ -38,7 +38,7 @@ mutation**; Phosphor reads state and streams the CLI's output.
 - **Reads are file-based** and spawn nothing, so the tab renders instantly and
   works with no pi binary present.
 - Renderer sends scope enums and spec strings; every path is resolved in
-  `electron/pi/packages.ts`.
+  `apps/desktop/electron/pi/packages.ts`.
 - Packages execute arbitrary code in pi's process. The tab says so. The
   catalogue is limited to specs whose source we have read, but every entry is a
   bare spec, so installing one takes whatever `latest` is. The review is of a
@@ -71,7 +71,7 @@ scope (name, version, spec, resource counts, `filtered` badge, remove), then
 add-by-spec with a scope selector and "Update all". A link to
 [pi.dev/packages](https://pi.dev/packages) for the ecosystem.
 
-**Curated catalogue** (`src/features/settings/catalogue.ts`): five specs we
+**Curated catalogue** (`apps/desktop/src/features/settings/catalogue.ts`): five specs we
 have read the source of: the Claude Code provider, the MCP adapter, web access,
 subagents, computer use. An entry may declare `requiresBinary: 'claude'`,
 which greys the card and says why when the binary is missing.
@@ -107,7 +107,7 @@ arrives is an ordinary `extension_ui_request` whose title is **prose the
 extension wrote, with the whole command inside it**. Rendered generically, a
 60-line heredoc becomes a dialog _title_.
 
-`src/features/extension-ui/commandApproval.ts` claims those dialogs and
+`apps/desktop/src/features/extension-ui/commandApproval.ts` claims those dialogs and
 `CommandApprovalSheet.tsx` renders them as a review surface. Two pure steps:
 
 - **`parseCommandApproval`** recognises the shape (a heading naming a
@@ -135,7 +135,7 @@ Rules the sheet keeps:
 - **The panel is height-capped and scrolls.** Over 14 lines it opens folded to
   the flagged lines.
 
-`src/dev/mockPhosphor.ts` raises one in the browser harness when a prompt
+`apps/desktop/src/dev/mockPhosphor.ts` raises one in the browser harness when a prompt
 starts with `danger`.
 
 ### Optional permission gate and scratch cleanup
@@ -213,23 +213,23 @@ package's own resolution rather than guessing:
 
 ## Code map
 
-- Main: `electron/pi/packages.ts` (spec classification, install-dir
+- Main: `apps/desktop/electron/pi/packages.ts` (spec classification, install-dir
   resolution, resource discovery, job runner, `claudeStatus`).
 - IPC: `packages:list / run / installPi / checkUpdates / detect /
 claudeStatus / claudeCliLatest / updateClaudeCli / testClaudeProvider`
-  (`electron/ipc/packages-handlers.ts`); `pi:webSearchConfig /
+  (`apps/desktop/electron/ipc/packages-handlers.ts`); `pi:webSearchConfig /
 patchWebSearchConfig` (`pi-config-handlers.ts`).
 - UI: `tabs/ExtensionsTab.tsx`, `tabs/ClaudeProviderTab.tsx`,
   `tabs/WebAccessTab.tsx`, `tabs/ComputerUseTab.tsx`, `CatalogueCards.tsx`,
   `catalogue.ts`, `usePackageJob.ts`, `JobOutput.tsx`, `app/PiMissingScreen.tsx`,
-  `app/GettingStartedScreen.tsx`. Mock cases in `src/dev/mockPhosphor.ts`.
+  `app/GettingStartedScreen.tsx`. Mock cases in `apps/desktop/src/dev/mockPhosphor.ts`.
 
 ## Bundled extensions (Phosphor's own)
 
 Separate from packages the user installs, Phosphor ships **six** TypeScript
 extensions in `libs/pi-extensions/pi-ext/`, loaded into **every** session via
 `pi --mode rpc -e <path>` (`bundledExtensions()` in
-`libs/session-runtime/src/bundled-extensions.ts`, called by `electron/pi/session-runtime.ts`). They are the only Phosphor code with a
+`libs/session-runtime/src/bundled-extensions.ts`, called by `apps/desktop/electron/pi/session-runtime.ts`). They are the only Phosphor code with a
 say inside a turn.
 
 The private `@phosphor/pi-extensions` source package keeps these standalone
@@ -291,7 +291,7 @@ an edit has to apply to the live text in a resumed session.
 **Artifacts execute JavaScript, on their own origin.** They are NOT rendered
 with `srcdoc`: a srcdoc document inherits the app's policy container, so the
 app CSP refuses every inline script and the sandbox attribute becomes a no-op.
-`electron/artifacts/artifact-protocol.ts` serves staged HTML over
+`apps/desktop/electron/artifacts/artifact-protocol.ts` serves staged HTML over
 `phosphor-artifact://` with its own `default-src 'none'` policy, and the iframe
 keeps `sandbox="allow-scripts"` **without** `allow-same-origin`, which keeps
 the origin opaque. Measured, not assumed: scripts run; storage, cookies,
@@ -301,7 +301,7 @@ and never add a `connect-src`. Either one hands model-authored HTML a channel
 out.
 
 **The look of an artifact is injected, not prompted.**
-`electron/artifacts/artifact-skeleton.ts` wraps the model's markup in a real
+`apps/desktop/electron/artifacts/artifact-skeleton.ts` wraps the model's markup in a real
 document with the house stylesheet in its `<head>`, so the model writes a
 fragment and no palette. It is retroactive (rebuilt on every stage, so old
 artifacts render in the current style); the model's own `<style>` still wins
@@ -315,7 +315,7 @@ cell classes, so a row of prose degrades to a paragraph instead of word-wide
 columns.
 
 **The PDF export prints the staged document, not a second one.**
-`electron/artifacts/artifact-pdf.ts` calls the same `stageArtifactHtml`, loads
+`apps/desktop/electron/artifacts/artifact-pdf.ts` calls the same `stageArtifactHtml`, loads
 the `phosphor-artifact://` URL in a hidden sandboxed window and `printToPDF`s
 it, so the sheet, the theme stamp and the CSP are the preview's. The version it
 replaces built its own document: a hand-copied subset of the sheet that knew
@@ -325,7 +325,7 @@ nothing of `.kpis`, `table.data` or `.ledger`, `marked` and `mermaid` from a CDN
 the bottom. Two document builders is one too many. The types the renderer draws
 — markdown, mermaid, chart, code — have no main-process renderer at all, so the
 pane serialises its rendered preview instead
-(`src/features/artifacts/previewHtml.ts`: canvases become `data:` images,
+(`apps/desktop/src/features/artifacts/previewHtml.ts`: canvases become `data:` images,
 buttons are dropped) and hands that over as the markup to stage.
 
 **It prints US Letter pages, and places the breaks rather than avoiding them.**
@@ -554,7 +554,7 @@ resume; glob `<projectDir>/*/subagents/agent-<taskId>.jsonl` instead), and
 
 ## Sharp edges
 
-- **The e2e stub is also a package manager.** `e2e/fixtures/pi-stub.cjs`
+- **The e2e stub is also a package manager.** `apps/desktop/e2e/fixtures/pi-stub.cjs`
   dispatches on argv before any RPC setup: `install`/`remove` edit the
   sandboxed settings.json and mirror the npm dir layout; `-p` answers print
   mode. An install must never create a stub session.

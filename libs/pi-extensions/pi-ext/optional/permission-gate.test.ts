@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { parseCommandApproval } from '../../../../src/features/extension-ui/commandApproval'
+import { parseCommandApproval } from '../../../../apps/desktop/src/features/extension-ui/commandApproval'
 import permissionGate, { permissionDecision, permissionFindings } from './permission-gate'
 
 const prefix =

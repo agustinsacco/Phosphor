@@ -13,7 +13,7 @@ The composer is one small field with several ways in.
   nest and un-nest inside a list. Cmd/Ctrl+Shift+8 and +7 toggle bullet and
   numbered, Cmd/Ctrl+B and +I wrap, Cmd/Ctrl+Shift+C fences. **Enter always
   sends**; continuation is deliberately not on it, or a one-line prompt starting
-  with `- ` would stop sending. Logic in `src/lib/composerText.ts`; keymap in
+  with `- ` would stop sending. Logic in `apps/desktop/src/lib/composerText.ts`; keymap in
   `composer/ComposerField.tsx`, shared by both composers.
 - **Formatting is keyboard-only**: bold, italic, inline code (Cmd/Ctrl+E), code
   block, lists and links (Cmd/Ctrl+Shift+K). No toolbar. Edits go through
@@ -38,7 +38,7 @@ The composer is one small field with several ways in.
   path reference.
 - Images: paste or drag → thumbnails → sent as `images[]` with the prompt.
 - **Drafts persist.** Text, attachments and the model the draft was composed
-  against live in `src/stores/drafts.ts`, keyed per session or per home
+  against live in `apps/desktop/src/stores/drafts.ts`, keyed per session or per home
   workspace, and survive switching and quitting. Image bytes go to
   `userData/drafts/`, never into prefs.
 - The model chip has an explicit loading state; an empty list before the
@@ -55,7 +55,7 @@ The composer is one small field with several ways in.
   - **Filtering happens once**, in `useSlashMenu`; `CommandMenu` renders the
     array it is given. The highlighted row and the row Enter picks are the same
     element by construction.
-  - **Search** (`commandScore` in `src/lib/fuzzy.ts`) ranks exact name, then
+  - **Search** (`commandScore` in `apps/desktop/src/lib/fuzzy.ts`) ranks exact name, then
     name prefix, then a whole segment (`/debug` → `skill:debug`), then a
     segment prefix (`/mcp` → `pi-mcp`), then a subsequence, then a substring of
     the description (`/status` → "Show MCP server status"). `:` is a word
@@ -242,7 +242,7 @@ every reader defensive, a payload it cannot read leaving the generic row).
 
 - **The `subagent` tool call is the row**, in pi's vocabulary: the verb is
   what the model did, the object is the agent, the hint is what it is on
-  right now (`read src/auth.ts · 3 tools`, from the progress pi-subagents
+  right now (`read apps/desktop/src/auth.ts · 3 tools`, from the progress pi-subagents
   streams on `tool_execution_update`) or what it cost (`44 tools · 80k tokens
 · 4m 27s`). A workflow script names its agents (`scout · worker`); a
   management action gets its own verb (`Listed agents`, `Checked on`,
@@ -307,7 +307,7 @@ extension command and an in-process RPC), which is the path for them.
   `connect-src`, no remote images, no `form-action`. `allow-same-origin` is
   absent, which keeps the origin opaque. Net: the document gains scripting and
   loses all network reach (`components/SandboxedHtml.tsx`,
-  `electron/artifacts/artifact-protocol.ts`).
+  `apps/desktop/electron/artifacts/artifact-protocol.ts`).
 - KaTeX for `$…$` / `$$…$$`.
 - Images inline with click-to-zoom.
 - **Links split by what they point at** (`components/markdown/MarkdownLink.tsx`).
@@ -366,7 +366,7 @@ arrival lands Claude turns in slabs.
 
 So the visible text is a paced slice of the store's exact text: `useSmoothedText`
 (leaf-local, per prose block) drains the backlog at a rate proportional to its
-size, aiming to empty it in about one upstream gap. `src/lib/textReveal.ts`
+size, aiming to empty it in about one upstream gap. `apps/desktop/src/lib/textReveal.ts`
 holds the pure math. Rules:
 
 - **The store is never touched.** Pacing lives in the one streaming block;
@@ -406,7 +406,7 @@ row: `Checking…`, then the windows, or the one-line reason there are none. A
 section that disappears on failure is indistinguishable from a fetch that
 never happened.
 
-**Not every provider reports usage while it streams.** `src/lib/liveStats.ts`
+**Not every provider reports usage while it streams.** `apps/desktop/src/lib/liveStats.ts`
 takes the context estimate from the newest true reading: the streaming message
 when its deltas have reported anything, else the last message to have
 **ended** since the last poll. The OpenAI Responses API (`openai-codex`) fills
@@ -469,7 +469,7 @@ the chip reads `12/61` with a cost in the thousands
 **Plan usage** is the always-on percent per window (5-hour, weekly, per-model
 weekly), the same numbers the CLI's `/usage` and Claude Desktop show, fetched
 live (no quota, no key) when the popover opens and cached ~60 s in main
-(`electron/claude/usage.ts` parses the CLI's rendered text; a parse that yields
+(`apps/desktop/electron/claude/usage.ts` parses the CLI's rendered text; a parse that yields
 nothing hides the section). The poll passes `--no-session-persistence`; without
 it every refresh left a transcript under `~/.claude/projects`. **Plan limits** is the binding constraint as the
 provider relays it mid-turn: one window, only once the CLI's warning threshold

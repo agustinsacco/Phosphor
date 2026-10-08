@@ -36,12 +36,12 @@ not a direct structured-history API; this is continuity, not identical wire inpu
 - **An account is a config directory.** `CLAUDE_CONFIG_DIR` and
   `CLAUDE_SECURESTORAGE_CONFIG_DIR` scope the CLI's config and keychain entry,
   so Phosphor holds several Claude logins and picks one per session at spawn
-  (`electron/claude/`; routing modes `specific | ordered | round-robin`, with
+  (`apps/desktop/electron/claude/`; routing modes `specific | ordered | round-robin`, with
   cooldowns keyed off the window each account last exhausted). The credential
   is fixed for the life of the process; moving a lane is a respawn.
 - **Each account's `/usage` probe runs in its own config dir**
   (`<userData>/claude-accounts/usage/<id>`, `usageProbeEnv` in
-  `electron/claude/routing.ts`). The CLI caches a usage snapshot in
+  `apps/desktop/electron/claude/routing.ts`). The CLI caches a usage snapshot in
   `.claude.json` under that file's shared `oauthAccount`, answers from it for
   a minute without asking, and falls back to it for an hour when the endpoint
   fails. On the shared `~/.claude.json` one account's numbers were shown for
@@ -73,14 +73,14 @@ setting at spawn or model switch. The Agent settings, the context budget and
 the session toggle apply to Claude like any other provider
 ([One context budget](#one-context-budget)), and the context meter measures a
 Claude session the same way. The old Claude-only context-window preference
-became that budget (`electron/prefs-migrations.ts` carries a stored value
+became that budget (`apps/desktop/electron/prefs-migrations.ts` carries a stored value
 over).
 
 Older Phosphor sent `set_auto_compaction` at every spawn and model switch, off
 for Claude, and pi saves that command to its global `settings.json`. An install
 whose last session ran on Claude was left with `compaction.enabled: false`, so
 now that the CLI never compacts, nothing would compact on any provider.
-`electron/pi/compaction-reset.ts` turns that `false` back to `true` once,
+`apps/desktop/electron/pi/compaction-reset.ts` turns that `false` back to `true` once,
 before the first pi spawn, and records the check in the `compactionResetChecked`
 pref. A later `false` is the user's and stays. A `settings.json` that does not
 parse is left alone and checked again next launch.
@@ -201,12 +201,12 @@ subscriptions, then `xai`, `openrouter`, `radius` as per-token balances. Each
 row is a button, a browser tab, and a flip to "Signed in".
 
 pi's `/login` is **TUI-only** (no `pi auth login`, no RPC auth command), so
-`electron/pi/login-flow.ts` drives that TUI off-screen in a pty and parses its
+`apps/desktop/electron/pi/login-flow.ts` drives that TUI off-screen in a pty and parses its
 rendering into structured state. Two sign-in shapes are handled: device code
 (the user is shown a code) and loopback redirect (pi runs its own callback
 server, no code at all). `pi:loginTerminal` is the escape hatch for a provider
 whose prompts the driver does not recognise. The provider list is hand-curated
-in `electron/pi/auth-status.ts`, each id verified against
+in `apps/desktop/electron/pi/auth-status.ts`, each id verified against
 `pi auth check --provider`.
 
 Claude logins are a separate set, under Extensions → Claude Code

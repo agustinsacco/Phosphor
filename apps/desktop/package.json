@@ -1,0 +1,72 @@
+{
+  "name": "phosphor",
+  "version": "0.1.0",
+  "description": "Desktop coding-agent app powered by the pi coding agent",
+  "type": "module",
+  "main": "out/main/main.js",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "dev:web": "vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win": "npm run build && electron-builder --win",
+    "postinstall": "install-electron && electron-builder install-app-deps && node ../../tools/scripts/fix-node-pty.mjs",
+    "rebuild": "electron-rebuild -f -w node-pty && node ../../tools/scripts/fix-node-pty.mjs",
+    "package": "electron-builder",
+    "test:e2e": "npm run build && ../../tools/scripts/e2e.sh"
+  },
+  "author": {
+    "name": "Phosphor",
+    "email": "saccoagustin@hotmail.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/agustinsacco/Phosphor",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agustinsacco/Phosphor.git"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.14.9",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
+    "chart.js": "^4.5.1",
+    "chokidar": "^5.0.0",
+    "clsx": "^2.1.1",
+    "cron-parser": "^5.10.1",
+    "electron-store": "^11.0.2",
+    "electron-updater": "^6.8.9",
+    "katex": "^0.18.1",
+    "luxon": "^3.7.2",
+    "mermaid": "^11.16.0",
+    "monaco-editor": "^0.53.0",
+    "node-pty": "^1.1.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^2.1.9",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "shiki": "^4.4.1",
+    "unicode-emoji-json": "^0.9.0",
+    "vega-embed": "^7.1.0",
+    "zustand": "^5.0.14"
+  },
+  "nx": {
+    "includedScripts": []
+  }
+}

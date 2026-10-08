@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "renderer",
-      "runtimeExecutable": "npx",
+      "runtimeExecutable": "npm",
       "runtimeArgs": [
-        "electron-vite",
+        "run",
         "dev"
       ],
       "port": 5173

@@ -1,7 +1,7 @@
 # 09 — Settings
 
 A **modal**, not a second window (`ModalOverlay` in
-`src/features/settings/SettingsModal.tsx`), so it inherits the theme, the UI
+`apps/desktop/src/features/settings/SettingsModal.tsx`), so it inherits the theme, the UI
 scale and the app's lifecycle. Cmd/Ctrl+, opens it; Cmd/Ctrl+/ opens it on
 Keybindings.
 
@@ -77,7 +77,7 @@ project scope, an empty field's placeholder names what it inherits.
 ## Accounts
 
 The subscription routes are distinct (`SUBSCRIPTION_PROVIDERS` in
-`electron/pi/auth-status.ts` is the registry):
+`apps/desktop/electron/pi/auth-status.ts` is the registry):
 
 | Account        | Route                                                                      | Requirement                   |
 | -------------- | -------------------------------------------------------------------------- | ----------------------------- |
@@ -117,7 +117,7 @@ streamed into the tab, so a failure is legible rather than a silent no-op.
   chip when the registry says so, and what the package contributes, by name:
   its skills (with a "View in Skills" jump), prompt commands, extensions and
   themes. The registry lookup never blocks the local listing.
-- Contents come from the install dir (`electron/pi/package-resources.ts`).
+- Contents come from the install dir (`apps/desktop/electron/pi/package-resources.ts`).
   A `pi` manifest lists folders and globs, not resources, so each entry is
   expanded the way pi expands it (`"skills": ["./skills"]` is every bundle in
   that folder) and `!pattern` exclusions are applied. A kind the manifest

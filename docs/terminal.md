@@ -7,7 +7,7 @@ without leaving the session, and so a shell always sits in the right checkout.
 - **Real shells.** node-pty in main, xterm.js in the renderer. `$SHELL` on
   macOS/Linux as a **login** shell (`-l`, so your PATH and rc files load, which
   is where pi lives), falling back to `/bin/zsh` on macOS and `/bin/bash`
-  elsewhere; `powershell.exe` on Windows (`electron/pty/pty-manager.ts`).
+  elsewhere; `powershell.exe` on Windows (`apps/desktop/electron/pty/pty-manager.ts`).
 - **Tabs.** Open several, rename, close. Every PTY is killed on quit,
   including the SIGINT/SIGTERM/SIGHUP paths Electron does not route through
   `before-quit`.
@@ -21,7 +21,7 @@ without leaving the session, and so a shell always sits in the right checkout.
   stay SIGINT. These bindings cancel the browser's default clipboard action so
   each shortcut pastes only once, through xterm's bracketed-paste handling.
   Right-click opens Copy / Paste / Select all rather than pasting blind
-  (`src/features/terminal/clipboardKeys.ts`).
+  (`apps/desktop/src/features/terminal/clipboardKeys.ts`).
 - **Scrollback** is 10,000 lines. Main also keeps an output tail capped at
   262,144 UTF-16 code units per PTY and replays it on reattach, so closing and
   reopening the pane shows the live shell's recent output instead of a blank.
@@ -33,9 +33,9 @@ without leaving the session, and so a shell always sits in the right checkout.
   another, and never auto-spawns a second one. Its cwd is that session's own
   directory, which for a worktree lane is the **worktree**. A shell in the repo
   root while its lane edits a worktree would run every command against the
-  wrong tree (`src/stores/terminal.ts`).
+  wrong tree (`apps/desktop/src/stores/terminal.ts`).
 - **A shell that cannot start is a UI state**, not a hang: the pane shows the
-  spawn error with a retry (`electron/pty/spawn-helper.ts` handles node-pty's
+  spawn error with a retry (`apps/desktop/electron/pty/spawn-helper.ts` handles node-pty's
   `spawn-helper` trap).
 - **"Run in terminal"** opens the pane, spawns a tab for the active session if
   it has none, and pastes the command. Whether Enter goes with it depends on

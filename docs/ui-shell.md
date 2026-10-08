@@ -31,7 +31,7 @@ the app document, not to artifact iframe contents.
 
 ### Top bar
 
-One **full-width bar** (`src/app/TopBar.tsx`) above the sidebar, chat and
+One **full-width bar** (`apps/desktop/src/app/TopBar.tsx`) above the sidebar, chat and
 pane columns: sidebar toggle, workspace chip, branch control
 ([worktrees.md](worktrees.md)), session title, the pane switches (terminal,
 files, changes, artifacts) and the session kebab. The terminal switch carries a
@@ -68,7 +68,7 @@ screen.
   is two path strings, and the sidebar keys groups by string, so it showed two
   headers for one folder, each listing the SAME lanes (pi derives its session
   directory from the resolved cwd, so both scanned it). Main therefore resolves
-  a path at **every** point one enters (`realPathOrNull`, `electron/store.ts`),
+  a path at **every** point one enters (`realPathOrNull`, `apps/desktop/electron/store.ts`),
   and the renderer never sees an unresolved one — it has no filesystem and
   could not collapse them itself. All five matter:
   - the folder picker, so opening through a symlink cannot mint a spelling;
@@ -103,7 +103,7 @@ screen.
   renaming a sandbox moved the folder out from under a running pi and orphaned
   every lane chat at once. Containment is `isWithinFolder` (`libs/shared/src/paths.ts`,
   shared because main guards on it and the renderer picks the chats to close
-  with it), and the cwd list is `sandboxCwds` (`electron/sandbox.ts`). That
+  with it), and the cwd list is `sandboxCwds` (`apps/desktop/electron/sandbox.ts`). That
   list is enumerated from DISK rather than by prefix-matching pi's mangled
   directory names: the mangling joins segments with `-` and folder names
   contain `-`, so `games` and `games-2` produce names one of which is a prefix
@@ -115,7 +115,7 @@ screen.
   the old folder, and the sidebar hands that value straight to `createSession`.
   Opening such a row spawned pi in a deleted directory, and the copied debug
   block named a Claude transcript that had moved. `listSessions`
-  (`electron/pi/session-scanner.ts`) therefore substitutes the folder it
+  (`apps/desktop/electron/pi/session-scanner.ts`) therefore substitutes the folder it
   scanned whenever the recorded one is **gone** or is a second spelling of the
   same folder, and leaves it alone when it names a different folder that still
   exists — both are real, and guessing would be worse than reporting. This is
@@ -129,7 +129,7 @@ screen.
   "continue in current cwd" prompt, and no flag answers it up front). So a
   renamed sandbox listed all its chats, handed pi the right `cwd`, and every
   one of them still died on click with nothing on the chat to say why.
-  `electron/pi/session-cwd.ts` rewrites the header: `app:renameSandbox` does it
+  `apps/desktop/electron/pi/session-cwd.ts` rewrites the header: `app:renameSandbox` does it
   for the whole subtree as part of the rename, and `spawnSession` repeats it on
   resume for anything the rename never covered — a sandbox renamed by an older
   build, or a folder moved in Finder. The resume-time pass fires only when the
@@ -188,7 +188,7 @@ The main area is the chat plus **one float pane**, split by a drag handle and
 persisted per session (selection, side, split size, fullscreen; localStorage,
 pruned on dispose). The float region hosts exactly one pane at a time
 (`RightPane = 'files' | 'changes' | 'terminal' | 'artifacts' | null`,
-`src/stores/layout.ts`), opened from the top bar's switches, the command
+`apps/desktop/src/stores/layout.ts`), opened from the top bar's switches, the command
 palette or the shortcuts above.
 
 1. **Chat pane** — always present ([chat.md](chat.md)).

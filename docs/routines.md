@@ -202,21 +202,21 @@ pending run workspaces are protected from automatic maintenance reclamation.
 
 - `libs/shared/src/routines.ts`: schema validation, cron/timezone calculations, reporting
   periods, deterministic execution prompt. Uses cron-parser and Luxon.
-- `electron/routines/`: SQLite repository, routine-only scheduler, runner,
+- `apps/desktop/electron/routines/`: SQLite repository, routine-only scheduler, runner,
   ownership guard, startup wiring, and background tray. `preflight.ts` holds
   the folder-task gates so the runner and `routines:check` cannot disagree
   about what blocks a run.
-- `electron/pi/session-runtime.ts`: Desktop bindings for `libs/session-runtime/src/pi/` startup
+- `apps/desktop/electron/pi/session-runtime.ts`: Desktop bindings for `libs/session-runtime/src/pi/` startup
   and session admission. Routine startup and interactive IPC use the same
   provider-guarded service; routine scheduling/execution remains local.
-- `electron/ipc/routines-handlers.ts`, `libs/shared/src/ipc.ts`, `electron/preload.ts`:
-  typed operations and snapshot invalidations. `src/dev/mockRoutines.ts` is a
+- `apps/desktop/electron/ipc/routines-handlers.ts`, `libs/shared/src/ipc.ts`, `apps/desktop/electron/preload.ts`:
+  typed operations and snapshot invalidations. `apps/desktop/src/dev/mockRoutines.ts` is a
   clearly labelled browser simulation with no model execution.
-- `useRoutineLaneIndex` (`src/stores/routines.ts`) keeps the lane index fresh
+- `useRoutineLaneIndex` (`apps/desktop/src/stores/routines.ts`) keeps the lane index fresh
   for the sidebar, which needs it before Routines has ever been opened. The
   sidebar passes it to `groupSessionsByProject`'s `isHidden` predicate, the
   same one that moves pinned sessions out of their project group.
-- `src/features/routines/`, `src/stores/routines.ts`: editor, overview, history,
+- `apps/desktop/src/features/routines/`, `apps/desktop/src/stores/routines.ts`: editor, overview, history,
   and projection of main state. No renderer-owned scheduling.
   `ActivityAccordion.tsx` renders the run list for both scopes; the grouping
   and filtering rules are pure functions in `runGroups.ts` so they can be

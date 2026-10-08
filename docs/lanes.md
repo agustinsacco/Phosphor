@@ -82,7 +82,7 @@ Explicit choices persist across reloads and mode changes.
 
 ## PR status
 
-`electron/fs/gh-cli.ts` is the only place Phosphor shells out to `gh`, and it
+`apps/desktop/electron/fs/gh-cli.ts` is the only place Phosphor shells out to `gh`, and it
 is **read-only by design**: no push, no create. Those are outward-facing writes
 and belong behind an explicit action, which is why the `↑ no PR` chip is inert
 rather than a one-click create button.
@@ -164,7 +164,7 @@ the keyboard route.
 ## Naming
 
 A lane is named once, after its first turn ends, by a one-shot `pi -p` call
-(`electron/pi/session-naming.ts`). The title flows to the branch as well as the
+(`apps/desktop/electron/pi/session-naming.ts`). The title flows to the branch as well as the
 session, so the sidebar group, the branch chip and the title agree.
 
 Two naming passes never run for one session: `startChat` owns naming for the
@@ -179,7 +179,7 @@ is an unknown provider and the run fails.
 Two constraints on the one-shot, both silent when broken:
 
 - `pi -p` blocks until stdin reaches EOF, so it never runs through `execFile`.
-  See `electron/pi/print-mode.ts`.
+  See `apps/desktop/electron/pi/print-mode.ts`.
 - pi-claude-cli ≥ 0.7.0 parks its CLI process after a turn, which holds pi's
   event loop open, so a naming run would print its title and then not exit for
   ten minutes. The naming env passes `claudeOneShotEnv()`
@@ -329,7 +329,7 @@ safe because an unmerged branch is never deleted:
    (subagent transcripts, oversized tool results). The bookkeeping nothing
    reads once the session is gone is removed with it: `pi-claude-cli`'s
    session-map entry and stored system prompt, and pi's per-cwd session folder
-   once it is empty (`electron/pi/session-deleter.ts`)
+   once it is empty (`apps/desktop/electron/pi/session-deleter.ts`)
 2. the worktree directory, gone
 3. the branch, only when its work is already on the trunk
 
@@ -411,7 +411,7 @@ covered only the active workspace, so one click freed one repo and silently
 left the rest.)
 
 Six conditions must all hold before a worktree is a candidate
-(`electron/maintenance/policy.ts`), and every rejection is reported with its
+(`apps/desktop/electron/maintenance/policy.ts`), and every rejection is reported with its
 reason: not the main checkout, on a branch, clean, not a live session's cwd or
 an open workspace, **proven landed** (the same two proofs as manual delete),
 and untouched for `minAgeHours`. Deletion goes through `removeWorktree`, which

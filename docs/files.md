@@ -82,7 +82,7 @@ pattern at the workspace root. Matching ignores case.
   search.
 
 The search runs in main, in a worker thread
-(`electron/fs/workspace-search-service.ts`). Each keystroke's search replaces
+(`apps/desktop/electron/fs/workspace-search-service.ts`). Each keystroke's search replaces
 the window's last one, and a regex that backtracks without end is terminated
 with its worker instead of freezing the app. The query and globs are compiled
 once, by the same code in the panel and in main (`libs/shared/src/workspace-search.ts`),
@@ -153,7 +153,7 @@ grant; relative links open in the Files pane like any path link in chat. A
 newly created file opens straight in the editor, not as a blank preview.
 
 The viewers load from `phosphor-file://`, which serves only what main granted
-by an unguessable token (`electron/fs/file-protocol.ts`): one file for media
+by an unguessable token (`apps/desktop/electron/fs/file-protocol.ts`): one file for media
 and PDFs, or the workspace for an HTML page or a markdown file, so relative
 CSS, images and scripts resolve. Paths are realpath'd and must stay under the grant; `..` and
 symlinks out of it get 404. Video streams with Range requests.

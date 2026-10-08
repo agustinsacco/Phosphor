@@ -89,11 +89,11 @@ jobs:
         with:
           name: dist-${{ matrix.name }}
           path: |
-            release/*.dmg
-            release/*.zip
-            release/*.AppImage
-            release/*.deb
-            release/*.exe
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.exe
           retention-days: 7
 
   publish:
@@ -114,8 +114,8 @@ jobs:
             \( -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' \
                -o -name '*.deb' -o -name '*.exe' \) \
             -exec cp {} release/ \;
-          cp scripts/install.sh release/install.sh
-          cp build/icon.png release/icon.png
+          cp tools/scripts/install.sh release/install.sh
+          cp apps/desktop/build/icon.png release/icon.png
           cd release
           sha256sum * > checksums.txt
           echo '--- release contents ---'

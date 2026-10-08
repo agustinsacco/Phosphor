@@ -55,7 +55,9 @@ describe('shared source package boundary', () => {
         ],
       })
       expect(
-        Object.keys(result.metafile.inputs).filter((path) => /^(electron|src)\//.test(path)),
+        Object.keys(result.metafile.inputs).filter((path) =>
+          /^apps\/desktop\/(electron|src)\//.test(path),
+        ),
       ).toEqual([])
       expect(result.outputFiles).toHaveLength(entryPoints.length)
       for (const output of Object.values(result.metafile.outputs)) {

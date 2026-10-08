@@ -4,10 +4,10 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
   {
     ignores: [
-      'out/**',
+      '**/out/**',
       'dist/**',
-      'node_modules/**',
-      'release/**',
+      '**/node_modules/**',
+      '**/release/**',
       '.claude/**',
       '.phosphor/**',
       '.pidex/**',
@@ -31,7 +31,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['apps/desktop/src/**/*.{ts,tsx}'],
     rules: {
       // Electron overrides window.prompt to throw "prompt() is not supported."
       // — every renderer prompt must go through promptText (stores/prompt.ts).
@@ -47,7 +47,7 @@ export default tseslint.config(
   },
   {
     // Maintainer scripts run under plain Node (no tsconfig project).
-    files: ['scripts/**/*.mjs', 'site/scripts/**/*.mjs'],
+    files: ['tools/scripts/**/*.mjs', 'apps/desktop/scripts/**/*.mjs', 'site/scripts/**/*.mjs'],
     languageOptions: {
       globals: {
         console: 'readonly',

@@ -10,11 +10,11 @@ Pick the lightest mode that can show the change:
 ## 1. Renderer-only (no Electron, no pi) — UI look & feel
 
 ```bash
-npx vite dev
+npm run dev:web
 ```
 
-Open the printed localhost URL in a browser. `src/main.tsx` detects the
-missing `window.phosphor` and installs `src/dev/mockPhosphor.ts`: canned sessions,
+Open the printed localhost URL in a browser. `apps/desktop/src/main.tsx` detects the
+missing `window.phosphor` and installs `apps/desktop/src/dev/mockPhosphor.ts`: canned sessions,
 a scripted streaming reply, mock file tree/terminal. Good for layout, chat
 rendering, sidebar, theming. Useless for anything touching real IPC, pi, git,
 or PTYs. If your change added an IPC channel that a rendered screen calls,
@@ -40,11 +40,12 @@ Build once, then launch against the e2e stub:
 
 ```bash
 npm run build
-PHOSPHOR_PI_STUB="$PWD/e2e/fixtures/pi-stub.cjs" \
+ELECTRON="$(node -p "require('./apps/desktop/node_modules/electron')")"
+PHOSPHOR_PI_STUB="$PWD/apps/desktop/e2e/fixtures/pi-stub.cjs" \
 PHOSPHOR_E2E_WORKSPACE="$(mktemp -d)" \
 PHOSPHOR_TEST_USER_DATA="$(mktemp -d)" \
 PI_CODING_AGENT_DIR="$(mktemp -d)" \
-npx electron .
+"$ELECTRON" "$PWD/apps/desktop"
 ```
 
 The stub speaks the full RPC protocol with a scripted session (streamed
@@ -55,5 +56,5 @@ the e2e suite drives. The env hooks only work unpackaged (`!app.isPackaged`)
 ## Verifying without eyes
 
 Prefer the Playwright suite for assertions (`/e2e` skill). For a one-off
-check, `npx playwright test e2e/smoke.spec.ts -g "<test name>"` after a build
+check, `npx playwright test --config apps/desktop/playwright.config.ts apps/desktop/e2e/smoke.spec.ts -g "<test name>"` after a build
 is faster than hand-driving the app.

@@ -1,0 +1,116 @@
+appId: works.phosphor.app
+productName: Phosphor
+copyright: Phosphor
+
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+
+# The bundled pi extension must be readable by the pi subprocess at runtime,
+# so it ships unpacked next to the app resources rather than inside the asar.
+extraResources:
+  - from: build/icons/32x32.png
+    to: routine-tray.png
+  - from: ../../libs/pi-extensions/pi-ext
+    to: pi-ext
+    filter: ['**/*.ts', '!**/*.test.ts']
+
+asarUnpack:
+  - '**/node_modules/node-pty/**'
+
+npmRebuild: true
+
+# Ad-hoc signs the macOS bundle when no Developer ID is configured. Runs after
+# the .app is assembled and BEFORE dmg/zip are cut, so both carry the fixed
+# signature. Electron's stock binary is `linker-signed` with no sealed
+# resources, and electron-builder skips signing outright without a certificate
+# — that combination shipped a bundle Finder called "damaged". See the script.
+afterPack: scripts/adhoc-sign-mac.mjs
+
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.icns
+  # Hardened runtime REQUIRES a real signing identity; with an ad-hoc signature
+  # the bundle is rejected at launch. CI turns this back on (and notarizes)
+  # when MAC_CERT_P12 is set — see release-continuous.yml.
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # macOS asks once per protected folder the first time Phosphor (or the pi agent
+  # it spawns) reads one. Without these strings the prompt is a bare demand;
+  # with them it says why. It does not skip the prompt — only the stable
+  # designated requirement in scripts/adhoc-sign-mac.mjs keeps the answer from
+  # being forgotten on the next auto-update.
+  extendInfo:
+    NSDesktopFolderUsageDescription: >-
+      Phosphor reads files in this folder when you open a workspace there or ask
+      the agent to work on one.
+    NSDocumentsFolderUsageDescription: >-
+      Phosphor reads files in this folder when you open a workspace there or ask
+      the agent to work on one.
+    NSDownloadsFolderUsageDescription: >-
+      Phosphor reads files in this folder when you open a workspace there or ask
+      the agent to work on one.
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+linux:
+  # A directory of sized PNGs, not the single 1024: electron-builder picks the
+  # closest size per context instead of downscaling 1024 into a 22px tray slot.
+  # build/icon.png stays for install.sh, which downloads that exact path.
+  icon: build/icons
+  category: Development
+  synopsis: Desktop coding-agent app powered by the pi coding agent
+  # install.sh downloads exactly this name — keep the two in sync.
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  desktop:
+    entry:
+      StartupWMClass: Phosphor
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
+
+win:
+  icon: build/icon.ico
+  # Same shape as the mac/linux names, so checksums.txt, the release-notes
+  # link and the finalize job's asset check can all name it without a space:
+  # electron-builder's NSIS default is `Phosphor Setup 0.1.x.exe`.
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # Unsigned unless WIN_CSC_LINK is set in CI (release-continuous.yml). An
+  # unsigned installer opens through SmartScreen's "More info → Run anyway";
+  # electron-updater still self-updates an unsigned install, because it only
+  # verifies the downloaded installer's signature when the running app has a
+  # publisherName to compare against — which an unsigned build has not.
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  # Per-user (no UAC prompt), with the classic installer so the destination
+  # can be changed. `perMachine: false` is also what lets electron-updater
+  # replace the install without elevation.
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  shortcutName: Phosphor
+  # Uninstall leaves %APPDATA%\Phosphor (prefs, drafts, window state) alone,
+  # exactly as removing the macOS bundle does.
+  deleteAppDataOnUninstall: false
+
+publish:
+  provider: github
+  releaseType: draft

@@ -689,12 +689,6 @@ function runMockJob(lines: string[], exitCode = 0): { jobId: string } {
   return { jobId }
 }
 
-/**
- * Best-effort clipboard image write for the browser harness. The async
- * clipboard accepts png/jpeg natively, so gif/webp/bmp are rasterized to
- * png first. Permission or type failures are swallowed — a copy attempt
- * must never crash the harness.
- */
 /** Best-effort: the web clipboard needs permission and offers png only. */
 async function mockClipboardReadImage(): Promise<{ data: string; mimeType: string } | null> {
   try {
@@ -709,6 +703,12 @@ async function mockClipboardReadImage(): Promise<{ data: string; mimeType: strin
   return null
 }
 
+/**
+ * Best-effort clipboard image write for the browser harness. The async
+ * clipboard accepts png/jpeg natively, so gif/webp/bmp are rasterized to
+ * png first. Permission or type failures are swallowed — a copy attempt
+ * must never crash the harness.
+ */
 async function mockClipboardWriteImage(image: { data: string; mimeType: string }): Promise<void> {
   const write = (mime: string, blob: Blob): Promise<void> =>
     navigator.clipboard.write([new ClipboardItem({ [mime]: blob })])

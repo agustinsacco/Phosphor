@@ -159,6 +159,9 @@ export function drawScene(
   }
 }
 
+/** Handle radius in screen pixels. */
+export const HANDLE_RADIUS = 5
+
 /** Dashed outline plus handles; editor only, never flattened. */
 export function drawSelection(
   ctx: CanvasRenderingContext2D,
@@ -183,9 +186,6 @@ export function drawSelection(
   }
   ctx.restore()
 }
-
-/** Handle radius in screen pixels. */
-export const HANDLE_RADIUS = 5
 
 /** Paint the scene at full resolution and return it as base64 PNG. */
 export async function flattenScene(scene: Scene, images: ImageLookup): Promise<string> {

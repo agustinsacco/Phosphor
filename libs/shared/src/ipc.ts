@@ -14,6 +14,7 @@ import type {
   ThinkingLevelMap,
   ModelCost,
 } from './rpc'
+import type { ArtifactListing, ArtifactSnapshot } from './artifacts'
 import type { ConnectorCheckResult } from './connectors'
 import type {
   RoutineCheck,
@@ -216,6 +217,26 @@ export interface IpcInvokeMap {
     args: [{ html: string; title: string; theme: 'light' | 'dark' }]
     result: { savedTo: string }
   }
+  /**
+   * A session's artifacts from the store, as its pane shows them: each one's
+   * versions on the current branch. Indexes the file first, so it is never
+   * behind the session. This, not `get_messages`, is how a resumed pane is
+   * filled: pi's messages stop at the last compaction.
+   */
+  'artifacts:forSession': { args: [sessionFile: string]; result: ArtifactSnapshot[] }
+  /**
+   * Every artifact in the store, newest first, for the global Artifacts page.
+   * `livePaths` (open sessions' files) are indexed first so a turn that just
+   * ended is listed.
+   */
+  'artifacts:list': { args: [livePaths: string[]]; result: ArtifactListing[] }
+  /** One stored artifact with its content, for viewing outside its session. */
+  'artifacts:read': {
+    args: [key: string]
+    result: { listing: ArtifactListing; artifact: ArtifactSnapshot } | null
+  }
+  /** Remove a deleted session's artifact. False (and nothing removed) otherwise. */
+  'artifacts:remove': { args: [key: string]; result: boolean }
   'app:setPinnedSessions': { args: [string[]]; result: void }
   'app:setSessionOrder': { args: [string[]]; result: void }
   /** Explicit lane-marker choices, keyed by session file path. */

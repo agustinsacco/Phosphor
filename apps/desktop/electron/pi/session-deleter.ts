@@ -96,6 +96,18 @@ async function trashIfPresent(path: string): Promise<void> {
   await shell.trashItem(path)
 }
 
+type BeforeDelete = (sessionFilePath: string) => Promise<void>
+const beforeDelete: BeforeDelete[] = []
+
+/**
+ * Read a session file one last time before it goes. The artifact store uses
+ * it to keep a deleted session's artifacts. Registered, not imported, so this
+ * module stays free of the store and its Electron wiring.
+ */
+export function onBeforeSessionDelete(observer: BeforeDelete): void {
+  beforeDelete.push(observer)
+}
+
 /**
  * Delete one on-disk session: pi's transcript, plus the Claude Code CLI's
  * copy when the session ran on that provider and the copy still exists.
@@ -104,6 +116,10 @@ async function trashIfPresent(path: string): Promise<void> {
  * the only thing that knows the session's id and cwd.
  */
 export async function deleteSession(sessionFilePath: string): Promise<void> {
+  for (const observer of beforeDelete) {
+    // Best-effort: failing to keep a copy must never block the delete.
+    await observer(sessionFilePath).catch(() => undefined)
+  }
   let claudeRef: ClaudeLedgerRef | null = null
   try {
     claudeRef = await claudeLedgerRef(sessionFilePath)

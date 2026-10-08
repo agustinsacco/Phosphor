@@ -36,6 +36,10 @@
       "types": "./src/pi/directives.ts",
       "default": "./src/pi/directives.ts"
     },
+    "./pi/forwarded-env": {
+      "types": "./src/pi/forwarded-env.ts",
+      "default": "./src/pi/forwarded-env.ts"
+    },
     "./pi/json-config": {
       "types": "./src/pi/json-config.ts",
       "default": "./src/pi/json-config.ts"

@@ -459,7 +459,8 @@ libs/session-runtime/src/  Electron-free source modules, not a separate service
   pi/                pi RPC transport, strict LF JSONL framing, activity tracking,
                      session ownership, startup/policy preparation, command/resume
                      admission and deletion coordination with machine-local ports;
-                     the reads behind those ports (pi settings, packages, versions)
+                     the reads behind those ports (pi settings, packages, versions,
+                     forwarded env names)
   file-log.ts        injected file logging
   git/               the one git runner, repository/worktree info and its cache
   bundled-extensions.ts  bundled extension paths

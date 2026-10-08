@@ -64,4 +64,40 @@ describe('headless PiRpcClient', () => {
     expect(firstLog).toHaveBeenCalledWith('pi', 'abort', expect.any(Object))
     expect(secondLog).not.toHaveBeenCalledWith('pi', 'abort', expect.anything())
   })
+
+  it('gives pi only the supplied environment when inheritEnv is false', async () => {
+    // Reports which variables it can see, then waits to be disposed.
+    const probe = [
+      "process.stderr.write('PROBE ' + JSON.stringify({",
+      '  inherited: process.env.PHOSPHOR_RPC_SENTINEL ?? null,',
+      '  given: process.env.PHOSPHOR_RPC_GIVEN ?? null,',
+      "}) + '\\n')",
+      'process.stdin.resume()',
+    ].join('\n')
+    const seen = (inheritEnv?: boolean) =>
+      new Promise<unknown>((resolve) => {
+        const instance = new PiRpcClient(
+          {
+            cwd: import.meta.dirname,
+            binaryPath: process.execPath,
+            prefixArgs: ['-e', probe, '--'],
+            env: { PHOSPHOR_RPC_GIVEN: 'given' },
+            ...(inheritEnv === undefined ? {} : { inheritEnv }),
+          },
+          { log: vi.fn(), isClosing: () => false },
+        )
+        clients.push(instance)
+        instance.on('stderr', (line) => {
+          if (line.startsWith('PROBE ')) resolve(JSON.parse(line.slice('PROBE '.length)))
+        })
+        instance.spawn()
+      })
+    process.env.PHOSPHOR_RPC_SENTINEL = 'inherited'
+    try {
+      expect(await seen(false)).toEqual({ inherited: null, given: 'given' })
+      expect(await seen()).toEqual({ inherited: 'inherited', given: 'given' })
+    } finally {
+      delete process.env.PHOSPHOR_RPC_SENTINEL
+    }
+  })
 })

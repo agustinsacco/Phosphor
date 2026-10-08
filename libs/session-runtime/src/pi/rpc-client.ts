@@ -55,8 +55,14 @@ export interface PiSpawnOptions {
   noContextFiles?: boolean
   /** Owned process group: disposal must also stop nested CLI/tools. */
   ownProcessGroup?: boolean
-  /** Extra environment variables. */
+  /** Environment variables, merged over the inherited ones unless `inheritEnv` is false. */
   env?: Record<string, string>
+  /**
+   * Start pi from this process's environment (the default). With false, `env`
+   * is the whole environment: nothing this process inherited reaches pi
+   * unless the caller put it there.
+   */
+  inheritEnv?: boolean
 }
 
 interface PiRpcClientEvents {
@@ -135,7 +141,7 @@ export class PiRpcClient extends EventEmitter<PiRpcClientEvents> {
 
     const child = spawn(o.binaryPath ?? 'pi', args, {
       cwd: o.cwd,
-      env: { ...process.env, ...o.env },
+      env: o.inheritEnv === false ? { ...o.env } : { ...process.env, ...o.env },
       stdio: ['pipe', 'pipe', 'pipe'],
       detached: o.ownProcessGroup && process.platform !== 'win32',
     })

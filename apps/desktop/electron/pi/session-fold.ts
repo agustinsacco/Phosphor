@@ -213,6 +213,19 @@ const CR = 0x0d
  * It is a half-written record; the next pass picks it up whole.
  */
 export async function foldFrom(path: string, start: number, state: FoldState): Promise<number> {
+  return readLinesFrom(path, start, (line) => foldLine(state, line))
+}
+
+/**
+ * The framing behind `foldFrom`, for any reader of session files that also
+ * has to resume exactly where it stopped (the artifact indexer is the other).
+ * Same contract: complete lines only, offset just past the last one.
+ */
+export async function readLinesFrom(
+  path: string,
+  start: number,
+  onLine: (line: string) => void,
+): Promise<number> {
   const stream = createReadStream(path, { start })
   let pending: Buffer | null = null
   let consumed = start
@@ -225,7 +238,7 @@ export async function foldFrom(path: string, start: number, state: FoldState): P
       while ((index = buffer.indexOf(LF, from)) !== -1) {
         let end = index
         if (end > from && buffer[end - 1] === CR) end--
-        if (end > from) foldLine(state, buffer.subarray(from, end).toString('utf8'))
+        if (end > from) onLine(buffer.subarray(from, end).toString('utf8'))
         consumed += index - from + 1
         from = index + 1
       }

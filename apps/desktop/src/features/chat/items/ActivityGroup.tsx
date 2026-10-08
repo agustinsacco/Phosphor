@@ -43,9 +43,10 @@ import { DetailRevealContext, useOpenOnReveal, type FindReveal } from '../useTra
  *   four scannable lines instead of 22 spaced rows.
  * - **Thought rows (B)**: each run of reasoning is one quiet line before the
  *   step it preceded: "✳ Thought for 12s · <headline>", opening in place to
- *   the full text. While the model thinks, the group's own line reads
- *   "Thinking 8s · <latest headline>", the way the Claude and Codex apps show
- *   it. (Thinking used to be a hover-only gutter mark, which hid its length,
+ *   the full text. While the model thinks, the run's last row streams
+ *   "Thinking 8s · <newest sentence>"; the group's own line keeps its step
+ *   summary, so it never jumps between two texts mid-run. (Thinking used to
+ *   be a hover-only gutter mark, which hid its length,
  *   said nothing while the model was thinking, and could not attach to a
  *   Claude Code tool or a sub-agent row at all.)
  * - **Live vs settled (D)**: while anything is running the group is open and
@@ -127,12 +128,15 @@ function useTicker(ticking: boolean): number {
 const isLiveThought = (step: ActivityStep): boolean =>
   step.block.type === 'thinking' && step.streaming && step.isLastInItem && !step.block.closed
 
-/** "Thinking 8s · <headline>", the line a live thought shows. */
+/**
+ * "Thinking 8s · <newest sentence>", the row a live thought shows. A section
+ * that has only its title so far shows the title instead.
+ */
 function thinkingLine(thought: Thought, now: number): string {
   const elapsed = thoughtDuration(thought.timing, now)
   const head = elapsed === undefined ? 'Thinking' : `Thinking ${formatSeconds(elapsed)}`
-  const headline = thoughtHeadline(thought.text, 'latest')
-  return headline ? `${head} · ${headline}` : head
+  const line = thoughtTail(thought.text) ?? thoughtHeadline(thought.text, 'latest')
+  return line ? `${head} · ${line}` : head
 }
 
 export const ActivityGroup = memo(function ActivityGroup({
@@ -219,9 +223,10 @@ export const ActivityGroup = memo(function ActivityGroup({
         ? `thought for ${formatSeconds(thoughtTime)}`
         : `${summary.thinkingCount} thought${summary.thinkingCount === 1 ? '' : 's'}`
 
-  const liveLabel = trailingThought?.live
-    ? thinkingLine(trailingThought, now)
-    : [summary.stepLabel, summary.detail, thinkingPart].filter(Boolean).join(' · ')
+  // The live thought streams in its own row at the bottom of the card, not
+  // here: swapping this line for "Thinking…" made the header flip between two
+  // texts on every thought, and said the same thing as the row below it.
+  const liveLabel = [summary.stepLabel, summary.detail, thinkingPart].filter(Boolean).join(' · ')
 
   return (
     // The frame moved off this wrapper on purpose: the summary line is plain
@@ -818,11 +823,11 @@ function SubagentRow({
 
 /**
  * One run of reasoning: "✳ Thought for 12s · <headline>", opening in place to
- * the full text. While it streams, the group's line above carries "Thinking 8s
- * · <latest headline>", so this row shimmers the newest sentence instead:
- * what the model is on right now, not the same words twice. It stays
- * collapsed unless opened, because a body growing under the reader's eye
- * would push the step rows down while they read them.
+ * the full text. While it streams, this row shimmers "Thinking 8s · <newest
+ * sentence>": what the model is on right now, at the bottom of the run where
+ * the next step will land. It stays collapsed unless opened, because a body
+ * growing under the reader's eye would push the step rows down while they
+ * read them.
  *
  * The label sits outside every find segment. Its headline repeats the body's
  * words, which find counts once, in the body, and opens the row to show.
@@ -844,7 +849,7 @@ function ThoughtRow({
   // A signature with no text (encrypted thinking) has nothing to open.
   const hasText = thought.text.trim().length > 0
   const label = thought.live
-    ? (thoughtTail(thought.text) ?? 'Thinking…')
+    ? thinkingLine(thought, now)
     : thoughtLabel(thoughtDuration(thought.timing, now))
   const headline = thought.live ? undefined : thoughtHeadline(thought.text, 'first')
   return (

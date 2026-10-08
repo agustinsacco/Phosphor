@@ -105,11 +105,10 @@ The composer is one small field with several ways in.
   preceded (`ThoughtRow` in `ActivityGroup.tsx`, text helpers in
   `features/chat/thoughts.ts`). Collapsed by default, expandable during and
   after; respects pi's `hideThinkingBlock`.
-  - **While it streams**, the group's line reads "Thinking 8s · <headline>"
-    and the row shimmers the newest sentence, so the two lines never repeat
-    each other. The headline is the latest section title for Codex (its
-    summaries open each section with `**Title**`) or the first sentence of
-    the latest paragraph for prose (Claude).
+  - **While it streams**, the run's last row shimmers "Thinking 8s · <newest
+    sentence>", falling back to the latest section title while a Codex section
+    (its summaries open each section with `**Title**`) has only its title. The
+    group's line keeps its step summary, with "thought for Ns" ticking.
   - **Once it ends**, the row reads "✳ Thought for 12s · <first headline>" and
     the group's line adds "thought for 41s" in total.
   - **Timing is local.** The reducer stamps `startedAt`/`endedAt` on a

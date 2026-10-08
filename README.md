@@ -225,8 +225,11 @@ endpoint in `~/.pi/agent/`.
 
 ### Updates
 
-Successful same-repository CI pushes to `main` publish a release unless the
-commit has a `Skip-Release: true` trailer. The guard supports both script layouts
+Successful same-repository CI pushes to `main` publish a release when the
+Desktop app changed since the last published release (Nx `desktop` affected;
+see [docs/nx-cache.md](docs/nx-cache.md#per-app-releases-and-deploys)), unless
+the commit has a `Skip-Release: true` trailer. Site, schema, docs and CI-only
+merges do not release. The guard supports both script layouts
 in the validated checkout and blocks publication if missing or broken. Releases
 are versioned `0.1.<commit count>`. An installed app checks at launch and every 30 minutes;
 when there is something to do, an update button appears in the sidebar footer

@@ -63,8 +63,10 @@ App ID, updater metadata, installer names, retained Windows app data and macOS
 signing policy are unchanged. Both macOS architectures remain in one builder
 invocation so `latest-mac.yml` cannot be overwritten by separate jobs.
 Release versions still use the validated history's commit count, injected into
-the app manifest by builder. `Skip-Release: true` keeps structural commits from
-publishing; the deployment hold and exact-SHA CI guard remain in force.
+the app manifest by builder. Only commits that change Nx `desktop` since the last
+published release publish one ([nx-cache.md](nx-cache.md#per-app-releases-and-deploys)).
+`Skip-Release: true` keeps structural commits from publishing; the deployment
+hold and exact-SHA CI guard remain in force.
 
 Generic maintainer scripts live at `tools/scripts`; the signing hook and its
 fixtures live inside `apps/desktop/scripts`, as required by builder's hook-module

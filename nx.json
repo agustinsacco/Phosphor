@@ -11,12 +11,18 @@
   },
   "namedInputs": {
     "default": ["{projectRoot}/**/*"],
+    "rootInstall": [
+      "{workspaceRoot}/package.json",
+      "{workspaceRoot}/package-lock.json",
+      "{workspaceRoot}/tsconfig.base.json"
+    ],
+    "rootUnitRunner": ["rootInstall", "{workspaceRoot}/vitest.config.ts"],
     "workspace": ["{workspaceRoot}/**/*", "!{workspaceRoot}/.nx/**/*"]
   },
   "targetDefaults": {
     "nx:run-commands": {
       "cache": false,
-      "inputs": ["workspace"]
+      "inputs": ["default"]
     }
   },
   "cacheDirectory": ".nx/cache"

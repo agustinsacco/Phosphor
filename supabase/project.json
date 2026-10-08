@@ -9,7 +9,7 @@
     "start": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default", "{workspaceRoot}/package.json"],
       "options": {
         "command": "npx --yes supabase@2.119.0 start",
         "cwd": "."
@@ -18,7 +18,7 @@
     "stop": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default", "{workspaceRoot}/package.json"],
       "options": {
         "command": "npx --yes supabase@2.119.0 stop --no-backup",
         "cwd": "."
@@ -27,7 +27,7 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default", "{workspaceRoot}/package.json"],
       "options": {
         "command": "npx --yes supabase@2.119.0 test db",
         "cwd": "."

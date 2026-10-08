@@ -4,12 +4,27 @@
   "root": "apps/desktop",
   "projectType": "application",
   "tags": ["scope:desktop"],
-  "implicitDependencies": ["runtime", "shared", "pi-extensions", "tooling"],
+  "implicitDependencies": ["runtime", "shared", "pi-extensions"],
+  "namedInputs": {
+    "release": [
+      "{workspaceRoot}/tools/scripts/fix-node-pty.mjs",
+      "{workspaceRoot}/tools/scripts/install.sh",
+      "{workspaceRoot}/tools/scripts/should-skip-release.sh",
+      "{workspaceRoot}/tools/scripts/ci-selection.mjs",
+      "{workspaceRoot}/tools/scripts/release-scope.mjs",
+      "{workspaceRoot}/.github/workflows/release-continuous.yml"
+    ],
+    "e2eHarness": [
+      "{workspaceRoot}/tools/scripts/e2e.sh",
+      "{workspaceRoot}/tools/scripts/desktop-electron-launch.mjs",
+      "{workspaceRoot}/tools/scripts/desktop-electron-loader.cjs"
+    ]
+  },
   "targets": {
     "build": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default", "^default", "rootInstall", "release"],
       "options": {
         "command": "npm run build",
         "cwd": "apps/desktop"
@@ -19,7 +34,7 @@
     "test:e2e": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default", "^default", "rootInstall", "release", "e2eHarness"],
       "options": {
         "command": "npm run test:e2e",
         "cwd": "apps/desktop"

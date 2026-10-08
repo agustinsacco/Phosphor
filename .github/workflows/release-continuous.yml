@@ -1,6 +1,7 @@
 name: Continuous Release
 
-# Every green CI run on main publishes an installable release.
+# Every green CI run on main that changes the Desktop app (Nx `desktop`
+# affected since the last published release) publishes an installable release.
 #
 # Triggered by `workflow_run` rather than `push` so this can NEVER publish from
 # a red build: the job is only reachable once the CI workflow has already
@@ -46,7 +47,7 @@ jobs:
     outputs:
       version: ${{ steps.decide.outputs.version }}
       tag: ${{ steps.decide.outputs.tag }}
-      should_release: ${{ steps.decide.outputs.should_release }}
+      should_release: ${{ steps.decide.outputs.should_release == 'true' && steps.scope.outputs.desktop != 'false' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -105,6 +106,40 @@ jobs:
           echo "should_release=true" >> "$GITHUB_OUTPUT"
           echo "::notice::Publishing ${TAG}."
 
+      # Only a Desktop change is worth an update prompt. Site, schema, docs and
+      # CI-only merges stop here (the site deploys from deploy-site.yml). It is
+      # Nx's `desktop` project, affected since the last PUBLISHED release, so a
+      # newer push cancelling this run cannot strand a Desktop change. Every
+      # doubt releases. An explicit workflow_dispatch always releases.
+      - uses: actions/setup-node@v4
+        if: steps.decide.outputs.should_release == 'true' && github.event_name == 'workflow_run'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Release only when Desktop changed since the last release
+        id: scope
+        if: steps.decide.outputs.should_release == 'true' && github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Root install only: Nx reads project.json files, not the Electron tree.
+          # A checkout from before this helper keeps the old always-release rule.
+          if [[ ! -f tools/scripts/release-scope.mjs ]] || ! npm ci --ignore-scripts --no-audit --no-fund; then
+            echo "desktop=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          RELEASED=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name 2>/dev/null || true)
+          SCOPE=$(node tools/scripts/release-scope.mjs "${RELEASED}")
+          echo "${SCOPE}"
+          if [[ "$(jq -r .release <<<"${SCOPE}")" == false ]]; then
+            echo "desktop=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Desktop unchanged since ${RELEASED} — not publishing."
+          else
+            echo "desktop=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # The macOS, Linux and Windows `build` jobs below all run
       # `electron-builder --publish always` in parallel, and each
       # independently asks GitHub "does a release for this tag exist yet? if
@@ -134,7 +169,7 @@ jobs:
       # network) falls back to today's behavior — both jobs race to create it
       # themselves — rather than blocking either platform from building.
       - name: Pre-create the draft release
-        if: steps.decide.outputs.should_release == 'true'
+        if: steps.decide.outputs.should_release == 'true' && steps.scope.outputs.desktop != 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -12,6 +12,16 @@ for (const line of lines.slice(start)) {
   if (line && !line.startsWith('          ')) break
   body.push(line.slice(10))
 }
+const step = (id: string) => {
+  const from = lines.findIndex((line) => line === `        id: ${id}`)
+  const run = lines.findIndex((line, index) => index > from && line === '        run: |') + 1
+  const out: string[] = []
+  for (const line of lines.slice(run)) {
+    if (line && !line.startsWith('          ')) break
+    out.push(line.slice(10))
+  }
+  return out.join('\n')
+}
 const parser = readFileSync(resolve(import.meta.dirname, 'should-skip-release.sh'), 'utf8')
 const realGit = execFileSync('which', ['git'], { encoding: 'utf8' }).trim()
 
@@ -69,4 +79,58 @@ it('only eligible releases share concurrency or enter the release guard', () => 
   const group = workflow.match(/ {2}group: release-\$\{\{ (.*?) \}\}/)?.[1] ?? ''
   expect(compact(guard)).toBe(compact(eligible))
   expect(compact(group)).toBe(compact(`(${eligible}) && 'main' || github.run_id`))
+})
+
+it.each([
+  { helper: false, install: 0, scope: true, desktop: 'true' },
+  { helper: true, install: 1, scope: false, desktop: 'true' },
+  { helper: true, install: 0, scope: true, desktop: 'true' },
+  { helper: true, install: 0, scope: false, desktop: 'false' },
+])('release scope step only stops a release on an explicit Nx answer: %j', (fixture) => {
+  const dir = mkdtempSync(join(tmpdir(), 'release-scope-step-'))
+  try {
+    const bin = join(dir, 'bin')
+    mkdirSync(bin)
+    const stub = (name: string, body: string) => {
+      writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`)
+      chmodSync(join(bin, name), 0o755)
+    }
+    stub('npm', `exit ${fixture.install}`)
+    stub('gh', 'echo v0.1.1')
+    stub('node', `echo '{"release":${fixture.scope},"reason":"fixture"}'`)
+    if (fixture.helper) {
+      mkdirSync(join(dir, 'tools/scripts'), { recursive: true })
+      writeFileSync(join(dir, 'tools/scripts/release-scope.mjs'), '')
+    }
+    const output = join(dir, 'output')
+    const result = spawnSync('bash', ['-c', step('scope')], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        GITHUB_OUTPUT: output,
+        GITHUB_REPOSITORY: 'owner/repo',
+      },
+    })
+    expect(result.status).toBe(0)
+    expect(readFileSync(output, 'utf8')).toBe(`desktop=${fixture.desktop}\n`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+it('a skipped scope (workflow_dispatch) still releases; only an explicit false stops it', () => {
+  const compact = (value: string) => value.replace(/\s/g, '')
+  const gate =
+    "steps.decide.outputs.should_release == 'true' && steps.scope.outputs.desktop != 'false'"
+  expect(compact(workflow)).toContain(
+    compact(`should_release: \${{ ${gate} && 'true' || 'false' }}`),
+  )
+  expect(compact(workflow)).toContain(
+    compact(`- name: Pre-create the draft release\n        if: ${gate}`),
+  )
+  expect(workflow).toContain(
+    "id: scope\n        if: steps.decide.outputs.should_release == 'true' && github.event_name == 'workflow_run'",
+  )
 })

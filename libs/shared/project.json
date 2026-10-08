@@ -10,7 +10,7 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default", "^default", "rootUnitRunner"],
       "options": {
         "command": "vitest run libs/shared",
         "cwd": ".",

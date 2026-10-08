@@ -1,20 +1,28 @@
+import { useState } from 'react'
 import { ChatImage } from '../ChatImage'
-import { formatFileSize, type PendingAttachment } from '../attachments'
+import { formatFileSize, type PendingAttachment, type PendingImage } from '../attachments'
+import { ImageEditor } from '../imageEditor/ImageEditor'
 
 /**
  * The pending-attachment chip row, shared by both composers.
  *
- * Images render as the same openable/copyable `ChatImage` the transcript uses;
- * everything else is a path chip, because pi's protocol has no document type.
+ * Images render as the same copyable `ChatImage` the transcript uses, but a
+ * click opens the annotator rather than the lightbox: a pending image is still
+ * editable. Everything else is a path chip, because pi's protocol has no
+ * document type.
  */
 export function AttachmentChips({
   attachments,
   onRemove,
+  onEdit,
 }: {
   attachments: PendingAttachment[]
   onRemove: (index: number) => void
+  onEdit: (index: number, image: PendingImage, replace: boolean) => boolean
 }): React.JSX.Element | null {
+  const [editing, setEditing] = useState<number | null>(null)
   if (attachments.length === 0) return null
+  const edited = editing === null ? undefined : attachments[editing]
   return (
     <div className="flex flex-wrap gap-2 px-3 pt-3" data-testid="attachment-chips">
       {attachments.map((attachment, index) => (
@@ -23,6 +31,7 @@ export function AttachmentChips({
             <ChatImage
               image={{ type: 'image', data: attachment.data, mimeType: attachment.mimeType }}
               className="border-border h-16 w-16 rounded-lg border object-cover"
+              onOpen={() => setEditing(index)}
             />
           ) : (
             <div
@@ -44,6 +53,17 @@ export function AttachmentChips({
           </button>
         </div>
       ))}
+      {editing !== null && edited?.kind === 'image' && (
+        <ImageEditor
+          image={edited}
+          onCancel={() => setEditing(null)}
+          onSave={(image, replace) => {
+            const accepted = onEdit(editing, image, replace)
+            if (accepted) setEditing(null)
+            return accepted
+          }}
+        />
+      )}
     </div>
   )
 }

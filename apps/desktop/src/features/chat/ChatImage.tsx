@@ -55,9 +55,12 @@ export async function copyChatImage(img: ImageContent): Promise<void> {
 export function ChatImage({
   image,
   className,
+  onOpen,
 }: {
   image: ImageContent
   className?: string
+  /** Replaces the lightbox: a composer chip opens the annotator instead. */
+  onOpen?: () => void
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   // A pasted screenshot is megabytes of base64; `imageUrl` copies all of it
@@ -70,7 +73,7 @@ export function ChatImage({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => (onOpen ? onOpen() : setOpen(true))}
         onContextMenu={(event) => {
           // Copy, not the OS menu: right-click on a chat image is "copy
           // this", per the interaction contract.
@@ -78,8 +81,13 @@ export function ChatImage({
           event.stopPropagation()
           void copyChatImage(image)
         }}
-        title="Click to open · right-click to copy"
-        className="hover:ring-accent/50 hover:shadow-md inline-flex max-w-full shrink-0 cursor-zoom-in overflow-hidden rounded-lg outline-none transition-all hover:ring-2"
+        title={
+          onOpen ? 'Click to annotate · right-click to copy' : 'Click to open · right-click to copy'
+        }
+        className={clsx(
+          'hover:ring-accent/50 hover:shadow-md inline-flex max-w-full shrink-0 overflow-hidden rounded-lg outline-none transition-all hover:ring-2',
+          onOpen ? 'cursor-pointer' : 'cursor-zoom-in',
+        )}
       >
         <img
           src={src}

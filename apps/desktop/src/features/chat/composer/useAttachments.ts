@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
-import { toAttachment, type PendingAttachment } from '../attachments'
+import {
+  placeAnnotated,
+  toAttachment,
+  type PendingAttachment,
+  type PendingImage,
+} from '../attachments'
+import { sceneBytes } from '../imageEditor/scene'
 
 /**
  * Paste / drag-drop / pick plumbing shared by the chat composer and the home
@@ -17,11 +23,19 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 /** Refuse a paste that would push the pending set past this. */
 export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024
 
+const TOO_MANY_IMAGES = 'Too many images attached — send some before adding more.'
+
 export interface AttachmentsApi {
   /** True while a file drag is over the drop zone. */
   dragging: boolean
   addFiles: (files: File[]) => void
   remove: (index: number) => void
+  /**
+   * Store an annotated image: in place of the one at `index`, or (when
+   * `replace` is false) right after it, so both stay attached. False when
+   * it was refused for size.
+   */
+  edit: (index: number, image: PendingImage, replace: boolean) => boolean
   handlePaste: (event: React.ClipboardEvent) => void
   handleDragOver: (event: React.DragEvent) => void
   handleDragLeave: (event: React.DragEvent) => void
@@ -31,7 +45,9 @@ export interface AttachmentsApi {
 /** Bytes a pending attachment costs us to keep. Paths cost nothing. */
 export function attachmentBytes(attachment: PendingAttachment): number {
   // base64 is 4 chars per 3 bytes; the string itself is what we store.
-  return attachment.kind === 'image' ? attachment.data.length : 0
+  if (attachment.kind !== 'image') return 0
+  // An annotated image also holds its unflattened layers.
+  return attachment.data.length + (attachment.annotation ? sceneBytes(attachment.annotation) : 0)
 }
 
 export function totalAttachmentBytes(attachments: PendingAttachment[]): number {
@@ -66,7 +82,7 @@ export function useAttachments({
           if (!attachment) return
           const next = [...latest.current, attachment]
           if (totalAttachmentBytes(next) > MAX_ATTACHMENT_BYTES) {
-            onReject?.('Too many images attached — send some before adding more.')
+            onReject?.(TOO_MANY_IMAGES)
             return
           }
           latest.current = next
@@ -84,6 +100,21 @@ export function useAttachments({
       onChange(next)
     },
     [onChange],
+  )
+
+  const edit = useCallback(
+    (index: number, image: PendingImage, replace: boolean) => {
+      const next = placeAnnotated(latest.current, index, image, replace)
+      if (next === latest.current) return false
+      if (totalAttachmentBytes(next) > MAX_ATTACHMENT_BYTES) {
+        onReject?.(TOO_MANY_IMAGES)
+        return false
+      }
+      latest.current = next
+      onChange(next)
+      return true
+    },
+    [onChange, onReject],
   )
 
   const handlePaste = useCallback(
@@ -130,5 +161,14 @@ export function useAttachments({
     [addFiles],
   )
 
-  return { dragging, addFiles, remove, handlePaste, handleDragOver, handleDragLeave, handleDrop }
+  return {
+    dragging,
+    addFiles,
+    remove,
+    edit,
+    handlePaste,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  }
 }

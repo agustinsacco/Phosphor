@@ -37,6 +37,17 @@ The composer is one small field with several ways in.
 - `@` → fuzzy file search across the workspace (gitignore-aware), inserts a
   path reference.
 - Images: paste or drag → thumbnails → sent as `images[]` with the prompt.
+- **Clicking a pending image opens the annotator** (`features/chat/imageEditor/`),
+  not the lightbox. Box, circle, arrow, pen, highlighter, text and numbered
+  markers, with colour, size, undo/redo and select-to-move/resize. ⌘V (or
+  _Paste image_) puts another image on top; ⇧⌘V (or _Replace image_) swaps the
+  screenshot underneath, keeping the marks. _Done_ flattens everything into one
+  PNG, which is all pi receives: the annotations are pixels, never prompt text.
+  _Replace original_ (on by default) swaps the chip in place; off, the copy is
+  attached right after the original and the user removes either. The layers
+  ride along in memory (`PendingImage.annotation`) so reopening keeps them
+  editable; a draft restored after a restart comes back flattened. Images
+  already in the transcript are not editable: copy one and paste it.
 - **Drafts persist.** Text, attachments and the model the draft was composed
   against live in `apps/desktop/src/stores/drafts.ts`, keyed per session or per home
   workspace, and survive switching and quitting. Image bytes go to

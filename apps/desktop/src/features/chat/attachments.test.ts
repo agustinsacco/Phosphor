@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  annotatedName,
   buildAttachmentBlock,
   composePrompt,
   formatFileSize,
   isInlineableImage,
+  placeAnnotated,
   toImageContents,
   type PendingAttachment,
 } from './attachments'
@@ -88,5 +90,34 @@ describe('formatFileSize', () => {
     [1024 * 1024 * 3, '3.0 MB'],
   ])('formats %d as %s', (bytes, expected) => {
     expect(formatFileSize(bytes)).toBe(expected)
+  })
+})
+
+describe('placeAnnotated', () => {
+  const annotated = { kind: 'image', data: 'NEW', mimeType: 'image/png', name: 'a.png' } as const
+
+  it('replaces the original in place by default', () => {
+    const next = placeAnnotated([image('a.png'), image('b.png')], 0, annotated, true)
+    expect(next.map((a) => (a.kind === 'image' ? a.data : ''))).toEqual(['NEW', 'BASE64'])
+  })
+
+  it('keeps the original and attaches the copy right after it', () => {
+    const next = placeAnnotated([image('a.png'), image('b.png')], 0, annotated, false)
+    expect(next.map((a) => a.name)).toEqual(['a.png', 'a.png', 'b.png'])
+    expect(next[1]).toBe(annotated)
+  })
+
+  it('returns the same array when the index no longer exists', () => {
+    const current = [image()]
+    expect(placeAnnotated(current, 3, annotated, true)).toBe(current)
+  })
+})
+
+describe('annotatedName', () => {
+  it('keeps the name in place and suffixes a copy, always as png', () => {
+    expect(annotatedName('shot.jpg', true)).toBe('shot.png')
+    expect(annotatedName('shot.jpg', false)).toBe('shot-annotated.png')
+    expect(annotatedName('shot-annotated.png', false)).toBe('shot-annotated.png')
+    expect(annotatedName('image-1', false)).toBe('image-1-annotated.png')
   })
 })

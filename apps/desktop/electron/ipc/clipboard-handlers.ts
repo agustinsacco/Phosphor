@@ -18,4 +18,8 @@ export function registerClipboardHandlers(): void {
     if (img.isEmpty()) throw new Error(`Unreadable image data (${image.mimeType})`)
     clipboard.writeImage(img)
   })
+  handle('clipboard:readImage', () => {
+    const img = clipboard.readImage()
+    return img.isEmpty() ? null : { data: img.toPNG().toString('base64'), mimeType: 'image/png' }
+  })
 }

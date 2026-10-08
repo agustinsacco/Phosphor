@@ -8,7 +8,8 @@ import { PlusIcon } from './icons'
  * that only reads as active once there is something to send.
  */
 
-const iconButtonClass =
+/** Also the image annotator's toolbar buttons, so the two read as one family. */
+export const iconButtonClass =
   'text-text-secondary hover:text-text hover:bg-bg-secondary flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-30'
 
 export function AttachButton({ onFiles }: { onFiles: (files: File[]) => void }): React.JSX.Element {

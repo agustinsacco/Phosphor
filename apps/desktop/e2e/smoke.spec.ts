@@ -1530,6 +1530,10 @@ test('floating IDE panes share compact corners in both themes', async () => {
 const PNG_1X1 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
+/** 1800×200 PNG — the aspect ratio is the point; see the wide-image test. */
+const PNG_WIDE =
+  'iVBORw0KGgoAAAANSUhEUgAABwgAAADIAQAAAADUp4gRAAAAyUlEQVR42u3PQREAAAwCIPuX1hJ77aAB6XcxNDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ8N6z0InrHKhrFAAAAAElFTkSuQmCC'
+
 test('dropped chat images open on click and copy on right-click', async () => {
   const harness = await launch()
   const { page } = harness
@@ -1573,19 +1577,136 @@ test('dropped chat images open on click and copy on right-click', async () => {
       )
       .toBeGreaterThan(0)
 
-    // Click opens the full-size lightbox; Escape closes it.
+    // A pending image is still editable, so click opens the annotator rather
+    // than the lightbox; Escape with nothing drawn closes it.
     await thumbnail.click()
-    await expect(page.getByAltText('Attached image, full size')).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Annotate image' })).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(page.getByAltText('Attached image, full size')).toBeHidden()
+    await expect(page.getByRole('dialog', { name: 'Annotate image' })).toBeHidden()
   } finally {
     await shutdown(harness)
   }
 })
 
-/** 1800×200 PNG — the aspect ratio is the point; see the test below. */
-const PNG_WIDE =
-  'iVBORw0KGgoAAAANSUhEUgAABwgAAADIAQAAAADUp4gRAAAAyUlEQVR42u3PQREAAAwCIPuX1hJ77aAB6XcxNDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ8N6z0InrHKhrFAAAAAElFTkSuQmCC'
+test('annotating a pasted image replaces it by default, or keeps both', async () => {
+  const harness = await launch()
+  const { page } = harness
+  try {
+    await openWorkspace(page)
+    await page.evaluate((pngB64: string) => {
+      const bytes = Uint8Array.from(atob(pngB64), (c) => c.charCodeAt(0))
+      const clipboardData = new DataTransfer()
+      clipboardData.items.add(new File([bytes], 'wide.png', { type: 'image/png' }))
+      document
+        .querySelector<HTMLTextAreaElement>(
+          'textarea[placeholder^="Describe a task or ask a question"]',
+        )!
+        .dispatchEvent(
+          new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData }),
+        )
+    }, PNG_WIDE)
+
+    const chips = page.getByTestId('attachment-chips')
+    const thumbnails = chips.getByRole('button', { name: 'Attached image', exact: true })
+    await expect(thumbnails).toHaveCount(1)
+    const originalSrc = await chips.locator('img').first().getAttribute('src')
+
+    const editor = page.getByRole('dialog', { name: 'Annotate image' })
+    const canvas = page.getByTestId('image-editor-canvas')
+    /** Drag across the canvas between two fractions of its size. */
+    const drag = async (from: [number, number], to: [number, number]): Promise<void> => {
+      const box = (await canvas.boundingBox())!
+      await page.mouse.move(box.x + box.width * from[0], box.y + box.height * from[1])
+      await page.mouse.down()
+      await page.mouse.move(box.x + box.width * to[0], box.y + box.height * to[1], { steps: 6 })
+      await page.mouse.up()
+    }
+
+    // Rectangle is the default tool; T switches to text, typed in place.
+    await thumbnails.first().click()
+    await expect(canvas).toBeVisible()
+    await drag([0.1, 0.2], [0.4, 0.8])
+    await page.keyboard.press('t')
+    const box = (await canvas.boundingBox())!
+    await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.3)
+    await page.getByLabel('Annotation text').fill('bug here')
+    await page.keyboard.press('Enter')
+    await expect(editor.getByRole('button', { name: 'Undo' })).toBeEnabled()
+
+    // Done with "Replace original" (the default) swaps the chip in place.
+    await expect(editor.getByLabel('Replace original')).toBeChecked()
+    await editor.getByRole('button', { name: 'Done' }).click()
+    await expect(editor).toBeHidden()
+    await expect(thumbnails).toHaveCount(1)
+    const annotatedSrc = await chips.locator('img').first().getAttribute('src')
+    expect(annotatedSrc).not.toBe(originalSrc)
+
+    // The annotations are pixels in the image the model will receive.
+    const redPixels = await page.evaluate(async (src: string) => {
+      const img = new Image()
+      img.src = src
+      await img.decode()
+      const c = document.createElement('canvas')
+      c.width = img.naturalWidth
+      c.height = img.naturalHeight
+      const ctx = c.getContext('2d')!
+      ctx.drawImage(img, 0, 0)
+      const { data } = ctx.getImageData(0, 0, c.width, c.height)
+      let red = 0
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i]! > 200 && data[i + 1]! < 100 && data[i + 2]! < 100) red++
+      }
+      return red
+    }, annotatedSrc!)
+    expect(redPixels).toBeGreaterThan(100)
+
+    // Unchecked, the annotated copy is attached next to the original. The
+    // checkbox keeps focus after the click; shortcuts must still work.
+    await thumbnails.first().click()
+    await editor.getByLabel('Replace original').uncheck()
+    await page.keyboard.press('o')
+    await expect(editor.getByRole('button', { name: 'Circle' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await drag([0.5, 0.2], [0.7, 0.7])
+    await editor.getByRole('button', { name: 'Done' }).click()
+    await expect(thumbnails).toHaveCount(2)
+    // The remove buttons only show on hover, hence `includeHidden`.
+    await expect(
+      chips.getByRole('button', { name: 'Remove wide.png', includeHidden: true }),
+    ).toHaveCount(1)
+    await expect(
+      chips.getByRole('button', { name: 'Remove wide-annotated.png', includeHidden: true }),
+    ).toHaveCount(1)
+
+    // Paste and Replace read the system clipboard through main.
+    await harness.app.evaluate(({ clipboard, nativeImage }, pngB64: string) => {
+      clipboard.writeImage(nativeImage.createFromBuffer(Buffer.from(pngB64, 'base64')))
+    }, PNG_1X1)
+    await thumbnails.first().click()
+    await expect(canvas).toHaveAttribute('width', '1800')
+    await editor.getByRole('button', { name: 'Paste image' }).click()
+    // The pasted layer arrives selected, ready to move or delete.
+    await expect(editor.getByRole('button', { name: 'Delete selected' })).toBeEnabled()
+    await editor.getByRole('button', { name: 'Replace image' }).click()
+    await expect(canvas).toHaveAttribute('width', '1')
+    await editor.getByRole('button', { name: 'Cancel' }).click()
+    await editor.getByRole('button', { name: 'Discard' }).click()
+    await expect(editor).toBeHidden()
+
+    // Escape with unsaved marks asks first; a second Escape discards them.
+    await thumbnails.first().click()
+    await drag([0.2, 0.2], [0.3, 0.6])
+    await page.keyboard.press('Escape')
+    await expect(editor.getByText('Discard your annotations?')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(editor).toBeHidden()
+    await expect(thumbnails).toHaveCount(2)
+  } finally {
+    await shutdown(harness)
+  }
+})
 
 test('a pasted wide image stays inside the transcript column', async () => {
   // Regression: chat images were capped in HEIGHT only (`max-h-40`). A wide

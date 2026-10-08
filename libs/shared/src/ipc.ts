@@ -296,6 +296,12 @@ export interface IpcInvokeMap {
    * `nativeImage` sniffs the buffer and accepts all five.
    */
   'clipboard:writeImage': { args: [image: { data: string; mimeType: string }]; result: void }
+  /**
+   * The clipboard's image as base64 PNG, or null when it holds none. For the
+   * image annotator's Paste/Replace buttons: a button click has no paste
+   * event, and the sandboxed renderer cannot read the clipboard itself.
+   */
+  'clipboard:readImage': { args: []; result: { data: string; mimeType: string } | null }
   'clipboard:writeFiles': { args: [paths: string[], cut: boolean]; result: void }
   'clipboard:readFiles': { args: []; result: { paths: string[]; cut: boolean } }
 

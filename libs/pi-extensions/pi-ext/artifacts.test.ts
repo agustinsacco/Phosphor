@@ -453,6 +453,27 @@ describe('older versions of this session’s artifacts', () => {
     expect(read.details!.version).toBe(2)
     await expect(run(h, 'artifact_read', { id: 'demo', version: 9 })).rejects.toThrow(/no v9/)
   })
+
+  it('copies one into a new artifact from a ref to this session', async () => {
+    const h = sessionHarness([
+      result('artifact_create', {
+        id: 'demo',
+        title: 'Demo',
+        type: 'html',
+        content: 'one',
+        version: 1,
+      }),
+      result('artifact_edit', {
+        id: 'demo',
+        title: 'Demo',
+        type: 'html',
+        content: 'two',
+        version: 2,
+      }),
+    ])
+    const copy = await run(h, 'artifact_create', { title: 'Old', from: `${OWN_SESSION}/demo@v1` })
+    expect(copy.details).toMatchObject({ id: 'old', content: 'one', derivedFrom: 'demo@v1' })
+  })
 })
 
 describe('after compaction', () => {

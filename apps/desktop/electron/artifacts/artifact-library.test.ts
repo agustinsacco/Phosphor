@@ -1,15 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ArtifactListing } from '@shared/artifacts'
-import { ArtifactLibrary, foldForks } from './artifact-library'
+import { ArtifactLibrary } from './artifact-library'
 
 function sessionFile(
   id: string,
   artifacts: Array<{ slug: string; version: number; content: string }>,
+  cwd = '/work',
 ): string {
-  const lines = [JSON.stringify({ type: 'session', version: 3, id, timestamp: 't', cwd: '/work' })]
+  const lines = [JSON.stringify({ type: 'session', version: 3, id, timestamp: 't', cwd })]
   let parent: string | null = null
   artifacts.forEach((a, i) => {
     const entryId = `${id.slice(-2)}${i}`
@@ -52,9 +60,14 @@ describe('ArtifactLibrary', () => {
   })
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
-  const put = (name: string, id: string, artifacts: Parameters<typeof sessionFile>[1]): string => {
+  const put = (
+    name: string,
+    id: string,
+    artifacts: Parameters<typeof sessionFile>[1],
+    cwd?: string,
+  ): string => {
     const path = join(sessions, '--work--', name)
-    writeFileSync(path, sessionFile(id, artifacts))
+    writeFileSync(path, sessionFile(id, artifacts, cwd))
     return path
   }
 
@@ -78,7 +91,7 @@ describe('ArtifactLibrary', () => {
     // A live session's artifact is part of its history: not removable on its own.
     expect(await library.remove('session-aaaaaaaa/notes')).toBe(false)
 
-    await library.retainDeletedSession(path)
+    // However the file goes (here, Finder, pi), the next look finds it gone.
     rmSync(path)
     const [listing] = await library.list()
     expect(listing).toMatchObject({ key: 'session-aaaaaaaa/notes', sessionDeleted: true })
@@ -91,11 +104,30 @@ describe('ArtifactLibrary', () => {
     expect(existsSync(join(root(), 'sessions', 'session-aaaaaaaa.json'))).toBe(false)
   })
 
+  it('takes a deleted session back when its file returns from the trash', async () => {
+    const path = put('a.jsonl', 'session-aaaaaaaa', [{ slug: 'notes', version: 1, content: 'x' }])
+    await library.indexFile(path)
+    const saved = readFileSync(path)
+    rmSync(path)
+    await library.list()
+    writeFileSync(path, saved)
+    expect((await library.indexFile(path))?.deleted).toBe(false)
+  })
+
   it('keeps no index for a deleted session that had no artifacts', async () => {
     const path = put('a.jsonl', 'session-aaaaaaaa', [])
     await library.indexFile(path)
-    await library.retainDeletedSession(path)
+    rmSync(path)
+    await library.list()
     expect(existsSync(join(root(), 'sessions', 'session-aaaaaaaa.json'))).toBe(false)
+  })
+
+  it('says whether a session’s folder is still there to resume it in', async () => {
+    put('a.jsonl', 'session-aaaaaaaa', [{ slug: 'here', version: 1, content: 'x' }], dir)
+    put('b.jsonl', 'session-bbbbbbbb', [{ slug: 'gone', version: 1, content: 'y' }], '/no/such')
+    await library.backfill(sessions)
+    const rows = Object.fromEntries((await library.list()).map((l) => [l.id, l.workspaceExists]))
+    expect(rows).toEqual({ here: true, gone: false })
   })
 
   it('survives a restart: a new library reads the same store', async () => {
@@ -120,38 +152,5 @@ describe('ArtifactLibrary', () => {
     const results = await Promise.all([library.indexFile(path), library.indexFile(path)])
     expect(results[0]!.artifacts.notes!.versions).toHaveLength(1)
     expect(results[1]!.artifacts.notes!.versions).toHaveLength(1)
-  })
-})
-
-describe('foldForks', () => {
-  const listing = (over: Partial<ArtifactListing>): ArtifactListing => ({
-    key: 'k',
-    sessionId: 's',
-    id: 'notes',
-    sessionFile: '/a/2026-10-01T00-00-00-000Z_s.jsonl',
-    cwd: '/work',
-    title: 'Notes',
-    type: 'markdown',
-    version: 1,
-    versionCount: 1,
-    updatedAt: 1,
-    sessionDeleted: false,
-    copies: 0,
-    ...over,
-  })
-
-  it('folds forks that still share a version, preferring a live, newer session', () => {
-    const rows = foldForks([
-      { listing: listing({ key: 'old', sessionDeleted: true }), origin: 'call-1' },
-      {
-        listing: listing({ key: 'fork', sessionFile: '/b/2026-10-02T00-00-00-000Z_f.jsonl' }),
-        origin: 'call-1',
-      },
-      { listing: listing({ key: 'changed', version: 2, updatedAt: 5 }), origin: 'call-2' },
-    ])
-    expect(rows.map((r) => [r.key, r.copies])).toEqual([
-      ['changed', 0],
-      ['fork', 1],
-    ])
   })
 })

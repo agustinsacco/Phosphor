@@ -272,10 +272,12 @@ All switch together, live, no reload.
   session activation closes them. Skills lives only here: browse, create,
   import/export and install into pi's global or project roots. The Artifacts
   page lists every artifact in the artifact store, from open, closed and
-  deleted sessions, with forks that still share a version folded into one
-  row. Opening one jumps to its session with the pane on it, resuming a
-  closed session first. A deleted session's artifact is tagged "Session
-  deleted" and opens read-only on the page, where it can be removed.
+  deleted sessions. Forks that still share a version fold into one row,
+  preferring an open session. Opening one jumps to its session with the pane
+  on it, resuming a closed session first. A session that cannot be resumed is
+  tagged ("Session deleted", or "Folder missing" when its workspace is gone)
+  and its artifact opens read-only on the page; a deleted session's can be
+  removed there.
 - **Skills discovery** is a capability workbench: outcome filters, task fit,
   evidence and limitations precede an expandable review/install section.
   Vercel React guidance and NVIDIA cuOpt routing install at reviewed commit

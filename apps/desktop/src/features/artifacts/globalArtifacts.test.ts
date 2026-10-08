@@ -15,8 +15,9 @@ const stored = (over: Partial<ArtifactListing> = {}): ArtifactListing => ({
   version: 2,
   versionCount: 2,
   updatedAt: 100,
+  revision: 'call-2',
   sessionDeleted: false,
-  copies: 0,
+  workspaceExists: true,
   ...over,
 })
 
@@ -86,5 +87,66 @@ describe('mergeGlobalArtifacts', () => {
       [],
     )
     expect(rows.map((r) => r.key)).toEqual(['b', 'a'])
+  })
+
+  it('folds forks that still share a version into the open, live, newest session', () => {
+    const fork = (key: string, file: string, over: Partial<ArtifactListing> = {}) =>
+      stored({ key, sessionFile: `/sessions/${file}.jsonl`, ...over })
+    const rows = mergeGlobalArtifacts(
+      [
+        fork('deleted', '2026-10-03T00-00-00-000Z_d', { sessionDeleted: true }),
+        fork('newest', '2026-10-02T00-00-00-000Z_n'),
+        fork('open', '2026-10-01T00-00-00-000Z_o'),
+        fork('changed', '2026-10-04T00-00-00-000Z_c', {
+          revision: 'call-9',
+          version: 3,
+          updatedAt: 200,
+        }),
+      ],
+      [
+        {
+          phosphorId: 'p1',
+          diskPath: '/sessions/2026-10-01T00-00-00-000Z_o.jsonl',
+          workspacePath: '/work',
+          artifacts: { guide: liveArtifact(2, 100) },
+        },
+      ],
+    )
+    expect(rows.map((r) => [r.key, r.copies, r.phosphorId])).toEqual([
+      ['changed', 0, undefined],
+      ['open', 2, 'p1'],
+    ])
+  })
+
+  it('prefers a session that still exists when none of the forks is open', () => {
+    const rows = mergeGlobalArtifacts(
+      [
+        stored({ key: 'gone', sessionFile: '/s/2026-10-09_g.jsonl', sessionDeleted: true }),
+        stored({ key: 'kept', sessionFile: '/s/2026-10-01_k.jsonl' }),
+      ],
+      [],
+    )
+    expect(rows.map((r) => [r.key, r.copies])).toEqual([['kept', 1]])
+  })
+
+  it('never folds a version the session file does not have yet', () => {
+    const rows = mergeGlobalArtifacts(
+      [
+        stored({ key: 'a', sessionFile: '/s/a.jsonl' }),
+        stored({ key: 'b', sessionFile: '/s/b.jsonl' }),
+      ],
+      [
+        {
+          phosphorId: 'p1',
+          diskPath: '/s/a.jsonl',
+          workspacePath: '/work',
+          artifacts: { guide: liveArtifact(3, 500) },
+        },
+      ],
+    )
+    expect(rows.map((r) => [r.key, r.version, r.copies])).toEqual([
+      ['a', 3, 0],
+      ['b', 2, 0],
+    ])
   })
 })

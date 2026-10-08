@@ -303,16 +303,20 @@ still holds every version; the store indexes it.
   every version on every branch with an `onBranch` flag, plus the scan
   position. The format and read side live in `libs/pi-extensions/pi-ext/artifact-store.ts`;
   ids and slugs are regex-checked before they reach a path.
-- **Main is the only writer** (`apps/desktop/electron/artifacts/`). It indexes
-  a session file incrementally (resuming at the last byte read, rescanning
-  when the file was rewritten or the branch moved under old versions) on
-  `agent_end`, `compaction_end` and pi exit, when a pane asks, and in a
-  throttled backfill of `~/.pi/agent/sessions` 20s after launch. It reads only
-  results pi wrote, so native and Claude sessions, forks, routines and
-  sessions run outside Phosphor all index the same way.
+- **Main is the only writer** (`apps/desktop/electron/artifacts/`:
+  `artifact-indexer.ts` reads one file, `artifact-library.ts` owns the store,
+  `artifact-sync.ts` wires it up). It indexes a session file incrementally
+  (resuming at the last byte read, rescanning when the file was rewritten or
+  the branch moved under old versions) on `agent_end`, `compaction_end` and pi
+  exit, when a pane asks, right before a delete, and in a one-file-at-a-time
+  backfill of `~/.pi/agent/sessions` 20s after launch. It reads only results
+  pi wrote, so native and Claude sessions, forks, routines and sessions run
+  outside Phosphor all index the same way.
 - **The session file stays the source of truth.** The store is a rebuildable
-  cache, with one exception: a deleted session's artifacts are kept (marked
-  deleted) until removed from the Artifacts page.
+  cache, with one exception: a session whose file is gone, however it went
+  (deleted in Phosphor, in Finder, by pi), keeps its artifacts, marked
+  deleted, until they are removed from the Artifacts page. A gone session with
+  no artifacts leaves nothing behind.
 - **pi reads it.** Phosphor passes `PHOSPHOR_ARTIFACT_STORE` at spawn. Without
   it (plain pi), this session's artifacts work as before and the cross-session
   features say they are unavailable.
@@ -329,7 +333,9 @@ What the model can do with it, all optional parameters on the same tools:
 A ref's session may be a unique prefix of 8+ characters. A foreign read
 records `details: { ref, foreign: true }` with no `id` or `content`, so no
 `session_start` rebuild, current or older, adopts it as this session's own.
-Sessions never edit each other's artifacts; `from` makes a local copy.
+Sessions never edit each other's artifacts; `from` makes a local copy. A ref
+to the session itself is just a local id, and its `@vN` copies an older
+version.
 
 **After compaction the model gets a short index.** The `context` hook inserts
 a hidden `custom` message (`phosphor-artifact-index`) right after the

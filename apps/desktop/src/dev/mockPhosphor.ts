@@ -43,8 +43,9 @@ const MOCK_STORED_ARTIFACT: { listing: ArtifactListing; artifact: ArtifactSnapsh
     version: 2,
     versionCount: 2,
     updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+    revision: 'call-release-checklist-2',
     sessionDeleted: true,
-    copies: 0,
+    workspaceExists: true,
   },
   artifact: {
     id: 'release-checklist',
@@ -61,6 +62,8 @@ const MOCK_STORED_ARTIFACT: { listing: ArtifactListing; artifact: ArtifactSnapsh
     ],
   },
 }
+
+let mockStoredArtifactRemoved = false
 
 const listeners = new Map<string, Set<(push: SessionPush) => void>>()
 const ptyListeners = new Map<string, Set<(data: string) => void>>()
@@ -1706,13 +1709,18 @@ export function installMockPhosphor(): void {
         case 'artifacts:list':
           // One artifact from a deleted session, so the page's
           // "Session deleted" row and its read-only viewer are reachable.
-          return Promise.resolve([MOCK_STORED_ARTIFACT.listing])
+          return Promise.resolve(mockStoredArtifactRemoved ? [] : [MOCK_STORED_ARTIFACT.listing])
         case 'artifacts:read':
           return Promise.resolve(
-            args[0] === MOCK_STORED_ARTIFACT.listing.key ? MOCK_STORED_ARTIFACT : null,
+            !mockStoredArtifactRemoved && args[0] === MOCK_STORED_ARTIFACT.listing.key
+              ? MOCK_STORED_ARTIFACT
+              : null,
           )
-        case 'artifacts:remove':
-          return Promise.resolve(args[0] === MOCK_STORED_ARTIFACT.listing.key)
+        case 'artifacts:remove': {
+          const removed = !mockStoredArtifactRemoved && args[0] === MOCK_STORED_ARTIFACT.listing.key
+          mockStoredArtifactRemoved ||= removed
+          return Promise.resolve(removed)
+        }
         case 'app:setLanePrefs':
           return Promise.resolve(undefined)
         case 'app:setLaneMarkers':

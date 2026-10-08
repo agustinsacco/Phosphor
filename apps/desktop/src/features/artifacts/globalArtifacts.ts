@@ -1,9 +1,11 @@
+import { basename } from '@/lib/path'
 import type { ArtifactListing } from '@shared/artifacts'
 import { normalizeArtifactType, type Artifact } from '@/stores/artifacts'
 
 /**
  * The global Artifacts page's rows: the artifact store's listing, merged with
- * what open sessions hold live. Pure, so the merge is testable without React.
+ * what open sessions hold live, then folded across forks. Pure, so all of it
+ * is testable without React.
  */
 export interface GlobalArtifactRow {
   key: string
@@ -17,6 +19,9 @@ export interface GlobalArtifactRow {
   sessionName?: string
   firstUserText?: string
   sessionDeleted: boolean
+  /** False when the session's folder is gone: it can only be viewed here. */
+  workspaceExists: boolean
+  /** Forks holding this same version, folded into this row. */
   copies: number
   /** The session is open in this window. */
   phosphorId?: string
@@ -38,25 +43,30 @@ export function mergeGlobalArtifacts(
   stored: ArtifactListing[],
   live: LiveSessionArtifacts[],
 ): GlobalArtifactRow[] {
-  const rows = new Map<string, GlobalArtifactRow>()
+  const rows = new Map<string, { row: GlobalArtifactRow; revision: string }>()
   const openFiles = new Map<string, string>()
-  for (const session of live)
+  for (const session of live) {
     if (session.diskPath) openFiles.set(session.diskPath, session.phosphorId)
+  }
   for (const listing of stored) {
     rows.set(`${listing.sessionFile}\u0000${listing.id}`, {
-      key: listing.key,
-      id: listing.id,
-      title: listing.title,
-      type: normalizeArtifactType(listing.type),
-      version: listing.version,
-      updatedAt: listing.updatedAt,
-      cwd: listing.cwd,
-      sessionFile: listing.sessionFile,
-      sessionName: listing.sessionName,
-      firstUserText: listing.firstUserText,
-      sessionDeleted: listing.sessionDeleted,
-      copies: listing.copies,
-      phosphorId: openFiles.get(listing.sessionFile),
+      revision: listing.revision,
+      row: {
+        key: listing.key,
+        id: listing.id,
+        title: listing.title,
+        type: normalizeArtifactType(listing.type),
+        version: listing.version,
+        updatedAt: listing.updatedAt,
+        cwd: listing.cwd,
+        sessionFile: listing.sessionFile,
+        sessionName: listing.sessionName,
+        firstUserText: listing.firstUserText,
+        sessionDeleted: listing.sessionDeleted,
+        workspaceExists: listing.workspaceExists,
+        copies: 0,
+        phosphorId: openFiles.get(listing.sessionFile),
+      },
     })
   }
   for (const session of live) {
@@ -64,24 +74,54 @@ export function mergeGlobalArtifacts(
       const latest = artifact.versions[artifact.versions.length - 1]
       if (!latest) continue
       const at = `${session.diskPath ?? `live:${session.phosphorId}`}\u0000${artifact.id}`
-      const row = rows.get(at)
+      const row = rows.get(at)?.row
       if (row && row.version >= latest.version) continue
+      const key = row?.key ?? `live:${session.phosphorId}/${artifact.id}`
       rows.set(at, {
-        key: row?.key ?? `live:${session.phosphorId}/${artifact.id}`,
-        id: artifact.id,
-        title: artifact.title,
-        type: artifact.type,
-        version: latest.version,
-        updatedAt: Math.max(row?.updatedAt ?? 0, artifact.updatedAt),
-        cwd: row?.cwd ?? session.workspacePath,
-        sessionFile: session.diskPath,
-        sessionName: row?.sessionName,
-        firstUserText: row?.firstUserText,
-        sessionDeleted: false,
-        copies: row?.copies ?? 0,
-        phosphorId: session.phosphorId,
+        // A version the file does not have yet is no fork's copy.
+        revision: `live:${key}`,
+        row: {
+          key,
+          id: artifact.id,
+          title: artifact.title,
+          type: artifact.type,
+          version: latest.version,
+          updatedAt: Math.max(row?.updatedAt ?? 0, artifact.updatedAt),
+          cwd: row?.cwd ?? session.workspacePath,
+          sessionFile: session.diskPath,
+          sessionName: row?.sessionName,
+          firstUserText: row?.firstUserText,
+          sessionDeleted: false,
+          workspaceExists: true,
+          copies: 0,
+          phosphorId: session.phosphorId,
+        },
       })
     }
   }
-  return [...rows.values()].sort((a, b) => b.updatedAt - a.updatedAt)
+  return foldForks([...rows.values()]).sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+/**
+ * A fork copies its parent's entries, tool call ids included, so an artifact
+ * neither side has touched since appears once per fork. Rows whose current
+ * version is the same record fold into one: an open session first, then one
+ * that still exists, then the newest (session file names start with their
+ * creation time). A fork that changed the artifact keeps its own row.
+ */
+function foldForks(rows: Array<{ row: GlobalArtifactRow; revision: string }>): GlobalArtifactRow[] {
+  const groups = new Map<string, GlobalArtifactRow[]>()
+  for (const { row, revision } of rows) {
+    const group = `${row.id}\u0000${revision}`
+    groups.set(group, [...(groups.get(group) ?? []), row])
+  }
+  return [...groups.values()].map((group) => {
+    const [first, ...rest] = group.sort(
+      (a, b) =>
+        Number(!a.phosphorId) - Number(!b.phosphorId) ||
+        Number(a.sessionDeleted) - Number(b.sessionDeleted) ||
+        basename(b.sessionFile ?? '').localeCompare(basename(a.sessionFile ?? '')),
+    )
+    return { ...first!, copies: rest.length }
+  })
 }

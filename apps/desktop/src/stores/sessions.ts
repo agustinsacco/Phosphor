@@ -949,8 +949,8 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
           const messages = await rehydrateTranscript(phosphorId)
           const { useArtifactsStore } = await import('./artifacts')
           const snapshots = await stored
-          if (snapshots) useArtifactsStore.getState().hydrate(phosphorId, snapshots)
-          // The old path, for when the store could not answer: replaying the
+          if (snapshots?.length) useArtifactsStore.getState().hydrate(phosphorId, snapshots)
+          // The old path, for when the store had nothing to say: replaying the
           // toolResult messages pi still has in context.
           else if (messages) useArtifactsStore.getState().ingestFromHistory(phosphorId, messages)
         } catch {

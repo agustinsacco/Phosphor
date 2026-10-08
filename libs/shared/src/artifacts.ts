@@ -42,8 +42,14 @@ export interface ArtifactListing {
   version: number
   versionCount: number
   updatedAt: number
+  /**
+   * The tool call that wrote the current version. A fork copies its parent's
+   * entries, so forks that have not changed an artifact share this, and the
+   * page shows them as one row.
+   */
+  revision: string
   /** The session file is gone; the artifact stays until removed here. */
   sessionDeleted: boolean
-  /** Forks holding this same version, folded into this row. */
-  copies: number
+  /** The session's folder still exists, so the session can be resumed. */
+  workspaceExists: boolean
 }

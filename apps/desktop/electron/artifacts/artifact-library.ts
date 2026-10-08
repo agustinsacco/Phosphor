@@ -1,5 +1,5 @@
 import { readFile, readdir, stat, unlink } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { join } from 'node:path'
 import {
   blobFile,
   currentVersion,
@@ -54,7 +54,12 @@ export class ArtifactLibrary {
     return id ? (this.indexes.get(id) ?? null) : null
   }
 
-  /** Index one session file now. Resolves to its index, or null if it has none. */
+  /**
+   * Index one session file now. Resolves to its index, or null if it has none.
+   *
+   * A file that is gone, however it went (deleted here, in Finder, by pi
+   * itself), leaves its artifacts behind marked as such.
+   */
   indexFile(path: string): Promise<SessionArtifactIndex | null> {
     const previous = this.queues.get(path) ?? Promise.resolve(null)
     const next = previous
@@ -63,12 +68,12 @@ export class ArtifactLibrary {
         await this.load()
         const before = this.indexFor(path)
         const after = await indexSessionFile(this.root(), path, before)
-        if (!after) return before
-        if (after !== before) {
-          await writeIndex(this.root(), after)
-          this.remember(after)
+        if (after) {
+          if (after !== before) await this.save(after)
+          return after
         }
-        return after
+        if (!before || before.deleted || (await exists(path))) return before
+        return this.markDeleted(before)
       })
     this.queues.set(path, next)
     void next.finally(() => {
@@ -134,20 +139,33 @@ export class ArtifactLibrary {
   }
 
   /**
-   * Every artifact the store knows, newest first. `livePaths` are the files of
-   * open sessions, brought up to date first so a turn that just ended shows.
+   * Every artifact the store knows. `livePaths` are the files of open
+   * sessions, brought up to date first so a turn that just ended shows.
    */
   async list(livePaths: string[] = []): Promise<ArtifactListing[]> {
     await this.load()
     await Promise.all(livePaths.map((path) => this.indexFile(path).catch(() => null)))
-    return foldForks(
-      [...this.indexes.values()].flatMap((index) =>
-        Object.values(index.artifacts).flatMap((artifact) => {
-          const listing = listingFor(index, artifact)
-          const origin = currentVersion(artifact)?.toolCallId
-          return listing && origin ? [{ listing, origin }] : []
+    await this.reconcile()
+    const indexes = [...this.indexes.values()]
+    const folders = await existingFolders(indexes.map((index) => index.cwd))
+    return indexes.flatMap((index) =>
+      Object.values(index.artifacts).flatMap((artifact) => {
+        const listing = listingFor(index, artifact, folders.has(index.cwd))
+        return listing ? [listing] : []
+      }),
+    )
+  }
+
+  /** Notice session files that went without this library being told. */
+  private async reconcile(): Promise<void> {
+    await Promise.all(
+      [...this.indexes.values()]
+        .filter((index) => !index.deleted)
+        .map(async (index) => {
+          if (!(await exists(index.sessionFile))) {
+            await this.indexFile(index.sessionFile).catch(() => null)
+          }
         }),
-      ),
     )
   }
 
@@ -158,7 +176,8 @@ export class ArtifactLibrary {
     await this.load()
     const found = this.byKey(key)
     if (!found) return null
-    const listing = listingFor(found.index, found.artifact)
+    const folders = await existingFolders([found.index.cwd])
+    const listing = listingFor(found.index, found.artifact, folders.has(found.index.cwd))
     const artifact = await this.snapshot(found.artifact)
     return listing && artifact ? { listing, artifact } : null
   }
@@ -172,20 +191,22 @@ export class ArtifactLibrary {
   }
 
   /**
-   * A session file is about to be deleted. Index it one last time, then keep
-   * its artifacts under a "session deleted" mark until they are removed here.
+   * Keep a gone session's artifacts under a "session deleted" mark until they
+   * are removed here. With none, the index was only a scan watermark.
    */
-  async retainDeletedSession(path: string): Promise<void> {
-    const index = await this.indexFile(path)
-    if (!index) return
+  private async markDeleted(index: SessionArtifactIndex): Promise<SessionArtifactIndex | null> {
     if (Object.keys(index.artifacts).length === 0) {
-      // Nothing to keep: the index was only a scan watermark.
       await this.forget(index)
-      return
+      return null
     }
     const deleted = { ...index, deleted: true }
-    await writeIndex(this.root(), deleted)
-    this.remember(deleted)
+    await this.save(deleted)
+    return deleted
+  }
+
+  private async save(index: SessionArtifactIndex): Promise<void> {
+    await writeIndex(this.root(), index)
+    this.remember(index)
   }
 
   /**
@@ -199,10 +220,7 @@ export class ArtifactLibrary {
     const { [found.artifact.slug]: removed, ...rest } = found.index.artifacts
     const next = { ...found.index, artifacts: rest }
     if (Object.keys(rest).length === 0) await this.forget(next)
-    else {
-      await writeIndex(this.root(), next)
-      this.remember(next)
-    }
+    else await this.save(next)
     await this.collect(removed?.versions.map((v) => v.sha256) ?? [])
     return true
   }
@@ -269,11 +287,30 @@ export class ArtifactLibrary {
         await new Promise((resolve) => setImmediate(resolve))
       }
     }
+    await this.reconcile()
     return { indexed, failed }
   }
 }
 
-function listingFor(index: SessionArtifactIndex, artifact: StoredArtifact): ArtifactListing | null {
+async function exists(path: string): Promise<boolean> {
+  return stat(path).then(
+    () => true,
+    () => false,
+  )
+}
+
+/** Which of these folders are still there, each checked once. */
+async function existingFolders(paths: string[]): Promise<Set<string>> {
+  const unique = [...new Set(paths)].filter(Boolean)
+  const found = await Promise.all(unique.map(async (path) => ((await exists(path)) ? path : null)))
+  return new Set(found.filter((path): path is string => path !== null))
+}
+
+function listingFor(
+  index: SessionArtifactIndex,
+  artifact: StoredArtifact,
+  workspaceExists: boolean,
+): ArtifactListing | null {
   const version = currentVersion(artifact)
   if (!version) return null
   return {
@@ -290,34 +327,8 @@ function listingFor(index: SessionArtifactIndex, artifact: StoredArtifact): Arti
     version: version.version,
     versionCount: artifact.versions.filter((v) => v.onBranch).length,
     updatedAt: Date.parse(version.createdAt) || 0,
+    revision: version.toolCallId,
     sessionDeleted: index.deleted,
-    copies: 0,
+    workspaceExists,
   }
-}
-
-/**
- * A fork copies its parent's entries, tool call ids included, so an artifact
- * neither side touched since shows up once per fork. Rows whose current
- * version is the same record fold into one: the live session if there is
- * one, else the most recent (session file names start with their creation
- * time). A fork that changed the artifact keeps its row.
- */
-export function foldForks(
-  rows: Array<{ listing: ArtifactListing; origin: string }>,
-): ArtifactListing[] {
-  const groups = new Map<string, ArtifactListing[]>()
-  for (const { listing, origin } of rows) {
-    const group = `${listing.id}\u0000${origin}`
-    groups.set(group, [...(groups.get(group) ?? []), listing])
-  }
-  const folded: ArtifactListing[] = []
-  for (const group of groups.values()) {
-    const [first, ...rest] = [...group].sort(
-      (a, b) =>
-        Number(a.sessionDeleted) - Number(b.sessionDeleted) ||
-        basename(b.sessionFile).localeCompare(basename(a.sessionFile)),
-    )
-    folded.push({ ...first!, copies: rest.length })
-  }
-  return folded.sort((a, b) => b.updatedAt - a.updatedAt)
 }

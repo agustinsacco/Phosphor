@@ -1,7 +1,7 @@
 import { handle } from './handle'
 import { stageArtifactHtml } from '../artifacts/artifact-protocol'
 import { exportArtifactPdf } from '../artifacts/artifact-pdf'
-import { artifactLibrary } from '../artifacts/artifacts'
+import { artifactLibrary } from '../artifacts/artifact-sync'
 
 /** `artifacts:*` — rendering model-authored artifacts, and the artifact store. */
 export function registerArtifactsHandlers(): void {

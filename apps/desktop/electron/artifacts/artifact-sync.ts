@@ -3,7 +3,7 @@ import { onBeforeSessionDelete } from '../pi/session-deleter'
 import { registry } from '../registry'
 import { log } from '../debug-log'
 import { ArtifactLibrary } from './artifact-library'
-import { artifactStoreRoot } from './store-root'
+import { artifactStoreRoot } from './artifact-store-root'
 
 export const artifactLibrary = new ArtifactLibrary(artifactStoreRoot, log)
 
@@ -17,10 +17,13 @@ const BACKFILL_DELAY_MS = 20_000
  * Then, once per launch, catch up with every session file on disk.
  *
  * A deleted session's artifacts stay, marked as such, until removed from the
- * Artifacts page.
+ * Artifacts page. Its last turn is indexed before the file goes, since the
+ * per-turn trigger would find the file already gone.
  */
 export function startArtifactSync(): void {
-  onBeforeSessionDelete((path) => artifactLibrary.retainDeletedSession(path))
+  onBeforeSessionDelete(async (path) => {
+    await artifactLibrary.indexFile(path)
+  })
   registry.on('created', (session) => {
     let file = session.client.sessionFile
     const schedule = (): void => {

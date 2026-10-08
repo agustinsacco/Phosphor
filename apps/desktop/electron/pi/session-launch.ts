@@ -9,7 +9,7 @@ import { checkPiHealth } from './health'
 import { piStubPath } from './stub'
 import { piProcessEnv } from './shell-env'
 import { claudeProviderSpawnEnv } from './provider-detect'
-import { artifactStoreEnv } from '../artifacts/store-root'
+import { artifactStoreEnv } from '../artifacts/artifact-store-root'
 
 let cachedHealth: PiHealth | null = null
 const runtime: SessionLaunchRuntime = {

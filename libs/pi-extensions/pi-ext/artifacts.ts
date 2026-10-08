@@ -27,7 +27,6 @@ import { Type } from 'typebox'
 import {
   ARTIFACT_STORE_ENV,
   ARTIFACT_TYPES,
-  ARTIFACT_WRITE_TOOLS,
   branchVersion,
   currentVersion,
   findIndex,
@@ -227,19 +226,28 @@ export function editExcerpt(text: string): string {
   return flat.length > EXCERPT_LIMIT ? `${flat.slice(0, EXCERPT_LIMIT)}…` : flat
 }
 
+type BranchRecord = Partial<ArtifactDetails> & Pick<ArtifactDetails, 'id' | 'version' | 'content'>
+
 /**
- * Fold one branch entry into an artifact map: the rule the session_start
- * rebuild has always used, shared now with the compaction note and with reads
- * of older versions. Any `artifact_*` result carrying an id, a version and a
- * string content counts, which is why a foreign read must carry neither.
+ * The artifact record a branch entry holds, if any: the rule the session_start
+ * rebuild has always used, shared by everything that reads the branch. Any
+ * `artifact_*` result carrying an id, a version and a string content counts,
+ * which is why a foreign read must carry neither.
  */
-export function foldArtifactEntry(artifacts: Map<string, ArtifactDetails>, entry: unknown): void {
+function branchRecord(entry: unknown): BranchRecord | null {
   const record = entry as BranchEntry
-  if (record.type !== 'message' || record.message?.role !== 'toolResult') return
-  if (!record.message.toolName?.startsWith('artifact_')) return
+  if (record.type !== 'message' || record.message?.role !== 'toolResult') return null
+  if (!record.message.toolName?.startsWith('artifact_')) return null
   const details = record.message.details
-  if (!details?.id || typeof details.version !== 'number') return
-  if (typeof details.content !== 'string') return
+  if (!details?.id || typeof details.version !== 'number') return null
+  if (typeof details.content !== 'string') return null
+  return details as BranchRecord
+}
+
+/** Fold one branch entry into an artifact map, keeping each id's newest version. */
+export function foldArtifactEntry(artifacts: Map<string, ArtifactDetails>, entry: unknown): void {
+  const details = branchRecord(entry)
+  if (!details) return
   const current = artifacts.get(details.id)
   if (current && current.version >= details.version) return
   artifacts.set(details.id, {
@@ -430,28 +438,28 @@ export default function artifactsExtension(pi: PiExtensionApi): void {
   }
 
   /**
-   * A ref naming this very session is just a local id. Anything else is
-   * foreign, and only readable.
+   * What an id names. A bare id, or a ref to this very session, is local.
+   * Anything else is another session's, and only readable.
    */
-  const foreignRef = (text: string): ArtifactRef | null => {
+  const resolve = (
+    text: string,
+  ): { foreign: ArtifactRef } | { local: string; version?: number } => {
     const ref = parseArtifactRef(text)
-    if (!ref) return null
-    if (ownSessionId && ownSessionId.startsWith(ref.session)) return null
-    return ref
+    if (!ref) return { local: slugifyArtifactId(text) }
+    if (ownSessionId?.startsWith(ref.session)) return { local: ref.slug, version: ref.version }
+    return { foreign: ref }
   }
 
-  const localId = (text: string): string => {
-    const ref = parseArtifactRef(text)
-    return ref ? ref.slug : slugifyArtifactId(text)
-  }
-
-  const refuseForeignWrite = (text: string): void => {
-    if (foreignRef(text)) {
+  /** A local artifact to change. Another session's is refused, with the way out. */
+  const writable = (text: string): ArtifactDetails => {
+    const target = resolve(text)
+    if ('foreign' in target) {
       throw new Error(
         `${text} belongs to another session and cannot be changed from here. ` +
           `Copy it into this session first: artifact_create with from: "${text}".`,
       )
     }
+    return mustGet(target.local)
   }
 
   /** Store the next version of a record and return the tool result for it. */
@@ -474,20 +482,14 @@ export default function artifactsExtension(pi: PiExtensionApi): void {
     compactionNote = compactionNoteText(artifactsBeforeCompaction(entries))
   }
 
-  /** An older version of a local artifact, found on the current branch. */
-  const localVersion = (ctx: unknown, id: string, version: number): ArtifactDetails => {
+  /** A local artifact, at one version when asked: older ones come off the branch. */
+  const localVersion = (ctx: unknown, id: string, version?: number): ArtifactDetails => {
     const current = mustGet(id)
-    if (version === current.version) return current
+    if (version == null || version === current.version) return current
     const entries = (ctx as ContextLike | undefined)?.sessionManager?.getBranch?.() ?? []
     for (const entry of entries) {
-      const details = (entry as BranchEntry).message?.details
-      const tool = (entry as BranchEntry).message?.toolName ?? ''
-      if (!ARTIFACT_WRITE_TOOLS.includes(tool)) continue
-      if (
-        details?.id === id &&
-        details.version === version &&
-        typeof details.content === 'string'
-      ) {
+      const details = branchRecord(entry)
+      if (details?.id === id && details.version === version) {
         return {
           ...current,
           title: details.title ?? current.title,
@@ -556,15 +558,18 @@ export default function artifactsExtension(pi: PiExtensionApi): void {
         language?: string
         from?: string
       },
+      _signal?: unknown,
+      _onUpdate?: unknown,
+      ctx?: unknown,
     ): Promise<ToolResultLike> {
       let source: { type: string; language?: string; content: string; ref: string } | undefined
       if (params.from) {
-        const ref = foreignRef(params.from)
-        if (ref) {
-          const foreign = readForeign(storeRoot(), ref)
+        const target = resolve(params.from)
+        if ('foreign' in target) {
+          const foreign = readForeign(storeRoot(), target.foreign)
           source = { ...foreign, ref: `${foreign.ref}@v${foreign.version}` }
         } else {
-          const local = mustGet(localId(params.from))
+          const local = localVersion(ctx, target.local, target.version)
           source = { ...local, ref: `${local.id}@v${local.version}` }
         }
       }
@@ -623,8 +628,7 @@ export default function artifactsExtension(pi: PiExtensionApi): void {
       _toolCallId: string,
       params: { id: string; old_string: string; new_string: string; replace_all?: boolean },
     ): Promise<ToolResultLike> {
-      refuseForeignWrite(params.id)
-      const previous = mustGet(localId(params.id))
+      const previous = writable(params.id)
       const { content, replacements } = applyArtifactEdit(
         previous.content,
         params.old_string,
@@ -659,8 +663,7 @@ export default function artifactsExtension(pi: PiExtensionApi): void {
       _toolCallId: string,
       params: { id: string; content: string; title?: string },
     ): Promise<ToolResultLike> {
-      refuseForeignWrite(params.id)
-      const previous = mustGet(localId(params.id))
+      const previous = writable(params.id)
       const version = previous.version + 1
       return commit(
         {
@@ -702,10 +705,10 @@ export default function artifactsExtension(pi: PiExtensionApi): void {
       _onUpdate?: unknown,
       ctx?: unknown,
     ): Promise<{ content: Array<{ type: 'text'; text: string }>; details: unknown }> {
-      const ref = foreignRef(params.id)
-      if (ref) {
+      const target = resolve(params.id)
+      if ('foreign' in target) {
         const foreign = readForeign(storeRoot(), {
-          ...ref,
+          ...target.foreign,
           ...(params.version != null ? { version: params.version } : {}),
         })
         const { text, range } = sliceLines(foreign.content, params.offset, params.limit)
@@ -728,9 +731,8 @@ export default function artifactsExtension(pi: PiExtensionApi): void {
           details,
         }
       }
-      const id = localId(params.id)
-      const current = mustGet(id)
-      const record = params.version != null ? localVersion(ctx, id, params.version) : current
+      const current = mustGet(target.local)
+      const record = localVersion(ctx, target.local, params.version ?? target.version)
       const { text, range } = sliceLines(record.content, params.offset, params.limit)
       return {
         content: [

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import type { ArtifactListing } from '@shared/artifacts'
 import { ipcErrorText } from '@shared/errors'
 import {
@@ -27,8 +27,9 @@ import { mergeGlobalArtifacts, type GlobalArtifactRow } from './globalArtifacts'
  *
  * Opening a row lands in that artifact's own session, with the pane on it,
  * resuming the session first when it is closed: viewing an artifact next to
- * its chat is the point of it. A deleted session's artifact has no chat to
- * open, so it opens here, read-only, where it can also be removed.
+ * its chat is the point of it. An artifact whose session cannot be resumed
+ * (deleted, or its folder gone) opens here instead, read-only; a deleted
+ * session's can also be removed.
  */
 export const ArtifactsPage = memo(function ArtifactsPage(): React.JSX.Element {
   const bySession = useArtifactsStore((s) => s.bySession)
@@ -39,17 +40,22 @@ export const ArtifactsPage = memo(function ArtifactsPage(): React.JSX.Element {
   const disk = useSessionsStore((s) => s.disk)
   const [stored, setStored] = useState<ArtifactListing[] | null>(null)
   const [viewing, setViewing] = useState<string | null>(null)
+  const [removals, setRemovals] = useState(0)
 
-  const reload = useCallback(() => {
+  useEffect(() => {
+    // Only the latest answer lands: an earlier, slower one must not win.
+    let current = true
     const paths = Object.values(useSessionsStore.getState().live).flatMap((l) =>
       l.diskPath ? [l.diskPath] : [],
     )
     window.phosphor
       .invoke('artifacts:list', paths)
-      .then(setStored)
-      .catch(() => setStored([]))
-  }, [])
-  useEffect(reload, [reload, liveIds, disk])
+      .then((listings) => current && setStored(listings))
+      .catch(() => current && setStored([]))
+    return () => {
+      current = false
+    }
+  }, [liveIds, disk, removals])
 
   const rows = useMemo(
     () =>
@@ -73,7 +79,7 @@ export const ArtifactsPage = memo(function ArtifactsPage(): React.JSX.Element {
         onBack={() => setViewing(null)}
         onRemoved={() => {
           setViewing(null)
-          reload()
+          setRemovals((n) => n + 1)
         }}
       />
     )
@@ -133,7 +139,7 @@ function ArtifactRow({
     }) ?? 'Untitled session'
 
   const open = async (): Promise<void> => {
-    if (row.sessionDeleted) {
+    if (!row.phosphorId && (row.sessionDeleted || !row.workspaceExists)) {
       onView(row.key)
       return
     }
@@ -146,7 +152,11 @@ function ArtifactRow({
         const meta = useSessionsStore
           .getState()
           .disk[row.cwd]?.find((m) => m.path === row.sessionFile)
-        if (!meta) throw new Error('That session is no longer on disk.')
+        // Gone since the list was read: the stored copy is still viewable.
+        if (!meta) {
+          onView(row.key)
+          return
+        }
         phosphorId = await sessions.openDiskSession(row.cwd, meta)
       } else {
         // activate() closes this page.
@@ -174,7 +184,7 @@ function ArtifactRow({
           </span>
         </span>
         <span className="text-text-tertiary block truncate text-sm">
-          {row.sessionDeleted && <DeletedTag />}
+          <StatusTag row={row} />
           {title}
           {row.cwd ? ` · ${projectName(row.cwd, git)}` : ''}
           {row.copies > 0 ? ` · also in ${row.copies} fork${row.copies === 1 ? '' : 's'}` : ''}
@@ -184,15 +194,29 @@ function ArtifactRow({
   )
 }
 
-function DeletedTag(): React.JSX.Element {
+/** Why a row cannot open in its session, if it cannot. */
+function StatusTag({
+  row,
+}: {
+  row: Pick<GlobalArtifactRow, 'sessionDeleted' | 'workspaceExists'>
+}): React.JSX.Element | null {
+  const label = row.sessionDeleted
+    ? 'Session deleted'
+    : !row.workspaceExists
+      ? 'Folder missing'
+      : null
+  if (!label) return null
   return (
     <span className="border-border text-text-secondary mr-1.5 rounded-sm border px-1 py-px text-xs">
-      Session deleted
+      {label}
     </span>
   )
 }
 
-/** A deleted session's artifact, read-only, with a way back and a way to remove it. */
+/**
+ * An artifact whose session cannot be resumed, read-only, with a way back and,
+ * when its session was deleted, a way to remove it.
+ */
 function StoredArtifactView({
   artifactKey,
   onBack,
@@ -203,7 +227,7 @@ function StoredArtifactView({
   onRemoved: () => void
 }): React.JSX.Element {
   const [loaded, setLoaded] = useState<
-    { artifact: Artifact; cwd: string; deleted: boolean } | null | undefined
+    { artifact: Artifact; listing: ArtifactListing } | null | undefined
   >(undefined)
 
   useEffect(() => {
@@ -213,8 +237,7 @@ function StoredArtifactView({
         setLoaded(
           found
             ? {
-                cwd: found.listing.cwd,
-                deleted: found.listing.sessionDeleted,
+                listing: found.listing,
                 artifact: {
                   id: found.artifact.id,
                   title: found.artifact.title,
@@ -262,14 +285,14 @@ function StoredArtifactView({
     <ArtifactWorkspace
       artifact={loaded.artifact}
       list={[loaded.artifact]}
-      workspacePath={loaded.cwd}
+      workspacePath={loaded.listing.cwd}
       onSelect={() => undefined}
       page={{
         leading: (
           <>
             {back}
-            {loaded.deleted && <DeletedTag />}
-            {loaded.deleted && (
+            <StatusTag row={loaded.listing} />
+            {loaded.listing.sessionDeleted && (
               <button
                 onClick={() => void remove()}
                 title="Remove this artifact for good"

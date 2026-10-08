@@ -160,7 +160,7 @@ describe('shadow baseline and fallback contract', () => {
   })
 })
 
-describe('actual Nx affected measurements (conservative workspace inputs)', () => {
+describe('actual Nx affected measurements (per-app inputs)', () => {
   const nx = (...args: string[]) =>
     JSON.parse(
       execFileSync(
@@ -180,18 +180,33 @@ describe('actual Nx affected measurements (conservative workspace inputs)', () =
         },
       ),
     )
+  const desktop = ['desktop', 'pi-extensions', 'runtime', 'tooling']
+  const libraries = ['desktop', 'pi-extensions', 'runtime', 'shared', 'tooling']
+  // Site and Desktop never select each other; docs and CI select only the
+  // whole-workspace checks. Root install/config keep Nx's select-everything rule.
   it.each([
-    'apps/site/src/pages/index.astro',
-    'libs/session-runtime/src/pi/session-service.ts',
-    'libs/shared/src/ipc.ts',
-    'libs/pi-extensions/pi-ext/headroom.ts',
-    'tools/scripts/validate.sh',
-    'nx.json',
-    'package-lock.json',
-    'apps/desktop/package-lock.json',
-    'apps/site/package-lock.json',
-  ])('%s currently selects all seven projects', (file) => {
-    expect(nx(`--files=${file}`).sort()).toEqual(ALL_PROJECTS)
+    ['apps/site/src/pages/index.astro', ['site', 'tooling']],
+    ['apps/site/package-lock.json', ['site', 'tooling']],
+    ['.infra/phosphor-site/deployment.yaml', ['site', 'tooling']],
+    ['.github/workflows/deploy-site.yml', ['site', 'tooling']],
+    ['apps/desktop/src/main.tsx', desktop],
+    ['apps/desktop/package-lock.json', desktop],
+    ['tools/scripts/fix-node-pty.mjs', desktop],
+    ['tools/scripts/install.sh', desktop],
+    ['.github/workflows/release-continuous.yml', desktop],
+    ['libs/pi-extensions/pi-ext/headroom.ts', desktop],
+    ['libs/session-runtime/src/pi/session-service.ts', desktop],
+    ['libs/shared/src/ipc.ts', libraries],
+    ['supabase/config.toml', ['schema', 'tooling']],
+    ['tools/scripts/validate.sh', ['tooling']],
+    ['.github/workflows/ci.yml', ['tooling']],
+    ['docs/README.md', ['tooling']],
+    ['README.md', ['tooling']],
+    ['nx.json', ALL_PROJECTS],
+    ['package.json', ALL_PROJECTS],
+    ['package-lock.json', ALL_PROJECTS],
+  ])('%s selects %j', (file, expected) => {
+    expect(nx(`--files=${file}`).sort()).toEqual([...expected].sort())
   })
   it('equal actual base/head is an unambiguous no-op', () => {
     const checkedOut = execFileSync('git', ['rev-parse', 'HEAD'], {

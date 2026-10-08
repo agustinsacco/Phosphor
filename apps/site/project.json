@@ -4,12 +4,20 @@
   "root": "apps/site",
   "projectType": "application",
   "tags": ["scope:site"],
-  "implicitDependencies": ["desktop", "tooling"],
+  "implicitDependencies": [],
+  "namedInputs": {
+    "deploy": [
+      "{workspaceRoot}/.infra/phosphor-site/**/*",
+      "{workspaceRoot}/.github/workflows/deploy-site.yml",
+      "{workspaceRoot}/tools/scripts/site-deploy-policy.mjs",
+      "{workspaceRoot}/tools/scripts/should-skip-release.sh"
+    ]
+  },
   "targets": {
     "build": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default", "deploy"],
       "options": {
         "command": "npm run build",
         "cwd": "apps/site"
@@ -19,7 +27,7 @@
     "check": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm run check",
         "cwd": "apps/site"
@@ -28,7 +36,7 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm test",
         "cwd": "apps/site"
@@ -37,7 +45,7 @@
     "dev": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm run dev",
         "cwd": "apps/site"
@@ -46,7 +54,7 @@
     "start": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm run start",
         "cwd": "apps/site"
@@ -55,7 +63,7 @@
     "prebuild": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm run prebuild",
         "cwd": "apps/site"
@@ -64,7 +72,7 @@
     "preview": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm run preview",
         "cwd": "apps/site"
@@ -73,7 +81,7 @@
     "shots": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm run shots",
         "cwd": "apps/site"
@@ -82,7 +90,7 @@
     "shots:guides": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm run shots:guides",
         "cwd": "apps/site"
@@ -91,7 +99,7 @@
     "audit:links": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm run audit:links",
         "cwd": "apps/site"
@@ -100,7 +108,7 @@
     "format": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": ["workspace"],
+      "inputs": ["default"],
       "options": {
         "command": "npm run format",
         "cwd": "apps/site"

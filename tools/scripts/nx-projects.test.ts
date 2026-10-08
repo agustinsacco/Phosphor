@@ -51,14 +51,32 @@ const commands = {
 }
 // These edges include non-import resources and test-only consumers, not just
 // production imports. Cyclic project ownership must not become recursive tasks.
+// Nothing depends on `tooling` (the whole-workspace checks) and the site depends
+// on nothing: its image is built from apps/site alone, and its screenshots are
+// captured by hand and committed. Otherwise every change affects every app and
+// per-app releases/deploys are impossible.
 const dependencies = {
-  desktop: ['runtime', 'shared', 'pi-extensions', 'tooling'],
+  desktop: ['runtime', 'shared', 'pi-extensions'],
   runtime: ['shared', 'pi-extensions'],
   shared: [],
   'pi-extensions': ['desktop'],
-  site: ['desktop', 'tooling'],
+  site: [],
   schema: [],
   tooling: ['desktop', 'runtime', 'shared', 'pi-extensions', 'site', 'schema'],
+}
+// Workspace-wide checks read everything. Everything else reads its own root,
+// its dependencies, and the specific root files it actually consumes.
+const inputs: Record<string, Record<string, string[]>> = {
+  desktop: {
+    build: ['default', '^default', 'rootInstall', 'release'],
+    'test:e2e': ['default', '^default', 'rootInstall', 'release', 'e2eHarness'],
+  },
+  runtime: { '*': ['default', '^default', 'rootUnitRunner'] },
+  shared: { '*': ['default', '^default', 'rootUnitRunner'] },
+  'pi-extensions': { '*': ['default', '^default', 'rootUnitRunner'] },
+  site: { build: ['default', 'deploy'], '*': ['default'] },
+  schema: { '*': ['default', '{workspaceRoot}/package.json'] },
+  tooling: { '*': ['workspace'] },
 }
 const assertEdges = (name: keyof typeof dependencies, edges: string[]) =>
   expect([...new Set(edges)].sort()).toEqual([...dependencies[name]].sort())
@@ -152,7 +170,8 @@ describe('explicit Nx project contract', () => {
         expect(project.targets[target]).toMatchObject({
           executor: 'nx:run-commands',
           cache: false,
-          inputs: ['workspace'],
+          inputs:
+            inputs[name as keyof typeof inputs][target] ?? inputs[name as keyof typeof inputs]['*'],
           options: {
             command,
             cwd: name === 'site' ? 'apps/site' : name === 'desktop' ? 'apps/desktop' : '.',
@@ -209,6 +228,36 @@ describe('explicit Nx project contract', () => {
       expect(target).not.toMatch(/npm run nx:|\bnx (run|run-many|affected)\b/)
     }
     expect(pkg.scripts.postinstall).toBe('npm ci --prefix apps/desktop')
+  })
+
+  it('site deploy inputs are exactly the deploy workflow path filter', () => {
+    const workflow = readFileSync(join(root, '.github/workflows/deploy-site.yml'), 'utf8')
+    const block = workflow.match(/ {4}paths:\n((?: {6}- .*\n)+)/)?.[1] ?? ''
+    const paths = [...block.matchAll(/- '([^']+)'/g)].map((match) => match[1])
+    const declared = readJson('apps/site/project.json').namedInputs.deploy.map((input: string) =>
+      input.replace('{workspaceRoot}/', '').replace(/\/\*\*\/\*$/, '/**'),
+    )
+    expect(paths.sort()).toEqual(['apps/site/**', ...declared].sort())
+  })
+
+  it('desktop release inputs cover every repository file the release and install consume', () => {
+    const declared = readJson('apps/desktop/project.json').namedInputs.release.map(
+      (input: string) => input.replace('{workspaceRoot}/', ''),
+    )
+    const release = readFileSync(join(root, '.github/workflows/release-continuous.yml'), 'utf8')
+    // Executed paths, not names mentioned in comments.
+    const code = release
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('#'))
+      .join('\n')
+    const used = [...code.matchAll(/tools\/scripts\/[\w.-]+/g)].map((match) => match[0])
+    const scope = readFileSync(join(root, 'tools/scripts/release-scope.mjs'), 'utf8')
+    for (const [, file] of scope.matchAll(/from '\.\/([\w.-]+)'/g))
+      used.push(`tools/scripts/${file}`)
+    const install = readJson('apps/desktop/package.json').scripts.postinstall
+    used.push(...[...install.matchAll(/\.\.\/\.\.\/(tools\/scripts\/[\w.-]+)/g)].map((m) => m[1]))
+    for (const file of new Set(used)) expect(declared).toContain(file)
+    expect(declared).toContain('.github/workflows/release-continuous.yml')
   })
 
   it('uses workspaceRoot inputs to include nested projects in the unchanged full unit runner', () => {

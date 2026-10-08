@@ -13,7 +13,10 @@
       "inputs": ["workspace"],
       "options": {
         "command": "vitest run libs/session-runtime",
-        "cwd": "."
+        "cwd": ".",
+        "env": {
+          "VITEST_MAX_WORKERS": "2"
+        }
       }
     }
   }

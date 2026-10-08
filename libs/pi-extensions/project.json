@@ -13,7 +13,10 @@
       "inputs": ["workspace"],
       "options": {
         "command": "vitest run libs/pi-extensions",
-        "cwd": "."
+        "cwd": ".",
+        "env": {
+          "VITEST_MAX_WORKERS": "2"
+        }
       }
     }
   }

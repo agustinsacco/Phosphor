@@ -144,7 +144,7 @@ describe('explicit Nx project contract', () => {
     expect(() => assertEdges('runtime', explicitWithoutShared)).toThrow()
   })
 
-  it('keeps effective targets uncached, nonrecursive and equivalent to underlying commands', () => {
+  it('keeps all targets uncached, nonrecursive and equivalent with bounded unit workers', () => {
     for (const [name, expected] of Object.entries(commands)) {
       const project = graph.nodes[name].data
       assertTargets(name as keyof typeof commands, project.targets)
@@ -159,6 +159,12 @@ describe('explicit Nx project contract', () => {
           },
         })
         expect(project.targets[target].dependsOn ?? []).toEqual([])
+        if (name === 'tooling' && ['lint', 'typecheck'].includes(target)) {
+          expect(project.targets[target].outputs).toEqual([])
+        }
+        if (command.startsWith('vitest run')) {
+          expect(project.targets[target].options.env).toEqual({ VITEST_MAX_WORKERS: '2' })
+        }
       }
     }
   })
@@ -210,8 +216,20 @@ describe('explicit Nx project contract', () => {
     expect(config.namedInputs.workspace).toContain('{workspaceRoot}/**/*')
     expect(config.neverConnectToCloud).toBe(true)
     expect(config.plugins).toEqual([])
-    expect(config.parallel).toBe(1)
+    expect(config.parallel).toBe(3)
+    expect(config.cacheDirectory).toBe('.nx/cache')
+    expect(config.useDaemonProcess).toBe(false)
+    expect(
+      Object.values(config.targetDefaults).every(
+        (target: unknown) => (target as { cache: boolean }).cache === false,
+      ),
+    ).toBe(true)
     expect(config.targetDefaults['nx:run-commands'].cache).toBe(false)
+    expect(graph.nodes.desktop.data.targets.build.outputs).toEqual(['{projectRoot}/out'])
+    expect(graph.nodes.site.data.targets.build.outputs).toEqual([
+      '{projectRoot}/dist',
+      '{projectRoot}/public/og.png',
+    ])
     const vitest = readFileSync(join(root, 'vitest.config.ts'), 'utf8')
     for (const path of [
       'apps/desktop/electron',

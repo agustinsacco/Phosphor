@@ -336,10 +336,13 @@ the same full unit suites without running them.
 | `schema`        | `supabase/`, with explicit start/test/stop lifecycle                |
 | `tooling`       | `tools/scripts/`, including workspace-wide checks                   |
 
-Every target starts uncached, with conservative whole-workspace inputs,
-including nested projects. Nx runs one task at a time by default, has no
-inference plugins, daemon or Cloud connection, and keeps per-worktree state
-in ignored `.nx/`. No affected-only selection is introduced. Desktop owns its isolated native install
+Every target remains uncached, with conservative whole-workspace inputs,
+including nested projects. Nx runs at most three tasks by default and bounds
+each unit target to two Vitest workers. It has no inference plugins, daemon or
+Cloud connection, and explicitly keeps default per-worktree cache/state in
+ignored `.nx/`. No affected-only selection is introduced.
+[nx-cache.md](docs/nx-cache.md) defines the cache ineligibility, declared outputs,
+resource bounds and original uncached validation contract. Desktop owns its isolated native install
 and lifecycle, described in [desktop-build.md](docs/desktop-build.md). Site targets use its existing npm commands from `apps/site/`, retaining
 its social-image prebuild; schema targets retain the pinned local Supabase
 commands and require explicit lifecycle cleanup. Neither is invoked by the

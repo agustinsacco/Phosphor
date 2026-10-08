@@ -12,7 +12,7 @@ const projects = {
   runtime: 'libs/session-runtime',
   shared: 'libs/shared',
   'pi-extensions': 'libs/pi-extensions',
-  site: 'site',
+  site: 'apps/site',
   schema: 'supabase',
   tooling: 'tools/scripts',
 }
@@ -155,7 +155,7 @@ describe('explicit Nx project contract', () => {
           inputs: ['workspace'],
           options: {
             command,
-            cwd: name === 'site' ? 'site' : name === 'desktop' ? 'apps/desktop' : '.',
+            cwd: name === 'site' ? 'apps/site' : name === 'desktop' ? 'apps/desktop' : '.',
           },
         })
         expect(project.targets[target].dependsOn ?? []).toEqual([])

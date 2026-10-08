@@ -28,8 +28,8 @@
     The centre is the canvas centre (512, 512) — unlike every mark before it,
     nothing occupies a bottom band.
 
-    Regenerate platform assets with: node scripts/generate-icons.mjs
-    (it also writes site/public/favicon.svg, so the site cannot drift).
+    Regenerate platform assets with: node tools/scripts/generate-icons.mjs
+    (it also writes apps/site/public/favicon.svg, so the site cannot drift).
     Light-background twin: build/icon-light.svg — keep the two in step.
   -->
   <defs>

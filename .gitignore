@@ -9,8 +9,8 @@ out/
 playwright-report/
 release/
 test-results/
-site/.astro/
-site/shots-raw/
+apps/site/.astro/
+apps/site/shots-raw/
 
 # Per-worktree Nx state (never shared or committed).
 .nx/

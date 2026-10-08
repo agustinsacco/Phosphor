@@ -6,14 +6,20 @@ JavaScript**. One deployment serves the landing and four user guides.
 ## Run and check
 
 ```bash
-npm ci --prefix site
-npm run dev --prefix site
-npm run check --prefix site
-npm run build --prefix site
-(cd site && npx playwright install chromium)
-npm test --prefix site
-npm run audit:links --prefix site
+npm ci --prefix apps/site
+npm run dev --prefix apps/site
+npm run check --prefix apps/site
+npm run build --prefix apps/site
+(cd apps/site && npx playwright install chromium)
+npm test --prefix apps/site
+npm run audit:links --prefix apps/site
 ```
+
+Run these examples from the repository root. The site retains its own manifest,
+lockfile and installation; root `npm ci` installs Desktop, not the site. Root
+aliases `site:install`, `site:dev`, `site:check`, `site:build` and `site:test`
+delegate to the commands above. Nx site targets use this same independent package
+and remain uncached.
 
 Playwright serves the production build on `127.0.0.1:4322`. It checks all five
 pages on desktop, mobile, JavaScript-disabled desktop/mobile, and reduced
@@ -27,10 +33,28 @@ links from built pages, follows HTTP redirects, checks GitHub Markdown fragments
 against rendered heading slugs, and fails on unavailable destinations. It needs
 network access; rate limits are failures to investigate, not successful checks.
 
+To exercise the production image locally without deployment:
+
+```bash
+docker build -t phosphor-site-local ./apps/site
+docker run -d --name phosphor-site-local --read-only --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --tmpfs /var/cache/nginx:rw,uid=101,gid=101 --tmpfs /tmp:rw,uid=101,gid=101 \
+  -p 127.0.0.1:4322:5015 phosphor-site-local
+SITE_TEST_URL=http://127.0.0.1:4322 npm test --prefix apps/site
+docker rm -f phosphor-site-local
+```
+
+Use an unused local container name and port if another instance is running.
+The image-only suite also checks direct guide-directory resolution with or without
+a trailing slash (200, no redirect), cache and security headers, static fonts/assets,
+and real 404 responses. The runtime is
+non-root with a read-only filesystem; only its nginx cache and `/tmp` are writable.
+
 Formatting Astro files explicitly loads the plugin:
 
 ```bash
-npm run format --prefix site
+npm run format --prefix apps/site
 ```
 
 ## Narrative and routes
@@ -74,7 +98,7 @@ To regenerate from this checkout:
 npm ci
 npm run dev:web -- --host 127.0.0.1 --port 5199
 # In another terminal:
-npm run shots:guides --prefix site
+npm run shots:guides --prefix apps/site
 ```
 
 `GUIDE_HARNESS_URL` may select another localhost port. The capture script launches
@@ -84,7 +108,7 @@ settings modal. Inspect every generated image before committing it. Both the
 responsive previews and the full-size linked originals use these safe files;
 there is no CSS-only blur concealing a downloadable unredacted original.
 
-Existing live captures can still be imported with `npm run shots --prefix site`.
+Existing live captures can still be imported with `npm run shots --prefix apps/site`.
 Review and redact new live captures before import. `ide-flex.png` is the original
 supplied editor-and-agent capture, shown after the chat-focused view. Its layout
 is not a composite or a rearranged screenshot.
@@ -109,7 +133,7 @@ computer awake.
 
 The existing Docker/nginx image and `.infra/phosphor-site/` manifests serve this
 one site on port 5015. Deploy Site retains path-filtered main pushes for
-`site/**`, `.infra/phosphor-site/**`, its workflow and deployment-policy helpers.
+`apps/site/**`, `.infra/phosphor-site/**`, its workflow and deployment-policy helpers.
 It waits up to thirty minutes for successful CI from this repository's main push
 at the exact checked-out SHA. Missing, failed, cancelled or unverifiable CI
 cannot deploy. GitHub's push-range path filter includes multi-commit pushes;

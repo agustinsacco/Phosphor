@@ -106,7 +106,7 @@ describe('light and dark marks share geometry', () => {
 
 describe('site and app cannot drift apart', () => {
   it('the favicon is generated from icon.svg, not hand-kept', () => {
-    expect(repoFile('../../site/public/favicon.svg')).toBe(icon)
+    expect(repoFile('../site/public/favicon.svg')).toBe(icon)
   })
 
   /**
@@ -116,7 +116,7 @@ describe('site and app cannot drift apart', () => {
    * previous mark ended up as two different drawings.
    */
   it('the site layout consumes the generated favicon and inlines no mark of its own', () => {
-    const layout = repoFile('../../site/src/layouts/Page.astro')
+    const layout = repoFile('../site/src/layouts/Page.astro')
     expect(layout).toContain('/favicon.svg')
     expect(layout).not.toMatch(/<svg/)
   })

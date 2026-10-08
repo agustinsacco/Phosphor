@@ -302,18 +302,18 @@ point of it: the app has always drawn a beacon while an agent runs, and it
 survives at 20px in a lane, which no previous mark managed at 32px. Every
 surface renders the same glyph and none of them owns a second copy:
 
-| Surface         | File                                                         | State           |
-| --------------- | ------------------------------------------------------------ | --------------- |
-| Geometry        | `BEACON` in `apps/desktop/src/components/PhosphorMark.tsx`   | source of truth |
-| App icon        | `apps/desktop/build/icon.svg` — `BEACON` × `ICON_SCALE` (28) | at rest         |
-| In-app identity | `<PhosphorMark>` / `<PhosphorLockup>`                        | at rest         |
-| In-app activity | `<PhosphorLoader>`                                           | orbit turning   |
-| Website + tab   | `site/public/favicon.svg` — generated                        | at rest         |
-| Social preview  | `site/public/og.png` — composites that favicon at build time | at rest         |
+| Surface         | File                                                              | State           |
+| --------------- | ----------------------------------------------------------------- | --------------- |
+| Geometry        | `BEACON` in `apps/desktop/src/components/PhosphorMark.tsx`        | source of truth |
+| App icon        | `apps/desktop/build/icon.svg` — `BEACON` × `ICON_SCALE` (28)      | at rest         |
+| In-app identity | `<PhosphorMark>` / `<PhosphorLockup>`                             | at rest         |
+| In-app activity | `<PhosphorLoader>`                                                | orbit turning   |
+| Website + tab   | `apps/site/public/favicon.svg` — generated                        | at rest         |
+| Social preview  | `apps/site/public/og.png` — composites that favicon at build time | at rest         |
 
 `apps/desktop/src/components/PhosphorMark.test.ts` reads `apps/desktop/build/icon.svg` back and fails if
 it drifts from `BEACON`; it also asserts the favicon is byte-identical to the
-icon and that `site/src/layouts/Page.astro` points an `<img>` at it rather than
+icon and that `apps/site/src/layouts/Page.astro` points an `<img>` at it rather than
 inlining an `<svg>` of its own. It exists because the mark before this one
 shipped as two different drawings — the app icon had bare shells, the website
 added animated electrons — and nothing compared them. The test also compares
@@ -332,7 +332,7 @@ browser tests compare the served social preview's mark pixels to the favicon.
   the design, not a rendering bug — see the contrast rule below.
 - Regenerate platform assets with `node tools/scripts/generate-icons.mjs`
   (Playwright-rendered; icns is darwin-only). It reads only `icon.svg`, and
-  also writes `site/public/favicon.svg`.
+  also writes `apps/site/public/favicon.svg`.
 
 **The contrast hierarchy is the mark.** The shells sit at `.35` and `.2` and
 are _allowed_ to disappear when small, because the nucleus, the orbit and its

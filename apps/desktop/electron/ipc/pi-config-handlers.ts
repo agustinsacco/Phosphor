@@ -5,12 +5,12 @@ import {
   listPiResources,
   patchAgentSettings,
   patchWebSearchConfig,
-  readAgentSettings,
   readAgentSettingsScoped,
   readWebSearchConfig,
   readConfigFile,
   writeConfigFile,
 } from '../pi/agent-settings'
+import { readAgentSettings } from '@phosphor/session-runtime/pi/agent-settings'
 import {
   listModelsViaRpc,
   resolveCatalogueModels,

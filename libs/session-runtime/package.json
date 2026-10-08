@@ -24,6 +24,10 @@
       "types": "./src/git/git-info-cache.ts",
       "default": "./src/git/git-info-cache.ts"
     },
+    "./pi/agent-settings": {
+      "types": "./src/pi/agent-settings.ts",
+      "default": "./src/pi/agent-settings.ts"
+    },
     "./pi/context-budget": {
       "types": "./src/pi/context-budget.ts",
       "default": "./src/pi/context-budget.ts"
@@ -32,9 +36,21 @@
       "types": "./src/pi/directives.ts",
       "default": "./src/pi/directives.ts"
     },
+    "./pi/json-config": {
+      "types": "./src/pi/json-config.ts",
+      "default": "./src/pi/json-config.ts"
+    },
     "./pi/jsonl": {
       "types": "./src/pi/jsonl.ts",
       "default": "./src/pi/jsonl.ts"
+    },
+    "./pi/package-resources": {
+      "types": "./src/pi/package-resources.ts",
+      "default": "./src/pi/package-resources.ts"
+    },
+    "./pi/packages": {
+      "types": "./src/pi/packages.ts",
+      "default": "./src/pi/packages.ts"
     },
     "./pi/pi-paths": {
       "types": "./src/pi/pi-paths.ts",
@@ -87,6 +103,10 @@
     "./pi/session-startup": {
       "types": "./src/pi/session-startup.ts",
       "default": "./src/pi/session-startup.ts"
+    },
+    "./pi/versions": {
+      "types": "./src/pi/versions.ts",
+      "default": "./src/pi/versions.ts"
     },
     "./pi/workspace-prompt": {
       "types": "./src/pi/workspace-prompt.ts",

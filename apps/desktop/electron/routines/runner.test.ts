@@ -28,7 +28,7 @@ vi.mock('../pi/session-accounts', () => ({
   forgetSpawnAccount: vi.fn(),
 }))
 vi.mock('../pi/provider-detect', () => ({ assertClaudeContextProvider: vi.fn() }))
-vi.mock('../pi/packages', () => ({ listPackages: vi.fn() }))
+vi.mock('@phosphor/session-runtime/pi/packages', () => ({ listPackages: vi.fn() }))
 vi.mock('../pi/stub', () => ({ piStubPath: () => '/stub' }))
 vi.mock('../broadcast', () => ({ broadcast: h.broadcast }))
 

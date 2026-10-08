@@ -2,53 +2,13 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { piAgentDir, webSearchConfigPath } from './pi-paths'
 import { type CatalogueModel } from './model-catalogue'
-import { readJsonFile, type JsonFileRead } from './json-config'
-
-export interface PiAgentSettings {
-  hideThinkingBlock?: boolean
-  defaultProvider?: string
-  defaultModel?: string
-  defaultThinkingLevel?: string
-  theme?: string
-  [key: string]: unknown
-}
+import { type PiAgentSettings } from '@phosphor/session-runtime/pi/agent-settings'
+import { readJsonFile, type JsonFileRead } from '@phosphor/session-runtime/pi/json-config'
 
 /** One settings file, read with health — see `json-config.ts`. */
 type ReadResult = JsonFileRead<PiAgentSettings>
 
 const readJson = (path: string): Promise<ReadResult> => readJsonFile<PiAgentSettings>(path)
-
-/**
- * Read pi's settings.json (global, merged with the workspace override).
- * Unparseable files degrade to empty for display, but `malformed` is
- * reported so callers can refuse to write over them.
- *
- * Mirrors pi's own override semantics: nested objects merge one level deep
- * (a project `{compaction: {reserveTokens}}` keeps the global
- * `compaction.enabled`), everything else replaces.
- */
-export async function readAgentSettings(workspacePath?: string): Promise<PiAgentSettings> {
-  const global = await readJson(join(piAgentDir(), 'settings.json'))
-  const project = workspacePath
-    ? await readJson(join(workspacePath, '.pi', 'settings.json'))
-    : { value: {}, exists: false, malformed: false }
-
-  const merged: PiAgentSettings = { ...global.value, ...project.value }
-  for (const [key, projectValue] of Object.entries(project.value)) {
-    const globalValue = global.value[key]
-    if (
-      projectValue &&
-      globalValue &&
-      typeof projectValue === 'object' &&
-      typeof globalValue === 'object' &&
-      !Array.isArray(projectValue) &&
-      !Array.isArray(globalValue)
-    ) {
-      merged[key] = { ...globalValue, ...projectValue }
-    }
-  }
-  return merged
-}
 
 /**
  * Both scopes' settings, unmerged — for editors that must show what a file

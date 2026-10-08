@@ -3,8 +3,8 @@ import { getPrefs } from '../store'
 import { gitInfoBatch } from '@phosphor/session-runtime/git/git-info'
 import { accountForSpawn, claudeAccountEnv } from '../claude/accounts'
 import { headroomSupervisor } from '../headroom/proxy'
-import { readAgentSettings } from './agent-settings'
-import { listPackages } from './packages'
+import { readAgentSettings } from '@phosphor/session-runtime/pi/agent-settings'
+import { listPackages } from '@phosphor/session-runtime/pi/packages'
 import { ensureCompactionReset } from './compaction-reset'
 
 export const desktopSessionPolicy: SessionPolicyRuntime = {

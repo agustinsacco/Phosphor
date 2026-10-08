@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareVersions, extractVersion } from './health'
+import { compareVersions, extractVersion } from './versions'
 
 describe('version comparison', () => {
   it('orders versions numerically, not lexically', () => {

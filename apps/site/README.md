@@ -19,7 +19,9 @@ Run these examples from the repository root. The site retains its own manifest,
 lockfile and installation; root `npm ci` installs Desktop, not the site. Root
 aliases `site:install`, `site:dev`, `site:check`, `site:build` and `site:test`
 delegate to the commands above. Nx site targets use this same independent package
-and remain uncached.
+and remain uncached. The [installation contract](../../docs/installations.md)
+explains why the root source-library workspaces do not include the site or alter
+its independently resolved toolchain and Docker context.
 
 Playwright serves the production build on `127.0.0.1:4322`. It checks all five
 pages on desktop, mobile, JavaScript-disabled desktop/mobile, and reduced

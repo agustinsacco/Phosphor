@@ -19,9 +19,13 @@ explicitly rebuilds node-pty for Electron and repeats that repair.
 Root has no node-pty, Electron or Electron rebuild lifecycle of its own.
 Failures in the nested app install propagate to the root install.
 
-Shared nonnative JavaScript dependencies remain in the root installation for
-portable library tests as well as in Desktop. The site keeps its independent
-installation and lockfile. This is not workspace-lock consolidation. Renderer
+The root lock includes only the three private source-library workspaces.
+Nonnative JavaScript dependencies remain in the root installation for portable
+library tests as well as in Desktop. Desktop and the site keep independent
+installations and lockfiles; this is bounded library consolidation, not one
+application install domain. The supported scoped source-production recipe must
+suppress root install scripts, as specified in [installations.md](installations.md).
+Renderer
 and browser builds deduplicate the source libraries' luxon/cron-parser imports
 onto the application's copies. Private source libraries are bundled, not
 runtime workspace links.

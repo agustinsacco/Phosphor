@@ -73,10 +73,9 @@ export function thoughtHeadline(text: string, which: 'first' | 'latest'): string
 }
 
 /**
- * The newest sentence of a thought: what the model is on right now. A live
- * row shows it under a group line that already carries the headline, so the
- * two lines say different things. A section title is the headline, so a
- * section that has only its title so far has no tail yet.
+ * The newest sentence of a thought: what the model is on right now, shown
+ * by a live thought's row. A section title is the headline, so a section that
+ * has only its title so far has no tail yet (the row falls back to it).
  */
 export function thoughtTail(text: string): string | undefined {
   const last = text

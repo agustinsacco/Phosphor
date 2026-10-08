@@ -696,7 +696,7 @@ describe('thought rows', () => {
     expect(summaryText()).toContain('thought for 12s')
   })
 
-  it('reads "Thinking Ns · <latest headline>" while the model thinks, and keeps counting', () => {
+  it('streams "Thinking Ns · <latest headline>" in the last row, not the group line', () => {
     vi.useFakeTimers()
     vi.setSystemTime(10_000)
     try {
@@ -711,20 +711,22 @@ describe('thought rows', () => {
         ],
         true,
       )
-      expect(summaryText()).toBe('Thinking 8s · Planning the change')
+      // The group line keeps its summary; the live row carries the thought.
+      expect(summaryText()).toBe('1 step · thought for 8s')
       expect(thoughtRows()[0]!.dataset.live).toBe('true')
-      // The new section has only its title: the row does not repeat it.
-      expect(thoughtRows()[0]!.textContent).toBe('✳Thinking…')
+      // The new section has only its title so far: the row shows the title.
+      expect(thoughtRows()[0]!.textContent).toBe('✳Thinking 8s · Planning the change')
       act(() => {
         vi.advanceTimersByTime(3_000)
       })
-      expect(summaryText()).toBe('Thinking 11s · Planning the change')
+      expect(thoughtRows()[0]!.textContent).toBe('✳Thinking 11s · Planning the change')
+      expect(summaryText()).toBe('1 step · thought for 11s')
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('shows the newest sentence in a live row, under the headline on the group line', () => {
+  it('shows the newest sentence in a live row, and keeps the group line on its summary', () => {
     group(
       [
         live(
@@ -736,8 +738,8 @@ describe('thought rows', () => {
       ],
       true,
     )
-    expect(summaryText()).toMatch(/^Thinking \d+s · Planning the change$/)
-    expect(thoughtRows()[0]!.textContent).toBe('✳Then run the tests.')
+    expect(summaryText()).not.toMatch(/Thinking/)
+    expect(thoughtRows()[0]!.textContent).toMatch(/^✳Thinking \d+s · Then run the tests\.$/)
   })
 
   it('gives reasoning before a Claude Code tool or a sub-agent a row, as a gutter mark never could', () => {
@@ -775,6 +777,6 @@ describe('thought rows', () => {
     const button = thoughtRows()[0]!.querySelector('button')!
     expect(button.disabled).toBe(true)
     expect(button.hasAttribute('aria-expanded')).toBe(false)
-    expect(summaryText()).toMatch(/^Thinking \d+s$/)
+    expect(thoughtRows()[0]!.textContent).toMatch(/^✳Thinking \d+s$/)
   })
 })

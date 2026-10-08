@@ -3424,10 +3424,14 @@ test('a thought shows its headline while it streams, then folds into how long it
     await page.getByPlaceholder('Describe a task or ask a question').fill('thinkstream please')
     await page.getByRole('button', { name: /Start session/i }).click()
 
-    // Live: the group's line carries the newest section title and a timer.
+    // Live: the run's last row carries a timer and the newest sentence, and
+    // the group's line keeps its step summary.
     const summary = page.getByTestId('activity-summary').first()
-    await expect(summary).toHaveText(/^Thinking \d+s · Planning the change$/, { timeout: 60_000 })
-    await expect(page.getByTestId('thought-row').first()).toHaveAttribute('data-live', 'true')
+    const liveRow = page.locator('[data-testid="thought-row"][data-live="true"]').first()
+    await expect(liveRow).toHaveText(/^✳Thinking \d+s · One edit, then the tests\.$/, {
+      timeout: 60_000,
+    })
+    await expect(summary).not.toContainText('Thinking')
 
     await expect(page.getByText('Thought it through.')).toBeVisible({ timeout: 30_000 })
     // Settled: the run's line totals the thinking, and the row says how long

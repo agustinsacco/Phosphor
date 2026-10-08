@@ -4,6 +4,26 @@ Remote execution is not enabled. Local Electron still needs no Phosphor login.
 The shared host handshake and control-directory schema are foundations, not a
 running control plane or an exposed host API.
 
+## Portable session service
+
+`runtime/pi/` contains the Electron-free session service: launch/policy preparation,
+startup/readiness, event binding, command/provider/budget admission, resume reuse,
+per-owner path locks and stop-before-delete coordination. Desktop binds its existing
+preferences, accounts, package discovery, Headroom, recents, window delivery and
+Trash behavior in `electron/pi/session-runtime.ts` and `delete-lane.ts`.
+
+`session-service-headless.test.ts` bundles a plain Node entry and runs it against
+a deterministic fake pi subprocess. It checks streaming, resume reuse, provider
+and routine guards, interrupt bypass, crash resume, deletion and shutdown
+admission. `boundary.test.ts` rejects Electron/Desktop imports from every runtime
+entry. Neither test is real-provider or remote-host acceptance.
+
+The locks are process-local. There is no daemon entry point, durable Host ownership,
+authenticated network API, snapshot/replay protocol, command receipt store or
+controller lease implementation. A future Host must supply its own machine
+adapters and authorization; it must not expose arbitrary spawn environment or
+executable inputs over the network. No local daemon or login is required.
+
 ## Control-directory schema
 
 `supabase/migrations/` holds versioned PostgreSQL migrations for three tables:

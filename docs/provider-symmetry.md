@@ -109,8 +109,9 @@ None of these change what the model sees, and none should: a provider branch
 that alters the prompt, the tools or compaction breaks the first table.
 
 - `usesClaudeCliProvider` and `assertClaudeContextProvider`
-  (`electron/pi/provider-detect.ts`): the version check before a spawn, a model
-  switch and a prompt (`electron/ipc/pi-session-handlers.ts`), and before a
+  (`runtime/pi/provider-detect.ts`, with a Desktop re-export): the version check
+  before a spawn (`session-policy.ts`), a model switch and a prompt
+  (`runtime/pi/session-service.ts`, used by Desktop IPC), and before a
   routine runs (`electron/routines/runner.ts`).
 - `claudeProviderSpawnEnv`: pins `PI_CLAUDE_CLI_CONTEXT=pi` on every spawn.
 - `claudeOneShotEnv`: every `pi -p` that may land on Claude. Session naming on

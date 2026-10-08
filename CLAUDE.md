@@ -76,6 +76,12 @@ you want to watch.
    screen and settings at once. Do not grow it back. The known cost of the
    removal is that nothing reclaims an idle session's ~172 MB pi tree
    ([known-issues.md](docs/known-issues.md) S11).
+   The portable session service lives in `runtime/pi/`: policy/startup,
+   command/resume admission, per-owner path locks and deletion coordination.
+   `electron/pi/session-runtime.ts` binds Desktop's machine and delivery ports;
+   IPC handlers delegate to it. New callers must use the service and share one
+   path-lock domain with deletion, not call low-level spawn to bypass admission.
+   These locks are process-local, not remote authorization or cross-process locks.
 6. **Stores (`src/stores/`, zustand) are projections of main-process state.**
    `files.ts` and `terminal.ts` are keyed `byWorkspace[path]`; their
    `workspaceFiles()` / `workspaceTerminals()` selectors return a shared
@@ -91,8 +97,8 @@ you want to watch.
   format staying stable. Tests: `electron/pi/session-writer.test.ts`.
 - **JSONL framing is strict LF via `JsonlDecoder`, never `readline`** —
   U+2028/U+2029 are legal inside JSON strings and readline splits on them.
-- **`electron/pi/pi-paths.ts` is the single source of truth** for pi's session
-  directory layout and cwd mangling (`realpathSync.native` first — pi resolves
+- **`runtime/pi/pi-paths.ts` is the single source of truth** (re-exported from
+  `electron/pi/pi-paths.ts`) for pi's session directory layout and cwd mangling (`realpathSync.native` first — pi resolves
   symlinks). The e2e stub duplicates the mangling in
   `e2e/fixtures/pi-stub.cjs`; keep them in sync.
 - **`pi -p` blocks until stdin reaches EOF, so it must never be run through

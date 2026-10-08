@@ -206,8 +206,9 @@ pending run workspaces are protected from automatic maintenance reclamation.
   ownership guard, startup wiring, and background tray. `preflight.ts` holds
   the folder-task gates so the runner and `routines:check` cannot disagree
   about what blocks a run.
-- `electron/pi/session-runtime.ts`: shared window-independent session spawn;
-  interactive IPC still calls this same provider-guarded runtime.
+- `electron/pi/session-runtime.ts`: Desktop bindings for `runtime/pi/` startup
+  and session admission. Routine startup and interactive IPC use the same
+  provider-guarded service; routine scheduling/execution remains local.
 - `electron/ipc/routines-handlers.ts`, `shared/ipc.ts`, `electron/preload.ts`:
   typed operations and snapshot invalidations. `src/dev/mockRoutines.ts` is a
   clearly labelled browser simulation with no model execution.

@@ -93,6 +93,25 @@ it('retains crashed sessions for the client to inspect until explicitly disposed
   expect(registry.list()).toEqual([])
 })
 
+it.each(['spawn', 'observer'])(
+  'disposes owned allocation when %s throws synchronously',
+  async (failure) => {
+    const { registry, createClient } = owner()
+    if (failure === 'observer')
+      registry.on('created', () => {
+        throw new Error('observer failed')
+      })
+    const disposed = once(registry, 'disposed')
+    expect(() =>
+      registry.create(cwd, failure === 'spawn' ? { binaryPath: '\0' } : options),
+    ).toThrow()
+    // A caller never received the handle, but the owner must still drain it.
+    await disposed
+    expect(registry.list()).toEqual([])
+    expect(createClient.mock.results[0]!.value.alive).toBe(false)
+  },
+)
+
 it('keeps the synchronous signal-shutdown path', async () => {
   const { registry } = owner()
   const live = registry.create(cwd, options)

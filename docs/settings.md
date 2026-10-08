@@ -30,6 +30,36 @@ back to Extensions.
 Phosphor's prefs live in electron-store. pi's config stays in pi's files. The
 two are never mixed.
 
+Below the `md` breakpoint the sidebar becomes a top bar: the search field, then
+the tabs as one horizontally scrolling strip.
+
+## Search
+
+The field at the top of the sidebar takes focus on open; Cmd/Ctrl+F returns to
+it from anywhere in settings.
+
+- **Index.** A hand-written list of every row and heading
+  (`settingsIndex.ts`), with keybindings taken from the Keybindings tab's own
+  tables. Entries carry synonyms ("dark mode" finds Theme). Tabs whose package
+  is not installed are left out. `settingsQuery.test.ts` checks the index
+  against the tab sources in both directions, so renaming a row without
+  updating the index fails CI.
+- **Query.** The model picker's grammar (`parseQuery`): words AND together
+  across title, section, tab and synonyms, `"quoted phrases"` stay whole,
+  `-word` excludes, separators are optional ("autocompaction"). Title prefix
+  matches rank first.
+- **Results** replace the panel while there is a query, grouped by tab, best
+  group first, with matched text emphasised and a keybinding's keys beside it.
+  Each sidebar tab shows its match count and dims without any. Up/Down move,
+  Enter or a click opens.
+- **Opening a result** shows its tab with the query painted over the live
+  controls (the find bar's CSS Custom Highlight API, so React's DOM is never
+  touched), scrolls to the setting and flashes it. A tab that loads its
+  values over IPC is waited on for up to two seconds. Picking a tab in the
+  sidebar while searching shows it the same way, without the jump.
+- **Escape** clears the query first, and closes settings the second time.
+  Reopening settings starts with an empty search.
+
 ## Appearance
 
 - Theme: Light / Dark / System. Switches live across the app, Monaco, xterm,

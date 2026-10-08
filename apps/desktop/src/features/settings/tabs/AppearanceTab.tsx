@@ -96,6 +96,7 @@ export function AppearanceTab(): React.JSX.Element {
         description="JetBrains Mono is bundled. Other choices use installed fonts."
       >
         <select
+          aria-label="Mono font"
           value={fonts.monoFont}
           onChange={(e) => setFonts({ monoFont: e.target.value })}
           className="border-border bg-surface text-text rounded-lg border px-2.5 py-1.5 text-base outline-none"

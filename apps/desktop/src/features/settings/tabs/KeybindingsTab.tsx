@@ -10,7 +10,7 @@ import { FORMATTING_ACTIONS, formattingKeys } from '@/features/chat/composer/for
  * output — so muscle memory carries over.
  */
 
-type Binding = [parts: string[], action: string]
+export type Binding = [parts: string[], action: string]
 
 const APP: Binding[] = [
   [['F6'], 'Focus composer / pane controls'],
@@ -68,6 +68,22 @@ function clipboardBindings(): Binding[] {
   ]
 }
 
+/** The tables this tab shows, in order. Settings search indexes the same ones. */
+export function keybindingGroups(): Array<{ title: string; bindings: Binding[] }> {
+  return [
+    { title: 'App', bindings: APP },
+    { title: 'Chat', bindings: CHAT },
+    {
+      title: 'Formatting',
+      bindings: FORMATTING_ACTIONS.map<Binding>((binding) => [
+        formattingKeys(binding),
+        binding.label,
+      ]),
+    },
+    { title: 'Editor & terminal', bindings: [...EDITOR, ...clipboardBindings()] },
+  ]
+}
+
 export function KeybindingsTab(): React.JSX.Element {
   return (
     <div className="space-y-5">
@@ -75,16 +91,9 @@ export function KeybindingsTab(): React.JSX.Element {
         App navigation works from the composer; Go to file also works from the editor. Dialogs block
         app navigation; zoom still works. In a fullscreen pane, F6 focuses its exit control.
       </p>
-      <Group title="App" bindings={APP} />
-      <Group title="Chat" bindings={CHAT} />
-      <Group
-        title="Formatting"
-        bindings={FORMATTING_ACTIONS.map<Binding>((binding) => [
-          formattingKeys(binding),
-          binding.label,
-        ])}
-      />
-      <Group title="Editor & terminal" bindings={[...EDITOR, ...clipboardBindings()]} />
+      {keybindingGroups().map((group) => (
+        <Group key={group.title} {...group} />
+      ))}
     </div>
   )
 }
@@ -95,7 +104,11 @@ function Group({ title, bindings }: { title: string; bindings: Binding[] }): Rea
       <SectionTitle>{title}</SectionTitle>
       <div className="border-border divide-border divide-y overflow-hidden rounded-xl border">
         {bindings.map(([parts, action]) => (
-          <div key={action} className="bg-surface flex items-center justify-between px-4 py-2">
+          <div
+            key={action}
+            data-setting-row
+            className="bg-surface flex items-center justify-between gap-4 px-4 py-2"
+          >
             <span className="text-base">{action}</span>
             <kbd className="bg-bg-secondary border-border rounded-md border px-2 py-0.5 font-mono text-sm">
               {formatShortcut(...parts)}

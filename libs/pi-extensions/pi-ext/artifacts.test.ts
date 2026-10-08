@@ -1,5 +1,22 @@
-import { describe, it, expect } from 'vitest'
-import artifactsExtension, { applyArtifactEdit, editExcerpt, slugifyArtifactId } from './artifacts'
+import { afterEach, beforeEach, describe, it, expect } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import artifactsExtension, {
+  applyArtifactEdit,
+  artifactsBeforeCompaction,
+  compactionNoteText,
+  editExcerpt,
+  sliceLines,
+  slugifyArtifactId,
+  withCompactionNote,
+} from './artifacts'
+import {
+  ARTIFACT_INDEX_FORMAT,
+  ARTIFACT_STORE_ENV,
+  contentHash,
+  type SessionArtifactIndex,
+} from './artifact-store'
 
 describe('applyArtifactEdit', () => {
   it('replaces a unique match', () => {
@@ -209,5 +226,325 @@ describe('artifact tools', () => {
     ])
     const read = await call(h, 'artifact_read', { id: 'demo' })
     expect(read.details!.type).toBe('html')
+  })
+})
+
+const OWN_SESSION = '01a10e05-0000-7000-8000-00000000000a'
+const OTHER_SESSION = '01a10e05-0000-7000-8000-00000000000b'
+
+/** A fake pi with every hook, a session manager, and an optional store. */
+function sessionHarness(entries: unknown[] = []): {
+  tools: Map<string, { execute: (...args: unknown[]) => Promise<ToolResult> }>
+  hooks: Map<string, (event: unknown, ctx: unknown) => unknown>
+  ctx: { sessionManager: { getBranch: () => unknown[]; getSessionId: () => string } }
+  branch: unknown[]
+} {
+  const tools = new Map()
+  const hooks = new Map<string, (event: unknown, ctx: unknown) => unknown>()
+  artifactsExtension({
+    registerTool: (definition: Record<string, unknown>) =>
+      tools.set(definition.name as string, definition as never),
+    on: (event, handler) => hooks.set(event, handler),
+  })
+  const branch = [...entries]
+  const ctx = { sessionManager: { getBranch: () => branch, getSessionId: () => OWN_SESSION } }
+  hooks.get('session_start')?.({}, ctx)
+  return { tools, hooks, ctx, branch }
+}
+
+const run = (
+  h: ReturnType<typeof sessionHarness>,
+  name: string,
+  params: unknown,
+): Promise<ToolResult> => h.tools.get(name)!.execute('call-1', params, undefined, undefined, h.ctx)
+
+function result(tool: string, details: Record<string, unknown>, id = `e-${Math.random()}`) {
+  return { type: 'message', id, message: { role: 'toolResult', toolName: tool, details } }
+}
+
+/** A store holding one artifact of another session. */
+function storeWithForeign(root: string): void {
+  const content = '<h1>guide</h1>\nline two\nline three'
+  const sha256 = contentHash(content)
+  mkdirSync(join(root, 'blobs'), { recursive: true })
+  writeFileSync(join(root, 'blobs', sha256), content)
+  const index: SessionArtifactIndex = {
+    format: ARTIFACT_INDEX_FORMAT,
+    sessionId: OTHER_SESSION,
+    sessionFile: '/sessions/other.jsonl',
+    cwd: '/work',
+    name: 'Remote access',
+    deleted: false,
+    scan: { offset: 0, size: 0, mtimeMs: 0, signature: '', leafId: null },
+    artifacts: {
+      guide: {
+        slug: 'guide',
+        title: 'Field Guide',
+        type: 'html',
+        versions: [
+          {
+            version: 7,
+            toolCallId: 'c7',
+            entryId: 'e7',
+            sha256,
+            bytes: content.length,
+            createdAt: '2026-10-06T18:15:14.792Z',
+            title: 'Field Guide',
+            onBranch: true,
+          },
+        ],
+      },
+    },
+  }
+  mkdirSync(join(root, 'sessions'), { recursive: true })
+  writeFileSync(join(root, 'sessions', `${OTHER_SESSION}.json`), JSON.stringify(index))
+}
+
+describe('artifacts of other sessions', () => {
+  let root: string
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'artifact-ext-'))
+    storeWithForeign(root)
+    process.env[ARTIFACT_STORE_ENV] = root
+  })
+  afterEach(() => {
+    delete process.env[ARTIFACT_STORE_ENV]
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('lists them as refs with scope all, and leaves the default list alone', async () => {
+    const h = sessionHarness()
+    await run(h, 'artifact_create', { title: 'Mine', type: 'html', content: 'x' })
+    expect((await run(h, 'artifact_list', {})).content[0]!.text).toBe(
+      'mine  v1  html  1 chars  "Mine"',
+    )
+    const all = (await run(h, 'artifact_list', { scope: 'all' })).content[0]!.text
+    expect(all).toContain('This session:\nmine  v1')
+    expect(all).toContain(`${OTHER_SESSION}/guide  v7  html`)
+    expect(all).toContain('session: Remote access')
+    expect(
+      (await run(h, 'artifact_list', { scope: 'all', query: 'nothing' })).content[0]!.text,
+    ).toContain('Other sessions, newest first:\n(none)')
+  })
+
+  it('reads one by ref without adopting it into this session', async () => {
+    const h = sessionHarness()
+    const read = await run(h, 'artifact_read', { id: `${OTHER_SESSION}/guide` })
+    expect(read.content[0]!.text).toContain('<h1>guide</h1>')
+    expect(read.content[0]!.text).toContain('Read-only here')
+    // No id and no content: no session_start rebuild, old or new, can take it as ours.
+    expect(read.details).toEqual({ ref: `${OTHER_SESSION}/guide`, foreign: true, version: 7 })
+    h.branch.push(result('artifact_read', read.details as never))
+    h.hooks.get('session_start')!({}, h.ctx)
+    expect((await run(h, 'artifact_list', {})).content[0]!.text).toBe(
+      'No artifacts in this session yet.',
+    )
+  })
+
+  it('reads a range of lines', async () => {
+    const h = sessionHarness()
+    const read = await run(h, 'artifact_read', {
+      id: `${OTHER_SESSION}/guide`,
+      offset: 2,
+      limit: 1,
+    })
+    expect(read.content[0]!.text).toContain('lines 2-2 of 3')
+    expect(read.content[0]!.text.endsWith('\n\nline two')).toBe(true)
+  })
+
+  it('copies one into this session with from, without resending the content', async () => {
+    const h = sessionHarness()
+    const created = await run(h, 'artifact_create', {
+      title: 'My guide',
+      from: `${OTHER_SESSION}/guide`,
+    })
+    expect(created.details).toMatchObject({
+      id: 'my-guide',
+      version: 1,
+      type: 'html',
+      content: '<h1>guide</h1>\nline two\nline three',
+      derivedFrom: `${OTHER_SESSION}/guide@v7`,
+    })
+    // The copy is ours to edit.
+    const edited = await run(h, 'artifact_edit', {
+      id: 'my-guide',
+      old_string: 'guide</h1>',
+      new_string: 'mine</h1>',
+    })
+    expect(edited.details!.version).toBe(2)
+  })
+
+  it('refuses to edit another session’s artifact and says how to copy it', async () => {
+    const h = sessionHarness()
+    await expect(
+      run(h, 'artifact_edit', { id: `${OTHER_SESSION}/guide`, old_string: 'a', new_string: 'b' }),
+    ).rejects.toThrow(/artifact_create with from/)
+    await expect(
+      run(h, 'artifact_update', { id: `${OTHER_SESSION}/guide`, content: 'b' }),
+    ).rejects.toThrow(/another session/)
+  })
+
+  it('treats a ref to this very session as a local id', async () => {
+    const h = sessionHarness()
+    await run(h, 'artifact_create', { title: 'Mine', type: 'html', content: 'x' })
+    const edited = await run(h, 'artifact_edit', {
+      id: `${OWN_SESSION}/mine`,
+      old_string: 'x',
+      new_string: 'y',
+    })
+    expect(edited.details!.content).toBe('y')
+  })
+
+  it('names what it does know when a ref misses', async () => {
+    const h = sessionHarness()
+    await expect(run(h, 'artifact_read', { id: `${OTHER_SESSION}/nope` })).rejects.toThrow(
+      /Known ids there: guide/,
+    )
+    await expect(run(h, 'artifact_read', { id: `${OTHER_SESSION}/guide@v3` })).rejects.toThrow(
+      /no v3/,
+    )
+  })
+})
+
+describe('without an artifact store (plain pi)', () => {
+  it('keeps this session’s artifacts working and explains the rest', async () => {
+    delete process.env[ARTIFACT_STORE_ENV]
+    const h = sessionHarness()
+    await run(h, 'artifact_create', { title: 'Mine', type: 'html', content: 'x' })
+    expect((await run(h, 'artifact_read', { id: 'mine' })).content[0]!.text).toContain('x')
+    await expect(run(h, 'artifact_list', { scope: 'all' })).rejects.toThrow(/only available/)
+    await expect(run(h, 'artifact_read', { id: `${OTHER_SESSION}/guide` })).rejects.toThrow(
+      /only available/,
+    )
+  })
+
+  it('still requires type and content when there is nothing to copy', async () => {
+    const h = sessionHarness()
+    await expect(run(h, 'artifact_create', { title: 'T', content: 'x' })).rejects.toThrow(
+      /type is required/,
+    )
+    await expect(run(h, 'artifact_create', { title: 'T', type: 'html' })).rejects.toThrow(
+      /content is required/,
+    )
+  })
+})
+
+describe('older versions of this session’s artifacts', () => {
+  it('reads one from the branch on request', async () => {
+    const h = sessionHarness([
+      result('artifact_create', {
+        id: 'demo',
+        title: 'Demo',
+        type: 'html',
+        content: 'one',
+        version: 1,
+      }),
+      result('artifact_edit', {
+        id: 'demo',
+        title: 'Demo',
+        type: 'html',
+        content: 'two',
+        version: 2,
+      }),
+    ])
+    const read = await run(h, 'artifact_read', { id: 'demo', version: 1 })
+    expect(read.content[0]!.text).toBe('demo v1 (html, 3 chars)\n\none')
+    // details stay the current record, exactly as an unversioned read records it.
+    expect(read.details!.version).toBe(2)
+    await expect(run(h, 'artifact_read', { id: 'demo', version: 9 })).rejects.toThrow(/no v9/)
+  })
+})
+
+describe('after compaction', () => {
+  const created = (id: string, entryId: string) =>
+    result(
+      'artifact_create',
+      { id, title: id.toUpperCase(), type: 'html', content: 'c', version: 1 },
+      entryId,
+    )
+
+  it('lists only what the compaction summarised away', () => {
+    const entries = [
+      created('old', 'e1'),
+      { type: 'message', id: 'kept', message: { role: 'user' } },
+      created('kept-tail', 'e3'),
+      { type: 'compaction', id: 'c1', firstKeptEntryId: 'kept' },
+      created('new', 'e5'),
+    ]
+    expect(artifactsBeforeCompaction(entries).map((a) => a.id)).toEqual(['old'])
+    expect(artifactsBeforeCompaction([created('x', 'e1')])).toEqual([])
+  })
+
+  it('puts a stable note right after the summary, and nothing without a compaction', () => {
+    const h = sessionHarness([
+      created('old', 'e1'),
+      { type: 'compaction', id: 'c1', firstKeptEntryId: 'c1' },
+    ])
+    const messages = [
+      { role: 'compactionSummary', summary: 's', timestamp: 42 },
+      { role: 'user', content: 'hi', timestamp: 50 },
+    ]
+    const first = h.hooks.get('context')!({ messages }, h.ctx) as { messages: unknown[] }
+    const second = h.hooks.get('context')!({ messages }, h.ctx) as { messages: unknown[] }
+    expect(first.messages[1]).toMatchObject({
+      role: 'custom',
+      customType: 'phosphor-artifact-index',
+      display: false,
+      timestamp: 42,
+    })
+    expect(String((first.messages[1] as { content: string }).content)).toContain(
+      '- old v1 html "OLD"',
+    )
+    expect(first).toEqual(second)
+    expect(messages).toHaveLength(2)
+
+    const fresh = sessionHarness([created('old', 'e1')])
+    expect(fresh.hooks.get('context')!({ messages }, fresh.ctx)).toBeUndefined()
+  })
+
+  it('caps the note and points at artifact_list for the rest', () => {
+    const many = Array.from({ length: 45 }, (_, i) => ({
+      id: `a${i}`,
+      title: 'A',
+      type: 'html',
+      content: '',
+      version: 1,
+    }))
+    const note = compactionNoteText(many)!
+    expect(note.split('\n').filter((l) => l.startsWith('- '))).toHaveLength(41)
+    expect(note).toContain('and 5 more')
+    expect(withCompactionNote([{ role: 'user' }], note)).toBeUndefined()
+  })
+})
+
+describe('tree navigation', () => {
+  it('rebuilds from the new branch', async () => {
+    const h = sessionHarness([
+      result('artifact_create', {
+        id: 'demo',
+        title: 'Demo',
+        type: 'html',
+        content: 'one',
+        version: 1,
+      }),
+      result('artifact_edit', {
+        id: 'demo',
+        title: 'Demo',
+        type: 'html',
+        content: 'two',
+        version: 2,
+      }),
+    ])
+    h.branch.splice(1)
+    h.hooks.get('session_tree')!({}, h.ctx)
+    expect((await run(h, 'artifact_read', { id: 'demo' })).content[0]!.text).toContain('v1')
+  })
+})
+
+describe('sliceLines', () => {
+  it('uses 1-based lines and refuses an offset past the end', () => {
+    expect(sliceLines('a\nb\nc', 2)).toEqual({ text: 'b\nc', range: 'lines 2-3 of 3' })
+    expect(sliceLines('a\nb\nc')).toEqual({ text: 'a\nb\nc' })
+    expect(() => sliceLines('a', 5)).toThrow(/past the end/)
   })
 })

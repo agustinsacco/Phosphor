@@ -1,0 +1,19 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "pi-extensions",
+  "root": "pi-ext",
+  "projectType": "library",
+  "tags": ["scope:pi-extensions"],
+  "implicitDependencies": ["desktop"],
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "vitest run pi-ext",
+        "cwd": "."
+      }
+    }
+  }
+}

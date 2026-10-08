@@ -307,6 +307,54 @@ npm run dev
 Tests live beside their subject as `*.test.ts`, in `electron/`, `shared/` and
 `pi-ext/` included.
 
+### Nx task orchestration
+
+Core Nx is pinned to `23.2.1`. Nx-scoped security overrides pin `axios` to
+`1.20.0`, `brace-expansion` to `5.0.12` and `smol-toml` to `1.9.0`, overriding
+upstream's exact vulnerable pins. Remove these overrides when a tested upstream
+release fixes them. npm also hoists the `brace-expansion` security patch from
+`5.0.9` to `5.0.12` for existing root `minimatch` consumers (ESLint and
+app-builder-lib); this is the sole pre-existing dependency resolution change.
+Older nested packaging dependencies still have baseline audit findings; the
+Nx wrapper does not claim to fix those. Override API smoke tests use no network.
+
+The original npm commands above remain the
+validation and CI path. Optional `npm run nx:build`, `nx:typecheck`, `nx:lint`,
+`nx:test`, `nx:test:e2e` and `nx:validate` wrap those same underlying commands,
+without redirecting the original aliases to Nx. `npm run nx:graph` shows the
+explicit current-path ownership graph; `npx nx show project tooling --json`
+shows effective targets. `npm run nx:test -- --configuration=inventory` lists
+the same full unit suites without running them.
+
+| Project         | Current paths / ownership                                                  |
+| --------------- | -------------------------------------------------------------------------- |
+| `desktop`       | Root app configuration, `electron/`, `src/`, `e2e/`, `build/`, `docs/img/` |
+| `runtime`       | `runtime/`, including plain-Node and fake-pi tests                         |
+| `shared`        | `shared/`                                                                  |
+| `pi-extensions` | `pi-ext/`, including optional extension tests                              |
+| `site`          | `site/`, with its independent install and lockfile                         |
+| `schema`        | `supabase/`, with explicit start/test/stop lifecycle                       |
+| `tooling`       | `scripts/`, including workspace-wide checks                                |
+
+Every target starts uncached, with conservative whole-workspace inputs,
+including nested projects. Nx runs one task at a time by default, has no
+inference plugins, daemon or Cloud connection, and keeps per-worktree state
+in ignored `.nx/`. No affected-only selection or native-install lifecycle is
+introduced. Site targets use its existing npm commands from `site/`, retaining
+its social-image prebuild; schema targets retain the pinned local Supabase
+commands and require explicit lifecycle cleanup. Neither is invoked by the
+normal root validator unless its existing opt-in applies.
+
+Project edges include source dependencies, extension resources, screenshot
+assets, fixtures and workspace-wide tooling consumers. They are not a
+production-boundary DAG: the optional permission-gate test imports a Desktop
+renderer helper, and tooling checks consume all projects while Desktop uses
+tooling scripts. These real back-edges are retained. Targets have no recursive
+`^test`/`^build` task dependencies, so their executable task graphs remain
+acyclic. `scripts/nx-projects.test.ts` checks the effective graph and targets,
+including missing-edge/target fixtures. Source paths, output `out/`, packaging
+and the native postinstall are unchanged.
+
 Conventions (IPC channels, the `piCall` rule, modals, and the sharp edges worth
 knowing before touching pi's session files) are in [CLAUDE.md](CLAUDE.md). It
 is written for coding agents and is the shortest accurate orientation for a

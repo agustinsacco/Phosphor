@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "name": "desktop",
+  "root": ".",
+  "projectType": "application",
+  "tags": ["scope:desktop"],
+  "implicitDependencies": ["runtime", "shared", "pi-extensions", "tooling"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "electron-vite build",
+        "cwd": "."
+      },
+      "outputs": ["{workspaceRoot}/out"]
+    },
+    "test:e2e": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npm run build && ./scripts/e2e.sh",
+        "cwd": "."
+      }
+    }
+  }
+}

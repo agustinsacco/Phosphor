@@ -1,0 +1,19 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "runtime",
+  "root": "runtime",
+  "projectType": "library",
+  "tags": ["scope:runtime"],
+  "implicitDependencies": ["shared", "pi-extensions"],
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "vitest run runtime",
+        "cwd": "."
+      }
+    }
+  }
+}

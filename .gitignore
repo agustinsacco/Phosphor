@@ -11,3 +11,6 @@ release/
 test-results/
 site/.astro/
 site/shots-raw/
+
+# Per-worktree Nx state (never shared or committed).
+.nx/

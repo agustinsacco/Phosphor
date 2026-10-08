@@ -1,0 +1,37 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "schema",
+  "root": "supabase",
+  "projectType": "library",
+  "tags": ["scope:schema"],
+  "implicitDependencies": [],
+  "targets": {
+    "start": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npx --yes supabase@2.119.0 start",
+        "cwd": "."
+      }
+    },
+    "stop": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npx --yes supabase@2.119.0 stop --no-backup",
+        "cwd": "."
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["workspace"],
+      "options": {
+        "command": "npx --yes supabase@2.119.0 test db",
+        "cwd": "."
+      }
+    }
+  }
+}

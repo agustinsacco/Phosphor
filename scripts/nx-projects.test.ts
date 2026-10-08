@@ -9,7 +9,7 @@ const root = resolve(import.meta.dirname, '..')
 const readJson = (path: string) => JSON.parse(readFileSync(join(root, path), 'utf8'))
 const projects = {
   desktop: '.',
-  runtime: 'runtime',
+  runtime: 'libs/session-runtime',
   shared: 'libs/shared',
   'pi-extensions': 'pi-ext',
   site: 'site',
@@ -18,7 +18,7 @@ const projects = {
 }
 const commands = {
   desktop: { build: 'electron-vite build', 'test:e2e': 'npm run build && ./scripts/e2e.sh' },
-  runtime: { test: 'vitest run runtime' },
+  runtime: { test: 'vitest run libs/session-runtime' },
   shared: { test: 'vitest run libs/shared' },
   'pi-extensions': { test: 'vitest run pi-ext' },
   site: {
@@ -60,7 +60,7 @@ const dependencies = {
   tooling: ['desktop', 'runtime', 'shared', 'pi-extensions', 'site', 'schema'],
 }
 const assertEdges = (name: keyof typeof dependencies, edges: string[]) =>
-  expect([...edges].sort()).toEqual([...dependencies[name]].sort())
+  expect([...new Set(edges)].sort()).toEqual([...dependencies[name]].sort())
 const assertTargets = (name: keyof typeof commands, targets: Record<string, unknown>) =>
   expect(Object.keys(targets).sort()).toEqual(Object.keys(commands[name]).sort())
 const nx = (...args: string[]) =>
@@ -126,6 +126,23 @@ describe('explicit Nx project contract', () => {
     }
   })
 
+  it('retains manifest-derived static and explicit implicit runtime dependencies', () => {
+    const edges = graph.dependencies.runtime.filter(
+      (edge: { target: string }) => edge.target === 'shared',
+    )
+    expect(edges.map((edge: { type: string }) => edge.type).sort()).toEqual(['implicit', 'static'])
+    const config = readJson('libs/session-runtime/project.json')
+    const explicitWithoutShared = config.implicitDependencies.filter(
+      (edge: string) => edge !== 'shared',
+    )
+    // Static reachability cannot replace the required explicit ownership contract.
+    const staticTargets = edges
+      .filter((edge: { type: string }) => edge.type === 'static')
+      .map((edge: { target: string }) => edge.target)
+    assertEdges('runtime', [...explicitWithoutShared, ...staticTargets])
+    expect(() => assertEdges('runtime', explicitWithoutShared)).toThrow()
+  })
+
   it('keeps effective targets uncached, nonrecursive and equivalent to underlying commands', () => {
     for (const [name, expected] of Object.entries(commands)) {
       const project = graph.nodes[name].data
@@ -156,9 +173,9 @@ describe('explicit Nx project contract', () => {
       '../../src/features/extension-ui/commandApproval',
     )
     expect(readFileSync(join(root, 'electron-builder.yml'), 'utf8')).toContain('from: pi-ext')
-    expect(readFileSync(join(root, 'runtime/bundled-extensions.test.ts'), 'utf8')).toContain(
-      "join(root, 'pi-ext')",
-    )
+    expect(
+      readFileSync(join(root, 'libs/session-runtime/src/bundled-extensions.test.ts'), 'utf8'),
+    ).toContain("join(root, 'pi-ext')")
   })
 
   it('rejects missing required target fixtures and Nx alias recursion', () => {
@@ -188,7 +205,14 @@ describe('explicit Nx project contract', () => {
     expect(config.parallel).toBe(1)
     expect(config.targetDefaults['nx:run-commands'].cache).toBe(false)
     const vitest = readFileSync(join(root, 'vitest.config.ts'), 'utf8')
-    for (const path of ['electron', 'runtime', 'libs/shared/src', 'pi-ext', 'src', 'scripts']) {
+    for (const path of [
+      'electron',
+      'libs/session-runtime/src',
+      'libs/shared/src',
+      'pi-ext',
+      'src',
+      'scripts',
+    ]) {
       expect(vitest).toContain(`'${path}/**/*.test.ts'`)
     }
     expect(vitest).toContain("'src/**/*.test.tsx'")

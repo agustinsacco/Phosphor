@@ -5,11 +5,14 @@ import { resolve } from 'node:path'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@phosphor/shared'] })],
+    plugins: [
+      externalizeDepsPlugin({ exclude: ['@phosphor/shared', '@phosphor/session-runtime'] }),
+    ],
     resolve: {
       alias: {
         '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
         '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
+        '@phosphor/session-runtime': resolve(import.meta.dirname, 'libs/session-runtime/src'),
       },
     },
     build: {
@@ -17,11 +20,14 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@phosphor/shared'] })],
+    plugins: [
+      externalizeDepsPlugin({ exclude: ['@phosphor/shared', '@phosphor/session-runtime'] }),
+    ],
     resolve: {
       alias: {
         '@shared': resolve(import.meta.dirname, 'libs/shared/src'),
         '@phosphor/shared': resolve(import.meta.dirname, 'libs/shared/src'),
+        '@phosphor/session-runtime': resolve(import.meta.dirname, 'libs/session-runtime/src'),
       },
     },
     build: {

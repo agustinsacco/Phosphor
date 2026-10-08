@@ -1,4 +1,4 @@
-import { createSessionDeletion } from '../../runtime/pi/session-deletion'
+import { createSessionDeletion } from '@phosphor/session-runtime/pi/session-deletion'
 import { registry } from '../registry'
 import { clearDraft } from '../store'
 import { deleteDraftBlobs } from '../drafts-blobs'

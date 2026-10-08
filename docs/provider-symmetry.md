@@ -36,7 +36,7 @@ changes.
 | Context budget                                                                                                      | `libs/shared/src/context-budget.ts`, which never reads the provider                                        | `libs/shared/src/context-budget.test.ts`, `pi-ext/context-budget.test.ts`                              |
 | Thinking level, and which levels a model offers                                                                     | pi. The provider sends the request pi's own Anthropic provider would (provider 0.10.0+)                    | `libs/shared/src/thinking.test.ts`; `tests/thinking-config.test.ts`, `tests/live-thinking.test.ts`     |
 | Model catalogue and context windows                                                                                 | pi's catalogue, not Claude Code's picker                                                                   | [extensions.md](extensions.md#updating-the-cli-does-not-add-new-models)                                |
-| Bundled extensions                                                                                                  | Phosphor loads the same six into every session                                                             | `bundledExtensions()` in `runtime/bundled-extensions.ts`                                               |
+| Bundled extensions                                                                                                  | Phosphor loads the same six into every session                                                             | `bundledExtensions()` in `libs/session-runtime/src/bundled-extensions.ts`                              |
 | Transcript rendering: tool rows, thought rows, find                                                                 | One Phosphor code path for every provider                                                                  | `src/features/chat/items/activityGroupRows.test.tsx`                                                   |
 | Sub-agents: the `subagent` tool, its streamed progress, the `subagent-async` widget, the completion message         | `pi-subagents`, inside pi. Claude Code's own `Agent`/`Task` tools are off with the rest of its tools       | `src/features/chat/subagentRuns.test.ts`; the e2e `delegate` scenario ([chat.md](chat.md#sub-agents))  |
 
@@ -109,9 +109,9 @@ None of these change what the model sees, and none should: a provider branch
 that alters the prompt, the tools or compaction breaks the first table.
 
 - `usesClaudeCliProvider` and `assertClaudeContextProvider`
-  (`runtime/pi/provider-detect.ts`, with a Desktop re-export): the version check
+  (`libs/session-runtime/src/pi/provider-detect.ts`, with a Desktop re-export): the version check
   before a spawn (`session-policy.ts`), a model switch and a prompt
-  (`runtime/pi/session-service.ts`, used by Desktop IPC), and before a
+  (`libs/session-runtime/src/pi/session-service.ts`, used by Desktop IPC), and before a
   routine runs (`electron/routines/runner.ts`).
 - `claudeProviderSpawnEnv`: pins `PI_CLAUDE_CLI_CONTEXT=pi` on every spawn.
 - `claudeOneShotEnv`: every `pi -p` that may land on Claude. Session naming on

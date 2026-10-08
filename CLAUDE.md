@@ -76,7 +76,7 @@ you want to watch.
    screen and settings at once. Do not grow it back. The known cost of the
    removal is that nothing reclaims an idle session's ~172 MB pi tree
    ([known-issues.md](docs/known-issues.md) S11).
-   The portable session service lives in `runtime/pi/`: policy/startup,
+   The portable session service lives in `libs/session-runtime/src/pi/`: policy/startup,
    command/resume admission, per-owner path locks and deletion coordination.
    `electron/pi/session-runtime.ts` binds Desktop's machine and delivery ports;
    IPC handlers delegate to it. New callers must use the service and share one
@@ -97,7 +97,7 @@ you want to watch.
   format staying stable. Tests: `electron/pi/session-writer.test.ts`.
 - **JSONL framing is strict LF via `JsonlDecoder`, never `readline`** —
   U+2028/U+2029 are legal inside JSON strings and readline splits on them.
-- **`runtime/pi/pi-paths.ts` is the single source of truth** (re-exported from
+- **`libs/session-runtime/src/pi/pi-paths.ts` is the single source of truth** (re-exported from
   `electron/pi/pi-paths.ts`) for pi's session directory layout and cwd mangling (`realpathSync.native` first — pi resolves
   symlinks). The e2e stub duplicates the mangling in
   `e2e/fixtures/pi-stub.cjs`; keep them in sync.
@@ -172,7 +172,7 @@ you want to watch.
 
 - **Phosphor ships six extensions that run inside pi's process** (`pi-ext/`,
   loaded with `-e` into every session; listed in `bundledExtensions()` in
-  `runtime/bundled-extensions.ts`). They are the only Phosphor code with a
+  `libs/session-runtime/src/bundled-extensions.ts`). They are the only Phosphor code with a
   say inside a turn. The context extension caps the session window for native
   compaction; two others can change or refuse what the model did:
   - **`worktree-paths.ts` can refuse a tool call.** It blocks a

@@ -1,1 +1,1 @@
-export * from '../../runtime/pi/directives'
+export * from '@phosphor/session-runtime/pi/directives'

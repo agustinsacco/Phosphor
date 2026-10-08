@@ -6,7 +6,7 @@
   },
   "include": [
     "electron/**/*.ts",
-    "runtime/**/*.ts",
+    "libs/session-runtime/src/**/*.ts",
     "libs/shared/src/**/*.ts",
     "electron.vite.config.ts",
     "pi-ext/**/*.ts"

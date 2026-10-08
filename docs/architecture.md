@@ -40,64 +40,64 @@
 
 The main-side names are literal: `SessionRegistry` (`electron/pi/session-registry.ts`,
 single instance exported as `registry` from `electron/registry.ts`) holds every
-live session ↔ `PiRpcClient` (`runtime/pi/rpc-client.ts`) pair; `ptyManager`
+live session ↔ `PiRpcClient` (`libs/session-runtime/src/pi/rpc-client.ts`) pair; `ptyManager`
 (`electron/pty/pty-manager.ts`) owns the PTYs. There is no WorkspaceManager and
 no SessionManager class — filesystem and git are plain function modules
 (`electron/fs/fs-service.ts`, `git-service.ts`), and watching is two chokidar
 users, `electron/fs/workspace-watcher.ts` for the file tree and
 `electron/pi/session-watcher.ts` for the sessions dir.
 
-The RPC transport, strict JSONL decoder and activity tracker live in `runtime/pi/`.
+The RPC transport, strict JSONL decoder and activity tracker live in `libs/session-runtime/src/pi/`.
 The transport accepts explicit logging and shutdown ports and does not import
 Electron. Desktop callers use `electron/pi/desktop-rpc-client.ts` to bind those
 ports to the existing app logger and shutdown approval. Session ownership lives
-in `runtime/pi/session-registry.ts`, which receives a client factory and an
+in `libs/session-runtime/src/pi/session-registry.ts`, which receives a client factory and an
 admission check. `electron/pi/session-registry.ts` binds both to the same desktop
 client and shutdown approval as before; `electron/registry.ts` still creates the
 only live desktop registry. Creation/disposal events, crash retention and
 ownership until process exit are unchanged.
 
-Launch preparation lives in `runtime/pi/session-launch.ts`, with explicit
+Launch preparation lives in `libs/session-runtime/src/pi/session-launch.ts`, with explicit
 executable, environment and resource-root dependencies. The desktop adapter
 in `electron/pi/session-launch.ts` keeps existing pi discovery and caching, shell
 PATH, provider environment and packaged-resource selection. The test stub still
-uses the single unpackaged-only gate in `stub.ts`. `runtime/pi/session-policy.ts`
+uses the single unpackaged-only gate in `stub.ts`. `libs/session-runtime/src/pi/session-policy.ts`
 selects project directives, validates the predicted provider and prepares account
 and compression overlays before compaction repair. Its Desktop adapter supplies
 machine-local preferences, Git, packages, accounts and Headroom state.
-`runtime/pi/session-startup.ts` owns cwd normalization/repair, preparation,
+`libs/session-runtime/src/pi/session-startup.ts` owns cwd normalization/repair, preparation,
 allocation, event binding, readiness, cancellation and failure disposal. Desktop
 supplies live budget/routine callbacks, account bookkeeping, recents and a sink.
 Failure while binding the sink or recording startup metadata also stops the
-child. `runtime/pi/session-service.ts` owns create/resume admission, command
+child. `libs/session-runtime/src/pi/session-service.ts` owns create/resume admission, command
 preflight, extension responses and disposal. Both Desktop IPC and routine startup
 use this service. Resumes reuse live writers, retire crashed handles and reject
 missing files; routine ownership is checked again after a queued command waits.
 `createSessionPathRuntime()` gives each owner an independent lock domain, shared
 with its deletion path. Desktop binds one instance in `session-path-lock.ts`.
-`runtime/pi/session-deletion.ts` cancels active/queued resumes, stops every writer
+`libs/session-runtime/src/pi/session-deletion.ts` cancels active/queued resumes, stops every writer
 and handles identities learned during shutdown before invoking storage hooks.
 Desktop keeps its existing Trash, legacy-ledger and draft cleanup adapters.
 These are in-process locks, not cross-process Host ownership or network authority.
 
 Directive composition, provider detection, pi path rules and safe session-header
-repair also live in `runtime/pi/`. The same-named Desktop modules re-export them
+repair also live in `libs/session-runtime/src/pi/`. The same-named Desktop modules re-export them
 for existing callers. `boundary.test.ts` bundles every runtime entry for Node
 and rejects Electron or `electron/` dependencies.
 
 Context-budget enforcement and command serialization live in
-`runtime/pi/context-budget.ts`. Each runtime instance owns its gates and receives
+`libs/session-runtime/src/pi/context-budget.ts`. Each runtime instance owns its gates and receives
 a logger; budget and routine-pause callbacks are still read live. The existing
 `electron/pi/context-budget.ts` exports bind one instance for all Desktop callers.
 The compaction policy, cancellation behavior and RPC messages are unchanged.
 
-`runtime/pi/session-events.ts` binds whole session events to an injected sink,
+`libs/session-runtime/src/pi/session-events.ts` binds whole session events to an injected sink,
 logger, budget observer and extension-UI policy. Listener order is preserved.
 `electron/pi/session-events.ts` owns Desktop delivery: renderer-only trimming,
 unattended dialog suppression, target-window delivery and broadcast fallback.
 This is an in-process boundary, not a network subscription or replay service.
 
-`runtime/` is shared source code, not an extra running service. Phosphor Desktop
+`libs/session-runtime/src/` is shared source code, not an extra running service. Phosphor Desktop
 still starts one pi subprocess per live local session. Moving these modules does
 not install Phosphor Host on the local machine, enable a listener, require login,
 or change session ownership, pi arguments or on-disk formats.
@@ -117,8 +117,8 @@ connectors, extension-ui, files, home, palette, sessions, settings, skills,
 terminal, updates, workspaces, worktrees, routines) and `pi-ext/` has **6** modules —
 `artifacts`, `context-breakdown`, `worktree-paths`, `tool-name-guard`,
 `mcp-status`, `headroom` — **all six** loaded into every session by
-`bundledExtensions()` in `runtime/bundled-extensions.ts`, called by
-`runtime/pi/session-launch.ts`. Those two
+`bundledExtensions()` in `libs/session-runtime/src/bundled-extensions.ts`, called by
+`libs/session-runtime/src/pi/session-launch.ts`. Those two
 numbers move; the tree in the README is the thing to re-read, not this
 paragraph.
 

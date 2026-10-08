@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { build } from 'esbuild'
 import { expect, it } from 'vitest'
 
@@ -11,14 +11,16 @@ it('executes the complete session service in a plain Node subprocess', async () 
   try {
     const session = join(dir, 'session.jsonl')
     await writeFile(session, JSON.stringify({ type: 'session', cwd: dir }) + '\n')
+    const library = resolve(import.meta.dirname, '../..')
     const bundle = await build({
+      absWorkingDir: library,
       entryPoints: [join(import.meta.dirname, '__fixtures__/session-service-probe.ts')],
       bundle: true,
       platform: 'node',
       format: 'esm',
       write: false,
       metafile: true,
-      tsconfig: 'tsconfig.node.json',
+      tsconfig: join(library, 'tsconfig.json'),
     })
     expect(
       Object.keys(bundle.metafile.inputs).filter((path) => /(^|\/)electron\//.test(path)),

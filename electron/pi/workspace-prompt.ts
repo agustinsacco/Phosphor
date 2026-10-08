@@ -1,1 +1,1 @@
-export * from '../../runtime/pi/workspace-prompt'
+export * from '@phosphor/session-runtime/pi/workspace-prompt'

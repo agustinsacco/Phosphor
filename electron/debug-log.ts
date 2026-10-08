@@ -18,7 +18,7 @@
  * Renderer-side problems surface through DevTools.
  */
 import { app } from 'electron'
-import { createFileLog } from '../runtime/file-log'
+import { createFileLog } from '@phosphor/session-runtime/file-log'
 
 const fileLog = createFileLog()
 let failed = false

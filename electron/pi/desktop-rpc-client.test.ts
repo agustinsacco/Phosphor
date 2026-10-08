@@ -9,7 +9,7 @@ import { shutdownApproval } from '../shutdown-approval'
 import type { PiEvent } from '@shared/rpc'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const fakePi = join(here, '../../runtime/pi/__fixtures__', 'fake-pi.cjs')
+const fakePi = join(here, '../../libs/session-runtime/src/pi/__fixtures__', 'fake-pi.cjs')
 
 function makeClient(): PiRpcClient {
   return new PiRpcClient({

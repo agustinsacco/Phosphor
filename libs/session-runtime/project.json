@@ -1,7 +1,8 @@
 {
-  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "name": "runtime",
-  "root": "runtime",
+  "root": "libs/session-runtime",
+  "sourceRoot": "libs/session-runtime/src",
   "projectType": "library",
   "tags": ["scope:runtime"],
   "implicitDependencies": ["shared", "pi-extensions"],
@@ -11,7 +12,7 @@
       "cache": false,
       "inputs": ["workspace"],
       "options": {
-        "command": "vitest run runtime",
+        "command": "vitest run libs/session-runtime",
         "cwd": "."
       }
     }

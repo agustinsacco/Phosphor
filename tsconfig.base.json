@@ -15,6 +15,7 @@
     "useDefineForClassFields": true,
     "noEmit": true,
     "paths": {
+      "@phosphor/session-runtime/*": ["./libs/session-runtime/src/*"],
       "@phosphor/shared/*": ["./libs/shared/src/*"],
       "@shared/*": ["./libs/shared/src/*"],
       "@/*": ["./src/*"]

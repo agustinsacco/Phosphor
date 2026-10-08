@@ -1,4 +1,4 @@
-import type { SessionPolicyRuntime } from '../../runtime/pi/session-policy'
+import type { SessionPolicyRuntime } from '@phosphor/session-runtime/pi/session-policy'
 import { getPrefs } from '../store'
 import { gitInfoBatch } from '../fs/git-info'
 import { accountForSpawn, claudeAccountEnv } from '../claude/accounts'

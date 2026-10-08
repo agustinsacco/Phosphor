@@ -1,8 +1,11 @@
-import { PiRpcClient as CorePiRpcClient, type PiSpawnOptions } from '../../runtime/pi/rpc-client'
+import {
+  PiRpcClient as CorePiRpcClient,
+  type PiSpawnOptions,
+} from '@phosphor/session-runtime/pi/rpc-client'
 import { log } from '../debug-log'
 import { shutdownApproval } from '../shutdown-approval'
 
-export type { PiSpawnOptions } from '../../runtime/pi/rpc-client'
+export type { PiSpawnOptions } from '@phosphor/session-runtime/pi/rpc-client'
 
 /** Desktop environment adapter. The RPC transport itself has no Electron dependency. */
 export class PiRpcClient extends CorePiRpcClient {

@@ -6,7 +6,7 @@ import {
   watchContextBudget,
   withBudgetCompaction,
 } from './context-budget'
-import type { PiRpcClient } from '../../runtime/pi/rpc-client'
+import type { PiRpcClient } from '@phosphor/session-runtime/pi/rpc-client'
 import type { RpcCommand } from '@shared/rpc'
 
 vi.mock('../debug-log', () => ({ log: vi.fn() }))

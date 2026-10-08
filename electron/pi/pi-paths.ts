@@ -1,1 +1,1 @@
-export * from '../../runtime/pi/pi-paths'
+export * from '@phosphor/session-runtime/pi/pi-paths'

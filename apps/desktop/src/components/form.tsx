@@ -109,8 +109,12 @@ export function Row({
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <div className="border-border flex items-center justify-between gap-6 border-b py-3 last:border-b-0">
-      <div className="min-w-0">
+    <div
+      data-setting-row
+      className="border-border flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b py-3 last:border-b-0"
+    >
+      {/* Basis, not width: the control drops below once the label would get narrower. */}
+      <div className="min-w-0 grow basis-64">
         <div className="text-lg font-medium">{title}</div>
         {description && (
           <div className="text-text-tertiary mt-0.5 text-sm leading-snug">{description}</div>

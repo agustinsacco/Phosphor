@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import type { ModelCost } from '@shared/rpc'
 import { PopupMenu, MenuRow } from '@/components/PopupMenu'
+import { Highlighted } from '@/components/search/Highlighted'
 import { CheckIcon, StarIcon } from '@/components/icons'
 import { formatTokens } from '@/lib/format'
 import { availabilityKey, unavailableModels } from '@/lib/modelAvailability'
 import {
   groupModels,
-  highlightRanges,
   modelKey,
   searchModels,
   stripRegionSuffix,
@@ -561,26 +561,6 @@ function modelFacts(model: ModelMenuEntry): string {
 
 function trimZeros(value: number): string {
   return String(Number(value.toFixed(2)))
-}
-
-/** Emphasise the parts of `text` the query matched. */
-function Highlighted({ text, query }: { text: string; query: string }): React.JSX.Element {
-  const ranges = useMemo(() => highlightRanges(text, query), [text, query])
-  if (ranges.length === 0) return <>{text}</>
-
-  const parts: React.ReactNode[] = []
-  let at = 0
-  for (const [index, range] of ranges.entries()) {
-    if (range.start > at) parts.push(text.slice(at, range.start))
-    parts.push(
-      <mark key={index} className="text-accent bg-transparent font-semibold">
-        {text.slice(range.start, range.end)}
-      </mark>,
-    )
-    at = range.end
-  }
-  if (at < text.length) parts.push(text.slice(at))
-  return <>{parts}</>
 }
 
 function FilterChip({

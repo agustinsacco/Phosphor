@@ -77,7 +77,7 @@ subagents, computer use. An entry may declare `requiresBinary: 'claude'`,
 which greys the card and says why when the binary is missing.
 
 **Per-extension tabs.** Curated extensions get real config UIs, registered in
-`EXTENSION_TABS` (`SettingsModal.tsx`) and shown **only while their package is
+`EXTENSION_TABS` (`settingsIndex.ts`) and shown **only while their package is
 present**. They render nested under the Extensions entry, since they configure
 an installed package; a stale sub-tab falls back to the Extensions list.
 

@@ -342,7 +342,7 @@ test('Changes supports keyboard open/back and live diff font preferences', async
     await page.getByRole('button', { name: /^Settings/ }).click()
     const sizeRow = page.getByText('Editor font size', { exact: true }).locator('..').locator('..')
     await sizeRow.getByRole('spinbutton').fill('18')
-    await page.getByRole('combobox').selectOption('Menlo')
+    await page.getByRole('combobox', { name: 'Mono font' }).selectOption('Menlo')
     await page.keyboard.press('Escape')
     await expect(lines).toHaveCSS('font-size', '18px')
     await expect(lines).toHaveCSS('font-family', /^Menlo,/)
@@ -1940,6 +1940,39 @@ test('settings modal switches theme and reports versions', async () => {
 
     await page.keyboard.press('Escape')
     await expect(aboutHeading).toBeHidden()
+  } finally {
+    await shutdown(harness)
+  }
+})
+
+test('settings search lists matches and jumps to the chosen one', async () => {
+  const harness = await launch()
+  const { page } = harness
+  try {
+    await openWorkspace(page)
+
+    await page.getByRole('button', { name: 'Settings' }).click()
+    const field = page.getByRole('combobox', { name: 'Search settings' })
+    await expect(field).toBeFocused({ timeout: 10_000 })
+
+    await field.fill('retry')
+    const results = page.getByRole('listbox', { name: 'Settings search results' })
+    await expect(results.getByRole('option')).toHaveCount(4)
+    await expect(results.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+
+    await field.press('ArrowDown')
+    await field.press('ArrowDown')
+    await field.press('Enter')
+    await expect(results).toBeHidden()
+    await expect(page.getByRole('heading', { name: 'Agent defaults' })).toBeVisible()
+    await expect(page.getByText('Max retries')).toBeInViewport()
+
+    // Escape clears the search before it closes settings.
+    await page.keyboard.press('Escape')
+    await expect(field).toHaveValue('')
+    await expect(field).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(field).toBeHidden()
   } finally {
     await shutdown(harness)
   }

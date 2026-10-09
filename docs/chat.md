@@ -282,6 +282,15 @@ scout · grep`) and which is **never printed as widget lines**
 **scout**`) into "scout finished in the background" and folds the output
   under it; a failure, a stop, or a `subagent_control_notice` opens by default.
 
+- **Questions name the parent, not the user.** Native
+  `subagent_supervisor_request` messages render as "asked the parent for
+  guidance", with their run, child index, request ID and timestamp. Custom
+  messages retain their original structured `details` in both live and resumed
+  transcripts. Historical requests never claim to be currently pending.
+- **Completion requires evidence.** A settled tool without a child exit code or
+  reported state shows "last known", not success. Current `workflow: true`,
+  path and resource calls coexist with older `workflowScript` transcripts.
+
 Not here yet: an expandable fleet tree with stop and steer, opening a child's
 own session file as a transcript, and the parent-plus-child cost report.
 Stop, steer, inspect and cost exist in pi-subagents without a model turn (an

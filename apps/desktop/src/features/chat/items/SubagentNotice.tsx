@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import clsx from 'clsx'
 import type { CustomItem } from '../reducer'
-import { parseSubagentNotice } from '../subagentRuns'
+import { parseSubagentNotice, shortId, type SubagentNotice } from '../subagentRuns'
 import { Markdown } from '@/components/markdown/Markdown'
 import { ChevronIcon } from '@/components/icons'
 import { SEGMENT } from '../transcriptFind'
@@ -17,17 +17,19 @@ import { SEGMENT } from '../transcriptFind'
  * that need a decision.
  */
 export function SubagentNoticeItem({ item }: { item: CustomItem }): React.JSX.Element {
-  const notice = parseSubagentNotice(item.customType, item.text) ?? {
+  const notice: SubagentNotice = parseSubagentNotice(item.customType, item.text, item.details) ?? {
     kind: 'completion' as const,
     agents: [],
     headline: item.customType ?? 'Sub-agent notice',
     body: item.text,
   }
+  const timestamp = item.timestamp === undefined ? undefined : new Date(item.timestamp)
+  const validTime = timestamp && Number.isFinite(timestamp.getTime()) ? timestamp : undefined
   const calm = notice.kind === 'completion' && notice.status === 'completed'
   const [open, setOpen] = useState(!calm)
   const expandable = notice.body.length > 0
   const tone =
-    notice.kind === 'attention' || notice.status === 'failed'
+    notice.kind === 'attention' || notice.kind === 'question' || notice.status === 'failed'
       ? 'warning'
       : notice.status === 'stopped'
         ? 'stopped'
@@ -76,6 +78,22 @@ export function SubagentNoticeItem({ item }: { item: CustomItem }): React.JSX.El
           />
         )}
       </button>
+      {open && (notice.runId || notice.requestId) && (
+        <div className="text-text-secondary flex flex-wrap gap-x-3 px-1 py-1 font-mono text-sm">
+          {notice.runId && (
+            <span title={notice.runId}>
+              run {shortId(notice.runId)}
+              {notice.childIndex !== undefined ? ` · child ${notice.childIndex}` : ''}
+            </span>
+          )}
+          {notice.requestId && (
+            <span title={notice.requestId}>request {shortId(notice.requestId)}</span>
+          )}
+          {validTime && (
+            <time dateTime={validTime.toISOString()}>{validTime.toLocaleTimeString()}</time>
+          )}
+        </div>
+      )}
       {open && expandable && (
         <div
           data-testid="subagent-notice-body"

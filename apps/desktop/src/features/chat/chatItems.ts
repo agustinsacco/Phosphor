@@ -81,6 +81,9 @@ export interface CustomItem {
   id: string
   kind: 'custom'
   customType?: string
+  /** Native correlation data, kept for live and replayed messages alike. */
+  details?: unknown
+  timestamp?: number
   text: string
   images?: ImageContent[]
   inContext: boolean

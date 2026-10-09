@@ -61,7 +61,7 @@ export function SubagentDetail({ tool }: { tool: ToolState }): React.JSX.Element
 
   return (
     <div data-testid="subagent-detail" data-mode={run?.async ? 'async' : (run?.mode ?? 'single')}>
-      {(call.task || call.script) && (
+      {(call.task || call.script || call.workflow) && (
         <TaskSection task={call.task} script={call.script} workflow={call.workflow} />
       )}
       {run?.async && (
@@ -164,6 +164,8 @@ const STATUS_WORD: Record<SubagentChild['status'], string> = {
   failed: 'failed',
   stopped: 'stopped',
   detached: 'detached',
+  paused: 'paused',
+  unknown: 'last known',
 }
 
 function statusTone(status: SubagentChild['status']): string {

@@ -628,6 +628,8 @@ function customItemFrom(message: CustomMessage): CustomItem | null {
     id: newItemId(),
     kind: 'custom',
     customType: typeof message.customType === 'string' ? message.customType : undefined,
+    details: message.details,
+    timestamp: message.timestamp,
     text,
     images,
     // `customMessage` role == pi's custom_message entry: it reaches the LLM.

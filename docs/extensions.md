@@ -495,10 +495,10 @@ the composer slot, and a key carrying a machine payload must be in
 `STRUCTURED_WIDGET_KEYS` (same file) or the slot prints it. Two are
 load-bearing today, both from `pi-subagents` in RPC mode:
 
-| Key                | Payload                                                                        | Consumer                                                   |
-| ------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| `subagent-async`   | One line, `PI_SUBAGENT_ASYNC_JSON:` + a versioned snapshot of background runs  | `chat/subagentRuns.ts` `parseFleetWidget` → the agent chip |
-| `subagent-inspect` | `PI_SUBAGENT_INSPECT_JSON:` replies to `/subagents-inspect-rpc`, by request id | Nothing yet; the protocol says a host must never render it |
+| Key                | Payload                                                                        | Consumer                                                     |
+| ------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `subagent-async`   | One line, `PI_SUBAGENT_ASYNC_JSON:` + a versioned snapshot of background runs  | `chat/subagentRuns.ts` `parseFleetWidget` → the agent chip   |
+| `subagent-inspect` | `PI_SUBAGENT_INSPECT_JSON:` replies to `/subagents-inspect-rpc`, by request id | Read-only Subagents inspector; raw widget lines never render |
 
 The extension's component widgets (its FleetView) never reach Phosphor: pi's
 RPC mode forwards only string-array widgets and drops factories.

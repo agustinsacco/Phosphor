@@ -3677,6 +3677,15 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
       'PI_SUBAGENT_ASYNC_JSON',
     )
 
+    await chip.click()
+    const inspector = page.getByRole('dialog', { name: 'Subagents', exact: true })
+    await expect(inspector).toBeVisible()
+    await inspector.getByRole('button', { name: 'scout running grep' }).click()
+    await expect(inspector).toContainText('Inspection: following login.ts to verify.ts.')
+    await expect(inspector).toContainText('Bounded preview')
+    expect(await inspector.innerText()).not.toContain('PI_SUBAGENT_INSPECT_JSON')
+    await inspector.getByRole('button', { name: 'Close', exact: true }).click()
+
     // Settled: one row per call, in pi's vocabulary, with what it cost.
     const summary = page.getByTestId('activity-summary').first()
     await expect(summary).toContainText(/delegated 2 agents/)
@@ -3693,14 +3702,14 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
     await expect(childCard).toContainText('No regressions found')
 
     // The run reports back: a compact card where the model woke up, folded
-    // because it succeeded, and the chip is gone with the widget.
+    // because it succeeded. The chip remains as an entry to recorded history.
     const notice = page.getByTestId('subagent-notice')
     await expect(notice).toContainText('scout finished in the background', { timeout: 30_000 })
     await expect(page.getByTestId('subagent-notice-body')).toHaveCount(0)
     await notice.getByRole('button').click()
     await expect(page.getByTestId('subagent-notice-body')).toContainText('login.ts')
     await expect(page.getByText('Scout reports: the auth flow enters at login.ts.')).toBeVisible()
-    await expect(chip).toHaveCount(0)
+    await expect(chip).toHaveText('Subagents')
   } finally {
     await shutdown(harness)
   }

@@ -385,6 +385,11 @@ function handle(cmd) {
         data: {
           commands: [
             {
+              name: 'subagents-inspect-rpc',
+              description: 'Read-only child inspection',
+              source: 'extension',
+            },
+            {
               name: 'stub-command',
               description: 'A stub command',
               source: 'extension',
@@ -552,6 +557,41 @@ function handle(cmd) {
       // Scenario switch, keyed off the prompt text: the default turn is what
       // most tests assert on, so extra scenarios must not change it.
       const message = typeof cmd.message === 'string' ? cmd.message : ''
+      if (message.startsWith('/subagents-inspect-rpc ')) {
+        const [, requestId, asyncId, childId] = message.split(' ')
+        const reply = {
+          kind: 'pi-subagents.inspect-reply',
+          version: 1,
+          requestId,
+          asyncId,
+          ...(childId !== '--lines' ? { childId } : {}),
+          label: 'scout',
+          status: 'running',
+          task: 'Map the auth flow',
+          messages: [
+            {
+              role: 'assistant',
+              kind: 'text',
+              text: 'Inspection: following login.ts to verify.ts.',
+            },
+          ],
+          truncated: { task: false, messages: 2, finalOutput: false },
+        }
+        out({
+          type: 'extension_ui_request',
+          id: 'inspect-reply',
+          method: 'setWidget',
+          widgetKey: 'subagent-inspect',
+          widgetLines: [`PI_SUBAGENT_INSPECT_JSON:${JSON.stringify(reply)}`],
+        })
+        out({
+          type: 'extension_ui_request',
+          id: 'inspect-clear',
+          method: 'setWidget',
+          widgetKey: 'subagent-inspect',
+        })
+        break
+      }
       if (message === 'queue-hold' || message.endsWith('\nroutine-e2e-hold')) {
         queueHold = true
         out({ type: 'agent_start' })

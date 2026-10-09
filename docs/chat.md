@@ -272,7 +272,14 @@ every reader defensive, a payload it cannot read leaving the generic row).
 scout · grep`) and which is **never printed as widget lines**
   (`STRUCTURED_WIDGET_KEYS` in `ExtensionUiHosts.tsx`, alongside the
   `subagent-inspect` reply key the protocol says a host must not render). The
-  extension removes the widget when nothing runs, so the chip goes with it.
+  extension removes the widget when nothing runs. A session with the command
+  installed or a recorded delegation keeps a quiet Subagents chip for inspection.
+  The chip opens a tree of background runs and children. Selecting a node asks
+  the installed `/subagents-inspect-rpc` command for a bounded, read-only task,
+  transcript window and result. Replies are correlated to the exact session,
+  request and child, including emit-then-retract replies. No child session is
+  opened for writing. Missing commands, expired artifacts and foreign-session
+  targets show explicit errors; no model fallback or file scraping is used.
 - **The completion is a card where the model woke up.** pi-subagents delivers
   it as a `subagent-notify` custom message and marks a plain success
   `display: false` so its own TUI does not badge an idle tab; Phosphor keeps
@@ -291,8 +298,8 @@ scout · grep`) and which is **never printed as widget lines**
   reported state shows "last known", not success. Current `workflow: true`,
   path and resource calls coexist with older `workflowScript` transcripts.
 
-Not here yet: an expandable fleet tree with stop and steer, opening a child's
-own session file as a transcript, and the parent-plus-child cost report.
+Not here yet: stop and steer buttons and the parent-plus-child cost report.
+Inspection is on demand, never a polling transcript service.
 Stop, steer, inspect and cost exist in pi-subagents without a model turn (an
 extension command and an in-process RPC), which is the path for them.
 

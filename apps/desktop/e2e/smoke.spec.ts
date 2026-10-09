@@ -3234,6 +3234,68 @@ test('model picker: lexical search across providers, family grouping, stars', as
   }
 })
 
+test('semantic HTML artifacts stay readable in a narrow panel in both themes', async () => {
+  const h = await launch()
+  try {
+    const html = `<h1>Host entry point</h1><p>Run the shared runtime without Electron.</p>
+      <p><code>${'libs/session-runtime/'.repeat(12)}</code></p>
+      <pre><code>${'long_command_argument '.repeat(30)}</code></pre>
+      <dl><dt>Scope</dt><dd>CLI and lifecycle</dd></dl>
+      <details><summary>Acceptance</summary><p>Run the headless probe.</p></details>
+      <table><thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Key</td><td style="white-space:nowrap">${'value '.repeat(60)}</td></tr></tbody></table>
+      <div class="kpis"><div class="kpi">Legacy metric</div></div>
+      <div class="rail"><div class="node"><div class="gut"></div><div class="body">Legacy step</div></div></div>`
+    for (const theme of ['light', 'dark'] as const) {
+      await h.page.evaluate(
+        async ({ html, theme }) => {
+          document.querySelector('#artifact-style-test')?.remove()
+          const iframe = document.createElement('iframe')
+          iframe.id = 'artifact-style-test'
+          iframe.setAttribute('sandbox', 'allow-scripts')
+          iframe.style.cssText =
+            'position:fixed;inset:0;width:380px;height:700px;border:0;z-index:9999'
+          iframe.src = await window.phosphor.invoke('artifacts:stageHtml', html, theme)
+          document.body.append(iframe)
+        },
+        { html, theme },
+      )
+      const frame = h.page.frameLocator('#artifact-style-test')
+      await expect(frame.getByRole('heading', { name: 'Host entry point' })).toBeVisible()
+      await expect(frame.locator('html')).toHaveAttribute('data-theme', theme)
+      await expect(frame.locator('html')).toHaveCSS(
+        'background-color',
+        theme === 'light' ? 'rgb(247, 247, 248)' : 'rgb(30, 28, 24)',
+      )
+      const layout = await frame.locator('body').evaluate((body) => ({
+        page: document.documentElement.scrollWidth,
+        viewport: window.innerWidth,
+        codeScrolls:
+          body.querySelector('pre')!.scrollWidth > body.querySelector('pre')!.clientWidth,
+        tableScrolls:
+          body.querySelector('table')!.scrollWidth > body.querySelector('table')!.clientWidth,
+        paragraphFont: getComputedStyle(body.querySelector('p')!).fontFamily,
+      }))
+      expect(layout.page).toBeLessThanOrEqual(layout.viewport)
+      expect(layout.codeScrolls).toBe(true)
+      expect(layout.tableScrolls).toBe(true)
+      expect(layout.paragraphFont).not.toContain('monospace')
+      await frame.locator('summary').click()
+      await expect(frame.getByText('Run the headless probe.')).toBeVisible()
+      await expect(frame.locator('.kpis')).toHaveCSS('display', 'grid')
+      await expect(frame.locator('.rail .node')).toHaveCSS('display', 'grid')
+      await h.page.locator('#artifact-style-test').evaluate((element) => {
+        ;(element as HTMLIFrameElement).style.width = '1100px'
+      })
+      await expect
+        .poll(() => frame.locator('body').evaluate((body) => body.clientWidth))
+        .toBeLessThan(900)
+    }
+  } finally {
+    await shutdown(h)
+  }
+})
+
 test('artifact pane scrolls a long document', async () => {
   const harness = await launch()
   const { page } = harness

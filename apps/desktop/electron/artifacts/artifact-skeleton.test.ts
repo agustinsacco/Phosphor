@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import { buildArtifactDocument, __testing } from './artifact-skeleton'
 
@@ -69,8 +70,6 @@ describe('buildArtifactDocument — a document the model wrote in full', () => {
 
 describe('the injected stylesheet', () => {
   it('is dark on bare :root, with light as the override', () => {
-    // The inverse of the usual advice, and deliberate: this surface is dark by
-    // design. Flipping it would silently re-theme every artifact.
     expect(ARTIFACT_STYLE).toMatch(/:root\{\s*color-scheme:dark/)
     expect(ARTIFACT_STYLE).toContain(':root[data-theme="light"]')
   })
@@ -82,17 +81,40 @@ describe('the injected stylesheet', () => {
     expect(ARTIFACT_STYLE).toContain(':root:not([data-theme="dark"])')
   })
 
-  it('carries the validated series and ramp slots in both modes', () => {
+  it('retains legacy series and ramp slots in both modes', () => {
     for (const token of ['--art-s1', '--art-s5', '--art-r1', '--art-r5']) {
       // Once in the dark block, once per light stamp (media query + attribute).
       expect(ARTIFACT_STYLE.split(`${token}:`).length - 1).toBe(3)
     }
   })
 
-  it('keeps the app’s --px-* namespace out of it', () => {
-    // A --px-* token here would make this a sixth satellite copy of the app
-    // neutrals (docs/style-guide.md). It is its own surface on purpose.
-    expect(ARTIFACT_STYLE).not.toContain('--px-')
+  it('mirrors the app neutrals and accent without depending on parent CSS', () => {
+    const appCss = readFileSync(new URL('../../src/styles/index.css', import.meta.url), 'utf8')
+    const pairs = {
+      bg: 'bg',
+      panel: 'bg-secondary',
+      'panel-2': 'code-bg',
+      line: 'border',
+      'line-soft': 'border',
+      ink: 'text',
+      'ink-2': 'text-secondary',
+      'ink-3': 'text-tertiary',
+      accent: 'accent',
+      'accent-dim': 'accent-soft',
+    }
+    for (const [artifact, app] of Object.entries(pairs)) {
+      const values = [...appCss.matchAll(new RegExp(`--px-${app}:\\s*(#[a-f0-9]+)`, 'g'))]
+      expect(values).toHaveLength(2)
+      const mirrored = [
+        ...ARTIFACT_STYLE.matchAll(new RegExp(`--art-${artifact}:(#[a-f0-9]+)`, 'g')),
+      ]
+      expect(mirrored.map((match) => match[1])).toEqual([
+        values[1]![1],
+        values[0]![1],
+        values[0]![1],
+      ])
+    }
+    expect(ARTIFACT_STYLE).not.toContain('var(--px-')
   })
 
   it('never lets a table demand more width than the panel has', () => {
@@ -151,7 +173,7 @@ describe('the print stylesheet', () => {
       '.steps .s',
       'pre',
       'svg',
-      'table.data tr',
+      'table tr',
     ]) {
       expect(ARTIFACT_PRINT_STYLE).toContain(primitive)
     }
@@ -165,7 +187,8 @@ describe('the print stylesheet', () => {
   })
 
   it('repeats a long table’s header on each page it spans', () => {
-    expect(ARTIFACT_PRINT_STYLE).toContain('table.data thead{display:table-header-group}')
+    expect(ARTIFACT_PRINT_STYLE).toContain('thead{display:table-header-group}')
+    expect(ARTIFACT_PRINT_STYLE).toContain('table{display:table;width:100%;overflow:visible}')
   })
 
   it('wraps what scrolled on screen, because paper cannot scroll', () => {
@@ -182,7 +205,7 @@ describe('the print stylesheet', () => {
   })
 
   it('drops the screen gutter, which the page margins now provide', () => {
-    expect(ARTIFACT_PRINT_STYLE).toContain('html,body{margin:0;padding:0}')
+    expect(ARTIFACT_PRINT_STYLE).toContain('html,body{margin:0;padding:0;max-width:none}')
     expect(ARTIFACT_PRINT_STYLE).toContain('.wrap{max-width:none')
   })
 })

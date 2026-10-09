@@ -79,8 +79,7 @@ export const ArtifactsPane = memo(function ArtifactsPane({
           <div className="text-center">
             <div className="text-text-tertiary text-lg">No artifacts yet</div>
             <div className="text-text-tertiary mt-1 text-sm">
-              Ask for a dashboard mockup, diagram or report — substantial deliverables land here
-              with version history.
+              Ask for a document, plan or prototype. Artifacts stay here with version history.
             </div>
           </div>
         </div>
@@ -498,7 +497,7 @@ function ArtifactPreview({
       )
     case 'markdown':
       return (
-        <div className="p-3">
+        <div className="mx-auto min-w-0 max-w-[76ch] p-4 sm:p-6">
           <Markdown text={content} />
         </div>
       )

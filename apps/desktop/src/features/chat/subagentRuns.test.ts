@@ -314,12 +314,12 @@ describe('parseFleetWidget', () => {
     expect(fleet.active).toBe(1)
     expect(fleet.runs[0]).toMatchObject({ label: 'delegate', state: 'running', toolCount: 17 })
     expect(fleet.runs[0]!.children[0]).toMatchObject({ id: 'step:0', currentTool: 'bash' })
-    expect(summarizeFleet(fleet)).toBe('1 background agent running · delegate · bash')
+    expect(summarizeFleet(fleet)).toBe('1 background run active · delegate · bash')
   })
 
-  it('says how many finished once nothing runs', () => {
+  it('does not conflate inactivity with success', () => {
     const done = CAPTURED.replace(/"state":"running"/g, '"state":"complete"')
-    expect(summarizeFleet(parseFleetWidget([done])!)).toBe('1 background run done')
+    expect(summarizeFleet(parseFleetWidget([done])!)).toBe('No background runs active')
   })
 
   it('renders nothing for another widget, a future version, or broken JSON', () => {

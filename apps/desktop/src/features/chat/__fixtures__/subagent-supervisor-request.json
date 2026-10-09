@@ -1,0 +1,18 @@
+{
+  "role": "custom",
+  "customType": "subagent_supervisor_request",
+  "content": "Subagent needs a decision\nUse the shared parser?",
+  "display": true,
+  "timestamp": 1788000000000,
+  "details": {
+    "id": "question-a",
+    "requestId": "question-a",
+    "reason": "need_decision",
+    "expectsReply": true,
+    "runId": "run-a",
+    "agent": "worker",
+    "childIndex": 2,
+    "requestBody": "Use the shared parser?",
+    "replyHint": "subagent_supervisor({ action: \"reply\", replyTo: \"question-a\", message: \"...\" })"
+  }
+}

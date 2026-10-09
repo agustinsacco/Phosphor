@@ -52,6 +52,17 @@ describe('checksGreen', () => {
 })
 
 describe('classifyLane', () => {
+  it('keeps a quiet parent running while delegated work remains, ahead of merge readiness', () => {
+    expect(classifyLane(lane({ hasDelegatedWork: true, pr: pr() }))).toMatchObject({
+      state: 'running',
+      detail: 'delegated work in progress',
+      action: 'open',
+    })
+    expect(classifyLane(lane({ hasDelegatedWork: true, hasPendingQuestion: true }))).toMatchObject({
+      state: 'blocked',
+      action: 'answer',
+    })
+  })
   it('puts a question above everything else, even a green PR', () => {
     const out = classifyLane(
       lane({

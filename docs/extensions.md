@@ -85,6 +85,7 @@ an installed package; a stale sub-tab falls back to the Extensions list.
 | ------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Claude Code  | `@saccolabs/pi-claude-cli`   | health card (package / `claude` binary / account), tested-version warning, **Test provider** one-click proof, failure playbook |
 | Web access   | `pi-web-access`              | seven common search-provider keys (password fields, `$ENV_VAR` support), raw JSON editor                                       |
+| Subagents    | `pi-subagents`               | delegation guide, profile precedence, configuration sources, raw Pi settings and lane directives                               |
 | Computer use | `@injaneity/pi-computer-use` | what the tools do and the OS accessibility permissions macOS will not grant silently                                           |
 
 **MCP Connectors renders in the same slot but is NOT in `EXTENSION_TABS`**: it
@@ -92,8 +93,9 @@ shows unconditionally, because its Advanced disclosure is where
 `pi-mcp-adapter` gets installed. Gating it on the adapter would hide the only
 surface that can produce the adapter. See [mcp.md](mcp.md).
 
-`pi-subagents` has **no tab**: it is zero-config, so a catalogue card is the
-whole story.
+The Subagents tab explains optional configuration without creating a second
+runner or profile registry. It appears only for an installed package in the
+active workspace's package list. See [settings.md](settings.md#subagents-pi-subagents).
 
 **First run.** `PiMissingScreen` offers one-click Install/Update pi with
 streamed output and an auto re-check. A successful install lands on
@@ -496,10 +498,10 @@ the composer slot, and a key carrying a machine payload must be in
 `STRUCTURED_WIDGET_KEYS` (same file) or the slot prints it. Two are
 load-bearing today, both from `pi-subagents` in RPC mode:
 
-| Key                | Payload                                                                        | Consumer                                                   |
-| ------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| `subagent-async`   | One line, `PI_SUBAGENT_ASYNC_JSON:` + a versioned snapshot of background runs  | `chat/subagentRuns.ts` `parseFleetWidget` → the agent chip |
-| `subagent-inspect` | `PI_SUBAGENT_INSPECT_JSON:` replies to `/subagents-inspect-rpc`, by request id | Nothing yet; the protocol says a host must never render it |
+| Key                | Payload                                                                        | Consumer                                                     |
+| ------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `subagent-async`   | One line, `PI_SUBAGENT_ASYNC_JSON:` + a versioned snapshot of background runs  | `chat/subagentRuns.ts` `parseFleetWidget` → the agent chip   |
+| `subagent-inspect` | `PI_SUBAGENT_INSPECT_JSON:` replies to `/subagents-inspect-rpc`, by request id | Read-only Subagents inspector; raw widget lines never render |
 
 The extension's component widgets (its FleetView) never reach Phosphor: pi's
 RPC mode forwards only string-array widgets and drops factories.

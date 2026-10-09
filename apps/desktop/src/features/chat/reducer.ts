@@ -29,7 +29,7 @@ import type {
   UserItem,
 } from './chatItems'
 import { emptyChatSession, newItemId } from './chatItems'
-import { SUBAGENT_NOTIFY_TYPE } from './subagentRuns'
+import { SUBAGENT_NOTIFY_TYPE, SUBAGENT_SLASH_RESULT_TYPE } from './subagentRuns'
 import {
   applyRevealedIdentity,
   pendingToolId,
@@ -612,9 +612,14 @@ function applyMessageEnd(state: ChatSessionState, message: AgentMessage): ChatSe
  * Returns null when the extension marked it non-displayable.
  */
 function customItemFrom(message: CustomMessage): CustomItem | null {
-  // A muted sub-agent completion is the one hidden message worth a row: the
-  // model's next reply quotes it (see `CustomItem.quiet`).
-  if (message.display === false && message.customType !== SUBAGENT_NOTIFY_TYPE) return null
+  // Keep native completions and final control receipts as evidence, even
+  // when Pi's TUI hides them (see `CustomItem.quiet`).
+  if (
+    message.display === false &&
+    message.customType !== SUBAGENT_NOTIFY_TYPE &&
+    message.customType !== SUBAGENT_SLASH_RESULT_TYPE
+  )
+    return null
   const content = message.content
   const text =
     typeof content === 'string'
@@ -628,6 +633,8 @@ function customItemFrom(message: CustomMessage): CustomItem | null {
     id: newItemId(),
     kind: 'custom',
     customType: typeof message.customType === 'string' ? message.customType : undefined,
+    details: message.details,
+    timestamp: message.timestamp,
     text,
     images,
     // `customMessage` role == pi's custom_message entry: it reaches the LLM.

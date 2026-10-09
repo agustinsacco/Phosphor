@@ -33,6 +33,9 @@ export const SUBAGENT_INSPECT_WIDGET_KEY = 'subagent-inspect'
 export const SUBAGENT_NOTIFY_TYPE = 'subagent-notify'
 export const SUBAGENT_CONTROL_NOTICE_TYPE = 'subagent_control_notice'
 export const SUBAGENT_STEERING_NOTICE_TYPE = 'subagent_steering_notice'
+export const SUBAGENT_SUPERVISOR_REQUEST_TYPE = 'subagent_supervisor_request'
+export const SUBAGENT_SUPERVISOR_REPLY_TYPE = 'subagent_supervisor_reply'
+export const SUBAGENT_SLASH_RESULT_TYPE = 'subagent-slash-result'
 
 const ASYNC_WIDGET_PREFIX = 'PI_SUBAGENT_ASYNC_JSON:'
 const ASYNC_SNAPSHOT_KIND = 'pi-subagents.async-status-snapshot'
@@ -50,7 +53,10 @@ export function isSubagentNotice(customType: string | undefined): boolean {
   return (
     customType === SUBAGENT_NOTIFY_TYPE ||
     customType === SUBAGENT_CONTROL_NOTICE_TYPE ||
-    customType === SUBAGENT_STEERING_NOTICE_TYPE
+    customType === SUBAGENT_STEERING_NOTICE_TYPE ||
+    customType === SUBAGENT_SUPERVISOR_REQUEST_TYPE ||
+    customType === SUBAGENT_SUPERVISOR_REPLY_TYPE ||
+    customType === SUBAGENT_SLASH_RESULT_TYPE
   )
 }
 
@@ -63,7 +69,7 @@ export type SubagentCall =
       task?: string
       /** Detached: the tool returns at once and the run reports back later. */
       async: boolean
-      /** A `workflowScript` / `workflowScriptPath` launch. */
+      /** Legacy inline script or script path, preserved for old transcripts. */
       script?: string
       /** A named workflow resource. */
       workflow?: string
@@ -86,7 +92,7 @@ export function subagentCall(args: Rec | undefined): SubagentCall {
     task: str(args?.task),
     async: args?.async === true,
     script: str(args?.workflowScript) ?? str(args?.workflowScriptPath),
-    workflow: str(args?.workflow),
+    workflow: args?.workflow === true ? 'inline workflow' : str(args?.workflow),
   }
 }
 
@@ -103,7 +109,7 @@ export function scriptAgents(script: string): string[] {
 // ---------- the run ----------
 
 export type SubagentChildStatus =
-  'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'detached'
+  'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'detached' | 'paused' | 'unknown'
 
 export interface SubagentChild {
   index: number
@@ -157,6 +163,8 @@ const CHILD_STATUSES = new Set<SubagentChildStatus>([
   'failed',
   'stopped',
   'detached',
+  'paused',
+  'unknown',
 ])
 
 /**
@@ -175,7 +183,8 @@ function childStatus(result: Rec | undefined, progress: Rec | undefined, settled
     if (exit !== undefined) return exit === 0 ? 'completed' : 'failed'
   }
   if (reported && CHILD_STATUSES.has(reported)) return reported
-  return settled ? 'completed' : 'running'
+  // A settled parent tool is not evidence of a successful child.
+  return settled ? 'unknown' : 'running'
 }
 
 function childFrom(
@@ -355,7 +364,9 @@ export function summarizeSubagentCall(
   }
 
   const children = run?.children ?? []
-  const done = children.filter((child) => !isChildLive(child)).length
+  const done = children.filter((child) =>
+    ['completed', 'failed', 'stopped', 'paused'].includes(child.status),
+  ).length
 
   if (call.async || run?.async) {
     return {
@@ -441,6 +452,8 @@ export interface FleetSnapshot {
   runs: FleetNode[]
   /** Runs the extension left out to stay within its byte budget. */
   omittedRuns: number
+  incomplete: boolean
+  /** Active roots, including roots whose descendants are still active. Not a child count. */
   active: number
 }
 
@@ -459,11 +472,23 @@ export function isFleetActive(state: FleetState): boolean {
   return state === 'running' || state === 'queued'
 }
 
-function fleetNode(entry: unknown, depth: number): FleetNode | undefined {
+function fleetNode(
+  entry: unknown,
+  depth: number,
+  budget: { remaining: number; incomplete: boolean },
+): FleetNode | undefined {
+  if (budget.remaining-- <= 0) {
+    budget.incomplete = true
+    return undefined
+  }
   const node = rec(entry)
   const id = str(node?.id)
   const state = str(node?.state) as FleetState | undefined
-  if (!id || !state || !FLEET_STATES.has(state)) return undefined
+  if (!id || !state || !FLEET_STATES.has(state)) {
+    budget.incomplete = true
+    return undefined
+  }
+  if (depth === 4 && list(node?.children).length) budget.incomplete = true
   const activity = rec(node?.activity)
   return {
     id,
@@ -482,7 +507,7 @@ function fleetNode(entry: unknown, depth: number): FleetNode | undefined {
     children:
       depth < 4
         ? list(node?.children)
-            .map((child) => fleetNode(child, depth + 1))
+            .map((child) => fleetNode(child, depth + 1, budget))
             .filter((child): child is FleetNode => !!child)
         : [],
   }
@@ -495,7 +520,7 @@ function fleetNode(entry: unknown, depth: number): FleetNode | undefined {
  */
 export function parseFleetWidget(lines: string[] | undefined): FleetSnapshot | null {
   const line = lines?.[0]
-  if (!line?.startsWith(ASYNC_WIDGET_PREFIX)) return null
+  if (!line?.startsWith(ASYNC_WIDGET_PREFIX) || line.length > 128_000) return null
   let raw: unknown
   try {
     raw = JSON.parse(line.slice(ASYNC_WIDGET_PREFIX.length))
@@ -504,22 +529,38 @@ export function parseFleetWidget(lines: string[] | undefined): FleetSnapshot | n
   }
   const snapshot = rec(raw)
   if (!snapshot || snapshot.kind !== ASYNC_SNAPSHOT_KIND || snapshot.version !== 1) return null
+  const budget = { remaining: 200, incomplete: false }
   const runs = list(snapshot.runs)
-    .map((run) => fleetNode(run, 0))
+    .map((run) => fleetNode(run, 0, budget))
     .filter((run): run is FleetNode => !!run)
   return {
     generatedAt: num(snapshot.generatedAt) ?? 0,
     runs,
     omittedRuns: num(rec(snapshot.omitted)?.runs) ?? 0,
-    active: runs.filter((run) => isFleetActive(run.state)).length,
+    incomplete:
+      budget.incomplete ||
+      (num(rec(snapshot.omitted)?.runs) ?? 0) > 0 ||
+      (num(rec(snapshot.omitted)?.children) ?? 0) > 0 ||
+      rec(snapshot.omitted)?.byteLimitExceeded === true,
+    active: runs.filter(fleetNodeActive).length,
   }
+}
+
+function fleetNodeActive(node: FleetNode): boolean {
+  return isFleetActive(node.state) || node.children.some(fleetNodeActive)
+}
+
+/** Omitted nodes prevent a live snapshot from proving delegated work is settled. */
+export function hasDelegatedWork(lines: string[] | undefined): boolean {
+  const snapshot = parseFleetWidget(lines)
+  return !!snapshot && (snapshot.active > 0 || snapshot.incomplete)
 }
 
 /** The tool a running node is on: its own, else the first running child's. */
 export function fleetCurrentTool(node: FleetNode): string | undefined {
   if (node.currentTool) return node.currentTool
   for (const child of node.children) {
-    if (!isFleetActive(child.state)) continue
+    if (!fleetNodeActive(child)) continue
     const tool = fleetCurrentTool(child)
     if (tool) return tool
   }
@@ -528,10 +569,10 @@ export function fleetCurrentTool(node: FleetNode): string | undefined {
 
 /** "1 background agent running · scout · grep" — one line for the strip. */
 export function summarizeFleet(snapshot: FleetSnapshot): string {
-  const total = snapshot.runs.length + snapshot.omittedRuns
-  if (snapshot.active === 0) return `${plural(total, 'background run')} done`
-  const label = `${plural(snapshot.active, 'background agent')} running`
-  const newest = snapshot.runs.filter((run) => isFleetActive(run.state)).at(-1)
+  if (snapshot.active === 0)
+    return snapshot.incomplete ? 'Background snapshot incomplete' : 'No background runs active'
+  const label = `${plural(snapshot.active, 'background run')} active`
+  const newest = snapshot.runs.filter(fleetNodeActive).at(-1)
   if (!newest) return label
   const tool = fleetCurrentTool(newest)
   return [label, newest.label, tool].filter(Boolean).join(' · ')
@@ -540,7 +581,10 @@ export function summarizeFleet(snapshot: FleetSnapshot): string {
 // ---------- the completion ----------
 
 export interface SubagentNotice {
-  kind: 'completion' | 'attention' | 'steering'
+  kind: 'completion' | 'attention' | 'steering' | 'question' | 'reply'
+  runId?: string
+  requestId?: string
+  childIndex?: number
   status?: 'completed' | 'failed' | 'stopped' | 'paused'
   agents: string[]
   /** "scout finished in the background" */
@@ -567,8 +611,28 @@ const STATUS_VERB: Record<NonNullable<SubagentNotice['status']>, string> = {
 export function parseSubagentNotice(
   customType: string | undefined,
   text: string,
+  details?: unknown,
 ): SubagentNotice | null {
   if (!isSubagentNotice(customType)) return null
+  if (
+    customType === SUBAGENT_SUPERVISOR_REQUEST_TYPE ||
+    customType === SUBAGENT_SUPERVISOR_REPLY_TYPE
+  ) {
+    const d = rec(details)
+    const agent = str(d?.agent)
+    const reply = customType === SUBAGENT_SUPERVISOR_REPLY_TYPE
+    return {
+      kind: reply ? 'reply' : 'question',
+      agents: agent ? [agent] : [],
+      headline: reply
+        ? `Parent replied to ${agent ?? 'a sub-agent'}`
+        : `${agent ?? 'A sub-agent'} asked the parent for guidance`,
+      body: reply ? (str(d?.message) ?? text) : (str(d?.requestBody) ?? text),
+      runId: str(d?.runId),
+      requestId: str(d?.requestId) ?? str(d?.id),
+      childIndex: num(d?.childIndex),
+    }
+  }
   const trimmed = text.trim()
   const newline = trimmed.indexOf('\n')
   const first = (newline === -1 ? trimmed : trimmed.slice(0, newline)).trim()

@@ -5,6 +5,8 @@ import { compareSessionsByCreation } from '@shared/session-order'
 import { laneIsBeingDeleted, useSessionsStore } from '@/stores/sessions'
 import { useActiveWorkspace, useWorkspacesStore } from '@/stores/workspaces'
 import { useChatStore } from '@/stores/chat'
+import { useExtensionUiStore } from '@/stores/extensionUi'
+import { hasDelegatedWork, SUBAGENT_ASYNC_WIDGET_KEY } from '@/features/chat/subagentRuns'
 import { useWorktreeDiscovery, type WorktreeDir } from './useWorktreeDiscovery'
 import { useSessionBooting } from '@/features/chat/BootingIndicator'
 import { promptRenameSandbox } from '@/features/workspaces/promptRenameSandbox'
@@ -1381,6 +1383,11 @@ function SessionRow({
   const isStreaming = useChatStore((s) =>
     livePhosphorId ? (s.sessions[livePhosphorId]?.isStreaming ?? false) : false,
   )
+  const delegated = useExtensionUiStore((s) =>
+    livePhosphorId
+      ? hasDelegatedWork(s.widgets[livePhosphorId]?.[SUBAGENT_ASYNC_WIDGET_KEY]?.lines)
+      : false,
+  )
   // Prompt sent, pi not started yet: the row pulses like a streaming one, or
   // a lane that is genuinely booting reads as idle in the list.
   const booting = useSessionBooting(livePhosphorId)
@@ -1550,7 +1557,8 @@ function SessionRow({
   }
 
   const subtitle = sessionSubtitle(meta, git)
-  const activity = isStreaming ? 'working' : opening ? 'opening' : booting ? 'starting' : undefined
+  const activity =
+    isStreaming || delegated ? 'working' : opening ? 'opening' : booting ? 'starting' : undefined
   const indicatorState = activity
     ? 'streaming'
     : unseen
@@ -1813,8 +1821,11 @@ function PendingSessionRow({
 }): React.JSX.Element {
   const orderActions = useSessionOrderActions()
   const isStreaming = useChatStore((s) => s.sessions[phosphorId]?.isStreaming ?? false)
+  const delegated = useExtensionUiStore((s) =>
+    hasDelegatedWork(s.widgets[phosphorId]?.[SUBAGENT_ASYNC_WIDGET_KEY]?.lines),
+  )
   const booting = useSessionBooting(phosphorId)
-  const activity = isStreaming ? 'working' : booting ? 'starting' : undefined
+  const activity = isStreaming || delegated ? 'working' : booting ? 'starting' : undefined
   const firstUserText = useChatStore(
     (s) => s.sessions[phosphorId]?.items.find((item) => item.kind === 'user')?.text,
   )

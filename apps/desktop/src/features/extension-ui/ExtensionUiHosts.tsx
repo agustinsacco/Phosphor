@@ -22,6 +22,8 @@ import {
   parseFleetWidget,
   summarizeFleet,
 } from '@/features/chat/subagentRuns'
+import { useChatStore } from '@/stores/chat'
+import { SubagentPanel } from '@/features/chat/SubagentPanel'
 import { useSettingsUiStore } from '@/features/settings/settingsUiStore'
 import { CommandApprovalSheet } from './CommandApprovalSheet'
 import { parseCommandApproval } from '@shared/command-approval'
@@ -468,34 +470,50 @@ const STRUCTURED_WIDGET_KEYS = new Set([SUBAGENT_ASYNC_WIDGET_KEY, SUBAGENT_INSP
  * "done"). Either way the chip is live state: the transcript's own rows are
  * what remain.
  */
-function SubagentChip({ sessionId }: { sessionId: string }): React.JSX.Element | null {
+function SubagentChip({
+  sessionId,
+  available,
+}: {
+  sessionId: string
+  available: boolean
+}): React.JSX.Element | null {
+  const [open, setOpen] = useState(false)
   const statusText = useExtensionUiStore((s) => s.statuses[sessionId]?.[SUBAGENTS_STATUS_KEY])
   const fleetLines = useExtensionUiStore(
     (s) => s.widgets[sessionId]?.[SUBAGENT_ASYNC_WIDGET_KEY]?.lines,
   )
-  const legacy = parseSubagentStatus(statusText)
-  const fleet = legacy ? null : parseFleetWidget(fleetLines)
-  if (!legacy && !fleet) return null
-  const active = legacy ? legacy.active > 0 : fleet!.active > 0
+  const fleet = parseFleetWidget(fleetLines)
+  const legacy = fleet ? null : parseSubagentStatus(statusText)
+  if (!legacy && !fleet && !available) return null
+  const active = legacy ? legacy.active > 0 : (fleet?.active ?? 0) > 0
   const title = legacy
     ? legacy.tasks.map((task) => `${task.description || task.taskId}: ${task.status}`).join('\n')
-    : fleet!.runs.map((run) => `${run.label}: ${run.state}`).join('\n')
+    : (fleet?.runs.map((run) => `${run.label}: ${run.state}`).join('\n') ??
+      'Recorded delegation and child inspection')
   return (
-    <span
-      data-testid="subagent-chip"
-      title={title}
-      className="text-text-tertiary flex min-w-0 items-center gap-1.5 text-xs"
-    >
-      <span
-        className={clsx(
-          'h-1.5 w-1.5 shrink-0 rounded-full',
-          active ? 'bg-accent' : 'bg-text-tertiary/50',
-        )}
-      />
-      <span className="truncate">
-        {legacy ? summarizeSubagents(legacy) : summarizeFleet(fleet!)}
-      </span>
-    </span>
+    <>
+      <button
+        data-testid="subagent-chip"
+        aria-label="Open subagents"
+        disabled={!!legacy && !available}
+        onClick={() => setOpen(true)}
+        title={title}
+        className="text-text-tertiary flex min-w-0 items-center gap-1.5 text-xs"
+      >
+        <span
+          className={clsx(
+            'h-1.5 w-1.5 shrink-0 rounded-full',
+            active ? 'bg-accent' : 'bg-text-tertiary/50',
+          )}
+        />
+        <span className="truncate">
+          {legacy ? summarizeSubagents(legacy) : fleet ? summarizeFleet(fleet) : 'Subagents'}
+        </span>
+      </button>
+      {open && (
+        <SubagentPanel key={sessionId} sessionId={sessionId} onClose={() => setOpen(false)} />
+      )}
+    </>
   )
 }
 
@@ -505,15 +523,23 @@ export function StatusStrip({ sessionId }: { sessionId: string }): React.JSX.Ele
   const hasFleet = useExtensionUiStore(
     (s) => s.widgets[sessionId]?.[SUBAGENT_ASYNC_WIDGET_KEY] !== undefined,
   )
-  if (!statuses && !hasFleet) return null
+  const available = useChatStore((s) => {
+    const session = s.sessions[sessionId]
+    return (
+      !!session &&
+      (session.commands.some((c) => c.name === 'subagents') ||
+        Object.values(session.tools).some((t) => t.toolName === 'subagent'))
+    )
+  })
+  if (!statuses && !hasFleet && !available) return null
   const entries = Object.entries(statuses ?? {}).filter(([key]) => !STRUCTURED_STATUS_KEYS.has(key))
   const hasMcp = statuses?.[MCP_STATUS_STATUS_KEY] !== undefined
-  const hasAgents = hasFleet || statuses?.[SUBAGENTS_STATUS_KEY] !== undefined
+  const hasAgents = available || hasFleet || statuses?.[SUBAGENTS_STATUS_KEY] !== undefined
   if (entries.length === 0 && !hasMcp && !hasAgents) return null
   return (
     <div className="border-border bg-bg-secondary/60 flex h-6 shrink-0 items-center gap-3 border-t px-3">
       <McpChip sessionId={sessionId} />
-      <SubagentChip sessionId={sessionId} />
+      <SubagentChip sessionId={sessionId} available={available} />
       {entries.map(([key, text]) => (
         <span
           key={key}

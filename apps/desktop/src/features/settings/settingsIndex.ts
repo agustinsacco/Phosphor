@@ -1,3 +1,4 @@
+import type { PiPackageEntry } from '@shared/models'
 import { formatShortcut } from '@/lib/shortcuts'
 import type { SettingsTab } from './settingsUiStore'
 import { keybindingGroups } from './tabs/KeybindingsTab'
@@ -20,11 +21,27 @@ export const TABS: Array<{ id: SettingsTab; label: string }> = [
  * They render nested under the Extensions entry in the sidebar — they are
  * configuration for an installed package, not top-level settings.
  */
-export const EXTENSION_TABS: Array<{ id: SettingsTab; label: string; packageMatch: string }> = [
+export const EXTENSION_TABS: Array<{
+  id: SettingsTab
+  label: string
+  packageMatch: string
+  requiresInstalled?: boolean
+}> = [
   { id: 'claude-provider', label: 'Claude Code', packageMatch: 'pi-claude-cli' },
   { id: 'web-access', label: 'Web access', packageMatch: 'pi-web-access' },
   { id: 'computer-use', label: 'Computer use', packageMatch: '@injaneity/pi-computer-use' },
+  { id: 'subagents', label: 'Subagents', packageMatch: 'pi-subagents', requiresInstalled: true },
 ]
+
+export function installedExtensionTabs(entries: PiPackageEntry[]): typeof EXTENSION_TABS {
+  return EXTENSION_TABS.filter((tab) =>
+    // Existing health/config tabs also help repair declared but absent packages.
+    entries.some(
+      (entry) =>
+        (!tab.requiresInstalled || entry.installed) && entry.spec.includes(tab.packageMatch),
+    ),
+  )
+}
 
 export const tabLabel = (id: SettingsTab): string =>
   [...TABS, ...EXTENSION_TABS].find((t) => t.id === id)?.label ?? id
@@ -122,6 +139,24 @@ export const SETTINGS_INDEX: SettingEntry[] = [
     ['Route new sessions', 'claude account'],
   ]),
   ...section('web-access', null, [['Search providers', 'web fetch api key']]),
+  ...section('subagents', ['How delegation works', 'background foreground workflow parent child']),
+  ...section('subagents', [
+    'Profiles and precedence',
+    'scout worker reviewer oracle agents markdown',
+  ]),
+  ...section('subagents', ['Context and permissions', 'fresh fork sandbox safety tools']),
+  ...section(
+    'subagents',
+    ['Configuration sources', 'settings json overrides runtime timeout concurrency'],
+    [
+      ['Pi settings', 'defaultModel defaultProvider agentOverrides'],
+      ['Delegation policy', 'directives authorization'],
+    ],
+  ),
+  ...section('subagents', [
+    'Results and storage',
+    'artifacts sessions lifecycle history acceptance',
+  ]),
   ...section('connectors', null, [
     ['Connected', 'mcp servers'],
     ['Add a connector', 'mcp server oauth url'],

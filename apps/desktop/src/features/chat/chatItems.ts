@@ -81,14 +81,17 @@ export interface CustomItem {
   id: string
   kind: 'custom'
   customType?: string
+  /** Native correlation data, kept for live and replayed messages alike. */
+  details?: unknown
+  timestamp?: number
   text: string
   images?: ImageContent[]
   inContext: boolean
   /**
    * The extension asked for it to be hidden (`display: false`). Kept only for
-   * the sub-agent completion, which pi-subagents mutes on success so its TUI
-   * does not badge an idle tab; here it is the visible cause of the reply
-   * that follows it.
+   * sub-agent completions and command receipts. Pi's TUI hides successful
+   * notifications and final slash-command records; Phosphor retains the
+   * evidence behind the parent's next reply or the user's control action.
    */
   quiet?: boolean
 }

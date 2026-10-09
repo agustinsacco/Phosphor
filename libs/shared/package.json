@@ -84,6 +84,10 @@
       "types": "./src/rpc.ts",
       "default": "./src/rpc.ts"
     },
+    "./session-branch": {
+      "types": "./src/session-branch.ts",
+      "default": "./src/session-branch.ts"
+    },
     "./session-order": {
       "types": "./src/session-order.ts",
       "default": "./src/session-order.ts"

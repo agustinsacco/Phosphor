@@ -268,11 +268,18 @@ every reader defensive, a payload it cannot read leaving the generic row).
 - **A detached run has no child here.** The tool returns at once; the run's
   tree then rides the `subagent-async` widget (one line of
   `PI_SUBAGENT_ASYNC_JSON:`, pi-subagents' documented host protocol), which the
-  status strip's sub-agent chip summarizes (`1 background agent running ·
+  status strip's sub-agent chip summarizes (`1 background run active ·
 scout · grep`) and which is **never printed as widget lines**
   (`STRUCTURED_WIDGET_KEYS` in `ExtensionUiHosts.tsx`, alongside the
   `subagent-inspect` reply key the protocol says a host must not render). The
-  extension removes the widget when nothing runs, so the chip goes with it.
+  extension removes the widget when nothing runs. A session with the command
+  installed or a recorded delegation keeps a quiet Subagents chip for inspection.
+  The chip opens a tree of background runs and children. Selecting a node asks
+  the installed `/subagents-inspect-rpc` command for a bounded, read-only task,
+  transcript window and result. Replies are correlated to the exact session,
+  request and child, including emit-then-retract replies. No child session is
+  opened for writing. Missing commands, expired artifacts and foreign-session
+  targets show explicit errors; no model fallback or file scraping is used.
 - **The completion is a card where the model woke up.** pi-subagents delivers
   it as a `subagent-notify` custom message and marks a plain success
   `display: false` so its own TUI does not badge an idle tab; Phosphor keeps
@@ -282,10 +289,35 @@ scout · grep`) and which is **never printed as widget lines**
 **scout**`) into "scout finished in the background" and folds the output
   under it; a failure, a stop, or a `subagent_control_notice` opens by default.
 
-Not here yet: an expandable fleet tree with stop and steer, opening a child's
-own session file as a transcript, and the parent-plus-child cost report.
-Stop, steer, inspect and cost exist in pi-subagents without a model turn (an
-extension command and an in-process RPC), which is the path for them.
+- **Questions name the parent, not the user.** Native
+  `subagent_supervisor_request` messages render as "asked the parent for
+  guidance", with their run, child index, request ID and timestamp. Custom
+  messages retain their original structured `details` in both live and resumed
+  transcripts. Historical requests never claim to be currently pending.
+- **Completion requires evidence.** A settled tool without a child exit code or
+  reported state shows "last known", not success. Current `workflow: true`,
+  path and resource calls coexist with older `workflowScript` transcripts.
+
+The Subagents panel's **Recorded coordination** view reads Pi's `get_entries`
+only on opening or Refresh. It follows `leafId` and `parentId`, excludes
+abandoned branches, and includes pre-compaction questions and plain
+`subagent_supervisor_reply` entries. It shows at most 200 records and reports
+omissions. Plain state remains outside model context; Phosphor writes no
+journal and never appends to a live session file. Older extensions can lack
+reply records. The view describes evidence at read time, not current liveness.
+
+**Stop run** is available on a root inspection when the session advertises the
+extension's Stop command. It asks for confirmation, rechecks that the exact
+root is still active in this session, and calls `/subagents-stop <full-id>`.
+Pi checks ownership again. The UI reports only that Stop was requested; native
+`subagent-slash-result` receipts, including hidden final receipts, remain in
+the conversation and recorded coordination. No optimistic stopped state or
+process-exit proof is invented. Stop does not remove partial file changes.
+
+Not here yet: steer/reply buttons, profile discovery/editing, the
+parent-plus-child cost report and descendant-aware lane deletion. Those need
+additional capability/ownership integration. Inspection remains on demand,
+never a polling transcript service.
 
 ## Rich content (first-class citizens)
 

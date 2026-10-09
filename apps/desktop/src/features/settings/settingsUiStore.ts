@@ -8,6 +8,7 @@ export type SettingsTab =
   | 'claude-provider'
   | 'web-access'
   | 'computer-use'
+  | 'subagents'
   | 'connectors'
   | 'workspaces'
   | 'optimization'

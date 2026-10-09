@@ -37,6 +37,15 @@ and a chip only renders once there is something to say: a known PR, or a
 confirmed absence on a worktree lane. Settings → Workspaces → "PR status on
 lanes".
 
+**Delegated work keeps a live lane working.** The sidebar activity treatment
+and Home board include active roots and descendants from that session's
+`subagent-async` snapshot, even while the parent is quiet. An explicitly
+incomplete snapshot cannot establish that delegated work has settled. This
+outranks merge readiness; a real human dialog still outranks running work.
+A child's attention request belongs to its parent, not the "Waiting on you"
+column. Snapshots are transient and are cleared with the live session. They
+are not process-exit proof or authority to remove a child worktree.
+
 ## Forks and saved history
 
 Fork, Clone and Rewind create a new session file. Both the source and the new

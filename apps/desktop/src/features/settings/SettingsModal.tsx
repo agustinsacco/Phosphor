@@ -4,7 +4,8 @@ import { ModalOverlay } from '@/components/Modal'
 import { CloseIcon } from '@/components/icons'
 import { useFindTarget } from '@/components/search/findTargets'
 import { useSettingsUiStore, type SettingsTab } from './settingsUiStore'
-import { EXTENSION_TABS, TABS } from './settingsIndex'
+import { EXTENSION_TABS, TABS, installedExtensionTabs } from './settingsIndex'
+import { useActiveWorkspace } from '@/stores/workspaces'
 import { highlightPattern } from './settingsQuery'
 import { revealSetting, usePaintMatches } from './settingsHighlight'
 import { SettingsSearchField, SettingsSearchResults, useSettingsSearch } from './SettingsSearch'
@@ -19,6 +20,7 @@ import { OptimizationTab } from './tabs/OptimizationTab'
 import { AdvancedTab } from './tabs/AdvancedTab'
 import { ConnectorsTab } from './tabs/ConnectorsTab'
 import { ComputerUseTab } from './tabs/ComputerUseTab'
+import { SubagentsTab } from './tabs/SubagentsTab'
 import { KeybindingsTab } from './tabs/KeybindingsTab'
 import { AboutTab } from './tabs/AboutTab'
 
@@ -32,7 +34,8 @@ export function SettingsModal(): React.JSX.Element | null {
   const open = useSettingsUiStore((s) => s.open)
   const tab = useSettingsUiStore((s) => s.tab)
   const reveal = useSettingsUiStore((s) => s.reveal)
-  const [installedSpecs, setInstalledSpecs] = useState<string[]>([])
+  const workspace = useActiveWorkspace()
+  const [extensionTabs, setExtensionTabs] = useState<typeof EXTENSION_TABS>([])
   const dialogRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -41,17 +44,19 @@ export function SettingsModal(): React.JSX.Element | null {
   // the extension's own tab appear without reopening the app.
   useEffect(() => {
     if (!open) return
+    let cancelled = false
     void window.phosphor
-      .invoke('packages:list')
-      .then((entries) => setInstalledSpecs(entries.map((e) => e.spec)))
-      .catch(() => setInstalledSpecs([]))
-  }, [open, tab])
-
-  const extensionTabs = useMemo(
-    () =>
-      EXTENSION_TABS.filter((t) => installedSpecs.some((spec) => spec.includes(t.packageMatch))),
-    [installedSpecs],
-  )
+      .invoke('packages:list', workspace ?? undefined)
+      .then((entries) => {
+        if (!cancelled) setExtensionTabs(installedExtensionTabs(entries))
+      })
+      .catch(() => {
+        if (!cancelled) setExtensionTabs([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, tab, workspace])
   const available = useMemo(
     () => new Set([...TABS, ...extensionTabs].map((t) => t.id)),
     [extensionTabs],
@@ -157,6 +162,7 @@ export function SettingsModal(): React.JSX.Element | null {
               {effectiveTab === 'web-access' && <WebAccessTab />}
               {effectiveTab === 'connectors' && <ConnectorsTab />}
               {effectiveTab === 'computer-use' && <ComputerUseTab />}
+              {effectiveTab === 'subagents' && <SubagentsTab />}
               {effectiveTab === 'workspaces' && <WorkspacesTab />}
               {effectiveTab === 'optimization' && <OptimizationTab />}
               {effectiveTab === 'advanced' && <AdvancedTab />}

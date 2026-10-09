@@ -1,4 +1,5 @@
 import type { ImageContent } from '@shared/rpc'
+import { sessionBranch } from '@shared/session-branch'
 import { useChatStore } from '@/stores/chat'
 import { bootstrapSession } from '@/stores/sessions'
 import { piCall, rehydrateTranscript } from '@/lib/rpc'
@@ -75,26 +76,6 @@ function isRawEntry(value: unknown): value is RawEntry {
 }
 
 /**
- * Root-to-leaf path through a session's entry tree — pi's own
- * `buildSessionPath`, mirrored: a `null` leaf is an empty session (every
- * entry abandoned), and an unknown leaf falls back to the last entry.
- */
-function branchPath(entries: RawEntry[], leafId: string | null): RawEntry[] {
-  if (leafId === null) return []
-  const byId = new Map(entries.map((entry) => [entry.id, entry]))
-  const path: RawEntry[] = []
-  const seen = new Set<string>()
-  let current = byId.get(leafId) ?? entries[entries.length - 1]
-  // `seen` only guards against a corrupt file whose parents form a cycle.
-  while (current && !seen.has(current.id)) {
-    seen.add(current.id)
-    path.push(current)
-    current = current.parentId ? byId.get(current.parentId) : undefined
-  }
-  return path.reverse()
-}
-
-/**
  * Every user message on the session's current branch, oldest first, read
  * from the entry tree itself (`get_entries` plus its `leafId`).
  *
@@ -126,7 +107,7 @@ export async function currentBranchUserMessages(
   if (!response.success || !response.data) return null
   const entries = response.data.entries.filter(isRawEntry)
   const messages: BranchUserMessage[] = []
-  for (const entry of branchPath(entries, response.data.leafId)) {
+  for (const entry of sessionBranch(entries, response.data.leafId, 'last')) {
     const message = entry.message
     if (entry.type !== 'message' || message?.role !== 'user' || message.content == null) continue
     const content = { content: message.content }

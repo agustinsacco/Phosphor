@@ -316,6 +316,14 @@ const CATALOGUE = [
 const DIFF = ' 1 export function hello() {\n-2   return "old"\n+2   return "new"\n 3 }'
 const PATCH = `--- a/hello.ts\n+++ b/hello.ts\n@@ -1,3 +1,3 @@\n export function hello() {\n-  return "old"\n+  return "new"\n }`
 
+function sessionEntries() {
+  return fs
+    .readFileSync(SESSION_FILE, 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line))
+    .filter((entry) => entry.type !== 'session')
+}
 let queueHold = false
 function handle(cmd) {
   if (process.env.PHOSPHOR_E2E_COMMAND_LOG) {
@@ -541,6 +549,17 @@ function handle(cmd) {
       })
       break
 
+    case 'get_entries': {
+      const entries = sessionEntries()
+      out({
+        id: cmd.id,
+        type: 'response',
+        command: 'get_entries',
+        success: true,
+        data: { entries, leafId: entries.at(-1)?.id ?? null },
+      })
+      break
+    }
     case 'prompt': {
       if (compacting) {
         out({
@@ -681,7 +700,7 @@ function handle(cmd) {
           JSON.stringify({
             type: 'session_info',
             id: `cccc${String(entrySeq).padStart(4, '0')}`,
-            parentId: null,
+            parentId: sessionEntries().at(-1)?.id ?? null,
             timestamp: new Date().toISOString(),
             name: cmd.name,
           }) + '\n',
@@ -1503,6 +1522,32 @@ function runSubagentTurn() {
  *    `display: false`, and the model is woken for a new turn to read it.
  */
 function runNativeSubagentTurn() {
+  const details = {
+    requestId: 'question-a',
+    runId: 'run-a',
+    agent: 'worker',
+    childIndex: 0,
+    requestBody: 'Use the shared parser?',
+  }
+  const records = [
+    {
+      type: 'custom_message',
+      id: 'question-a',
+      parentId: 'aaaa0001',
+      customType: 'subagent_supervisor_request',
+      content: details.requestBody,
+      display: true,
+      details,
+    },
+    {
+      type: 'custom',
+      id: 'reply-a',
+      parentId: 'question-a',
+      customType: 'subagent_supervisor_reply',
+      data: { ...details, message: 'Use the shared parser.' },
+    },
+  ]
+  fs.appendFileSync(SESSION_FILE, records.map((record) => JSON.stringify(record)).join('\n') + '\n')
   const msg = { role: 'assistant', content: [] }
   const ASYNC_ID = 'a1b2c3d4-0000-4000-8000-000000000000'
   const foreground = { agent: 'reviewer', task: 'Review the auth diff for regressions' }

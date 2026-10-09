@@ -450,6 +450,8 @@ export interface FleetSnapshot {
   runs: FleetNode[]
   /** Runs the extension left out to stay within its byte budget. */
   omittedRuns: number
+  incomplete: boolean
+  /** Active roots, including roots whose descendants are still active. Not a child count. */
   active: number
 }
 
@@ -468,11 +470,23 @@ export function isFleetActive(state: FleetState): boolean {
   return state === 'running' || state === 'queued'
 }
 
-function fleetNode(entry: unknown, depth: number): FleetNode | undefined {
+function fleetNode(
+  entry: unknown,
+  depth: number,
+  budget: { remaining: number; incomplete: boolean },
+): FleetNode | undefined {
+  if (budget.remaining-- <= 0) {
+    budget.incomplete = true
+    return undefined
+  }
   const node = rec(entry)
   const id = str(node?.id)
   const state = str(node?.state) as FleetState | undefined
-  if (!id || !state || !FLEET_STATES.has(state)) return undefined
+  if (!id || !state || !FLEET_STATES.has(state)) {
+    budget.incomplete = true
+    return undefined
+  }
+  if (depth === 4 && list(node?.children).length) budget.incomplete = true
   const activity = rec(node?.activity)
   return {
     id,
@@ -491,7 +505,7 @@ function fleetNode(entry: unknown, depth: number): FleetNode | undefined {
     children:
       depth < 4
         ? list(node?.children)
-            .map((child) => fleetNode(child, depth + 1))
+            .map((child) => fleetNode(child, depth + 1, budget))
             .filter((child): child is FleetNode => !!child)
         : [],
   }
@@ -504,7 +518,7 @@ function fleetNode(entry: unknown, depth: number): FleetNode | undefined {
  */
 export function parseFleetWidget(lines: string[] | undefined): FleetSnapshot | null {
   const line = lines?.[0]
-  if (!line?.startsWith(ASYNC_WIDGET_PREFIX)) return null
+  if (!line?.startsWith(ASYNC_WIDGET_PREFIX) || line.length > 128_000) return null
   let raw: unknown
   try {
     raw = JSON.parse(line.slice(ASYNC_WIDGET_PREFIX.length))
@@ -513,22 +527,38 @@ export function parseFleetWidget(lines: string[] | undefined): FleetSnapshot | n
   }
   const snapshot = rec(raw)
   if (!snapshot || snapshot.kind !== ASYNC_SNAPSHOT_KIND || snapshot.version !== 1) return null
+  const budget = { remaining: 200, incomplete: false }
   const runs = list(snapshot.runs)
-    .map((run) => fleetNode(run, 0))
+    .map((run) => fleetNode(run, 0, budget))
     .filter((run): run is FleetNode => !!run)
   return {
     generatedAt: num(snapshot.generatedAt) ?? 0,
     runs,
     omittedRuns: num(rec(snapshot.omitted)?.runs) ?? 0,
-    active: runs.filter((run) => isFleetActive(run.state)).length,
+    incomplete:
+      budget.incomplete ||
+      (num(rec(snapshot.omitted)?.runs) ?? 0) > 0 ||
+      (num(rec(snapshot.omitted)?.children) ?? 0) > 0 ||
+      rec(snapshot.omitted)?.byteLimitExceeded === true,
+    active: runs.filter(fleetNodeActive).length,
   }
+}
+
+function fleetNodeActive(node: FleetNode): boolean {
+  return isFleetActive(node.state) || node.children.some(fleetNodeActive)
+}
+
+/** Omitted nodes prevent a live snapshot from proving delegated work is settled. */
+export function hasDelegatedWork(lines: string[] | undefined): boolean {
+  const snapshot = parseFleetWidget(lines)
+  return !!snapshot && (snapshot.active > 0 || snapshot.incomplete)
 }
 
 /** The tool a running node is on: its own, else the first running child's. */
 export function fleetCurrentTool(node: FleetNode): string | undefined {
   if (node.currentTool) return node.currentTool
   for (const child of node.children) {
-    if (!isFleetActive(child.state)) continue
+    if (!fleetNodeActive(child)) continue
     const tool = fleetCurrentTool(child)
     if (tool) return tool
   }
@@ -537,10 +567,10 @@ export function fleetCurrentTool(node: FleetNode): string | undefined {
 
 /** "1 background agent running · scout · grep" — one line for the strip. */
 export function summarizeFleet(snapshot: FleetSnapshot): string {
-  const total = snapshot.runs.length + snapshot.omittedRuns
-  if (snapshot.active === 0) return `${plural(total, 'background run')} done`
-  const label = `${plural(snapshot.active, 'background agent')} running`
-  const newest = snapshot.runs.filter((run) => isFleetActive(run.state)).at(-1)
+  if (snapshot.active === 0)
+    return snapshot.incomplete ? 'Background snapshot incomplete' : 'No background runs active'
+  const label = `${plural(snapshot.active, 'background run')} active`
+  const newest = snapshot.runs.filter(fleetNodeActive).at(-1)
   if (!newest) return label
   const tool = fleetCurrentTool(newest)
   return [label, newest.label, tool].filter(Boolean).join(' · ')

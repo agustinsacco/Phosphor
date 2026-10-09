@@ -6,6 +6,7 @@ import { useExtensionUiStore } from '@/stores/extensionUi'
 import { errorText } from '@shared/errors'
 import { parseFleetWidget, SUBAGENT_ASYNC_WIDGET_KEY, type FleetNode } from './subagentRuns'
 import { inspectSubagent, type SubagentInspection } from './subagentInspect'
+import { SubagentJournal } from './SubagentJournal'
 
 export function SubagentPanel({
   sessionId,
@@ -16,6 +17,7 @@ export function SubagentPanel({
 }): React.JSX.Element {
   const lines = useExtensionUiStore((s) => s.widgets[sessionId]?.[SUBAGENT_ASYNC_WIDGET_KEY]?.lines)
   const fleet = parseFleetWidget(lines)
+  const [view, setView] = useState<'live' | 'history'>('live')
   const [target, setTarget] = useState<{ runId: string; childId?: string }>()
   const [inspection, setInspection] = useState<SubagentInspection>()
   const [error, setError] = useState<string>()
@@ -23,7 +25,7 @@ export function SubagentPanel({
   useEffect(() => {
     setInspection(undefined)
     setError(undefined)
-    if (!target) return
+    if (!target || view !== 'live') return
     const controller = new AbortController()
     void inspectSubagent(sessionId, target.runId, target.childId, controller.signal)
       .then((result) => {
@@ -33,7 +35,7 @@ export function SubagentPanel({
         if (!controller.signal.aborted) setError(errorText(err))
       })
     return () => controller.abort()
-  }, [sessionId, target, refresh])
+  }, [sessionId, target, refresh, view])
 
   const node = (entry: FleetNode, root: string, depth = 0): React.JSX.Element => (
     <li key={entry.id}>
@@ -70,7 +72,22 @@ export function SubagentPanel({
           subtitle="This lane · read-only inspection · Pi owns execution"
           footer={<Button onClick={onClose}>Close</Button>}
         >
-          <div className="grid max-h-[70vh] min-h-48 overflow-auto md:grid-cols-[16rem_minmax(0,1fr)]">
+          <div className="border-border flex gap-2 border-b px-4 py-2" aria-label="Subagent views">
+            <Button size="sm" aria-pressed={view === 'live'} onClick={() => setView('live')}>
+              Live work
+            </Button>
+            <Button size="sm" aria-pressed={view === 'history'} onClick={() => setView('history')}>
+              Recorded coordination
+            </Button>
+          </div>
+          {view === 'history' && <SubagentJournal sessionId={sessionId} />}
+          <div
+            className={
+              view === 'live'
+                ? 'grid max-h-[70vh] min-h-48 overflow-auto md:grid-cols-[16rem_minmax(0,1fr)]'
+                : 'hidden'
+            }
+          >
             <div className="border-border border-b p-3 md:border-r md:border-b-0">
               <h3 className="text-text-secondary mb-2 font-mono text-xs uppercase tracking-wider">
                 Background runs

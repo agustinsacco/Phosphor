@@ -268,7 +268,7 @@ every reader defensive, a payload it cannot read leaving the generic row).
 - **A detached run has no child here.** The tool returns at once; the run's
   tree then rides the `subagent-async` widget (one line of
   `PI_SUBAGENT_ASYNC_JSON:`, pi-subagents' documented host protocol), which the
-  status strip's sub-agent chip summarizes (`1 background agent running ·
+  status strip's sub-agent chip summarizes (`1 background run active ·
 scout · grep`) and which is **never printed as widget lines**
   (`STRUCTURED_WIDGET_KEYS` in `ExtensionUiHosts.tsx`, alongside the
   `subagent-inspect` reply key the protocol says a host must not render). The
@@ -297,6 +297,14 @@ scout · grep`) and which is **never printed as widget lines**
 - **Completion requires evidence.** A settled tool without a child exit code or
   reported state shows "last known", not success. Current `workflow: true`,
   path and resource calls coexist with older `workflowScript` transcripts.
+
+The Subagents panel's **Recorded coordination** view reads Pi's `get_entries`
+only on opening or Refresh. It follows `leafId` and `parentId`, excludes
+abandoned branches, and includes pre-compaction questions and plain
+`subagent_supervisor_reply` entries. It shows at most 200 records and reports
+omissions. Plain state remains outside model context; Phosphor writes no
+journal and never appends to a live session file. Older extensions can lack
+reply records. The view describes evidence at read time, not current liveness.
 
 Not here yet: stop and steer buttons and the parent-plus-child cost report.
 Inspection is on demand, never a polling transcript service.

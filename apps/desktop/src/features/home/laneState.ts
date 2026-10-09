@@ -66,6 +66,8 @@ export interface LaneInput {
   /** This lane's live session id, when it has one. */
   phosphorId?: string
   isStreaming: boolean
+  /** Current-session async roots/descendants, or an explicitly incomplete snapshot. */
+  hasDelegatedWork?: boolean
   /** The live session is holding a question the user has not answered. */
   hasPendingQuestion: boolean
 }
@@ -111,8 +113,13 @@ export function classifyLane(input: LaneInput): BoardLane | null {
   if (input.hasPendingQuestion) {
     return { ...base, state: 'blocked', detail: 'asked you a question', action: 'answer' }
   }
-  if (input.isStreaming) {
-    return { ...base, state: 'running', detail: 'working now', action: 'open' }
+  if (input.isStreaming || input.hasDelegatedWork) {
+    return {
+      ...base,
+      state: 'running',
+      detail: input.isStreaming ? 'working now' : 'delegated work in progress',
+      action: 'open',
+    }
   }
 
   if (pr && (pr.state === 'OPEN' || pr.state === 'DRAFT')) {

@@ -6,6 +6,7 @@ import { useChatStore } from '@/stores/chat'
 import { useExtensionUiStore } from '@/stores/extensionUi'
 import { usePullRequestsStore, pullRequestFor } from '@/stores/pullRequests'
 import { useWorktreesStore, repoWorktrees } from '@/stores/worktrees'
+import { hasDelegatedWork, SUBAGENT_ASYNC_WIDGET_KEY } from '@/features/chat/subagentRuns'
 import { MergeWorktreeModal } from '@/features/worktrees/MergeWorktreeModal'
 import {
   LANE_STATES,
@@ -41,6 +42,7 @@ export function useLaneBoard(workspacePath: string): LaneBoardData {
   const live = useSessionsStore((s) => s.live)
   const chatSessions = useChatStore((s) => s.sessions)
   const dialogs = useExtensionUiStore((s) => s.dialogs)
+  const widgets = useExtensionUiStore((s) => s.widgets)
   const prByRepo = usePullRequestsStore((s) => s.byRepo)
 
   /** This project is its main checkout plus every worktree folded into it. */
@@ -82,10 +84,13 @@ export function useLaneBoard(workspacePath: string): LaneBoardData {
         ...(pr ? { pr } : {}),
         isStreaming: phosphorId ? (chatSessions[phosphorId]?.isStreaming ?? false) : false,
         hasPendingQuestion: phosphorId ? asking.has(phosphorId) : false,
+        hasDelegatedWork: phosphorId
+          ? hasDelegatedWork(widgets[phosphorId]?.[SUBAGENT_ASYNC_WIDGET_KEY]?.lines)
+          : false,
       }
     })
     return buildLaneBoard(inputs)
-  }, [lanes, gitByCwd, live, chatSessions, dialogs, prByRepo, projectRoot])
+  }, [lanes, gitByCwd, live, chatSessions, dialogs, widgets, prByRepo, projectRoot])
 
   const metaByPath = useMemo(() => new Map(lanes.map((m) => [m.path, m])), [lanes])
   return { board, metaByPath, projectRoot, lanes }

@@ -3672,7 +3672,7 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
 
     // The background run is a chip, not a JSON blob above the composer.
     const chip = page.getByTestId('subagent-chip')
-    await expect(chip).toContainText('1 background agent running · scout · grep')
+    await expect(chip).toContainText('1 background run active · scout · grep')
     expect(await page.evaluate(() => document.body.innerText)).not.toContain(
       'PI_SUBAGENT_ASYNC_JSON',
     )
@@ -3710,6 +3710,12 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
     await expect(page.getByTestId('subagent-notice-body')).toContainText('login.ts')
     await expect(page.getByText('Scout reports: the auth flow enters at login.ts.')).toBeVisible()
     await expect(chip).toHaveText('Subagents')
+    await chip.click()
+    await inspector.getByRole('button', { name: 'Recorded coordination' }).click()
+    await expect(inspector).toContainText('worker asked the parent for guidance')
+    await expect(inspector).toContainText('Parent replied to worker')
+    await expect(inspector).toContainText('Use the shared parser.')
+    await inspector.getByRole('button', { name: 'Close', exact: true }).click()
   } finally {
     await shutdown(harness)
   }

@@ -3,8 +3,11 @@ import {
   classifyScreen,
   expiredBudget,
   isNewCredential,
+  LOGIN_TERMINAL_ARGS,
   parseAuthPrompt,
+  screenTail,
   screenText,
+  SIGN_IN_ARGS,
   timeoutMessage,
 } from './login-flow'
 
@@ -279,5 +282,40 @@ describe('isNewCredential', () => {
   it('is never true for a provider that is not ready', () => {
     expect(isNewCredential(ready('old'), { status: 'not_ready' })).toBe(false)
     expect(isNewCredential({ status: 'not_ready' }, { status: 'unknown' })).toBe(false)
+  })
+})
+
+describe('sign-in pi flags', () => {
+  // A startup dialog sits in front of `/login` and eats it. pi 0.87.1 in the
+  // home folder, with a `.mcp.json` there, opened this one first:
+  //   Allow project MCP server "snowflake"?  → Don't allow / Allow
+  // and the flow failed at the step timeout. These flags are what keep it out.
+  it('ignores project-local files in both sign-in paths', () => {
+    expect(SIGN_IN_ARGS).toContain('--no-approve')
+    expect(LOGIN_TERMINAL_ARGS).toContain('--no-approve')
+  })
+
+  it('keeps user extensions out of the off-screen sign-in only', () => {
+    expect(SIGN_IN_ARGS).toContain('--no-extensions')
+    expect(LOGIN_TERMINAL_ARGS).not.toContain('--no-extensions')
+  })
+
+  it('never creates a session in either path', () => {
+    expect(SIGN_IN_ARGS).toContain('--no-session')
+    expect(LOGIN_TERMINAL_ARGS).toContain('--no-session')
+  })
+
+  it('reads the trust dialog as a screen it does not know', () => {
+    const dialog =
+      ' Allow project MCP server “snowflake”?\n Project config: /Users/me/.mcp.json\n' +
+      " → Don't allow\n   Allow\n ↑↓ navigate  enter select  escape/ctrl+c cancel"
+    expect(classifyScreen(dialog)).toBe('unknown')
+  })
+})
+
+describe('screenTail', () => {
+  it('keeps the last non-blank lines, without trailing padding', () => {
+    const screen = ['one', '', 'two   ', '   ', 'three', 'four'].join('\n')
+    expect(screenTail(screen, 3)).toBe('two\nthree\nfour')
   })
 })

@@ -1,9 +1,8 @@
-import { homedir } from 'node:os'
 import { BrowserWindow, shell } from 'electron'
 import type { LoginFlowState } from '@shared/models'
 import { handle } from './handle'
 import { checkSubscriptionAuth } from '../pi/auth-status'
-import { cancelLogin, startLogin } from '../pi/login-flow'
+import { LOGIN_TERMINAL_ARGS, cancelLogin, signInCwd, startLogin } from '../pi/login-flow'
 import { checkPiHealth, invalidatePiHealth, piArgs } from '../pi/health'
 import { invalidateCatalogueModels, invalidatePiCommands } from './pi-config-handlers'
 import { piProcessEnv } from '../pi/shell-env'
@@ -71,12 +70,14 @@ export function registerPiAuthHandlers(): void {
     /*
      * `--no-session` keeps this throwaway pi out of the session list — the
      * user is signing in, not starting a conversation, and a stray session
-     * would show up in the sidebar. Home as cwd because sign-in has nothing
-     * to do with any workspace, and pi refuses nothing there.
+     * would show up in the sidebar. An empty folder plus `--no-approve`,
+     * not home, because pi reads its cwd as a project: a `.mcp.json` in home
+     * puts a project-server trust question in front of `/login`. See
+     * `signInCwd` and `SIGN_IN_ARGS`.
      */
-    return ptyManager.create(homedir(), cols, rows, undefined, {
+    return ptyManager.create(signInCwd(), cols, rows, undefined, {
       file: health.binaryPath,
-      args: piArgs(health, ['--no-session']),
+      args: piArgs(health, LOGIN_TERMINAL_ARGS),
       env: await piProcessEnv(),
     })
   })

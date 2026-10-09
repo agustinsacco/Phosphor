@@ -306,10 +306,18 @@ omissions. Plain state remains outside model context; Phosphor writes no
 journal and never appends to a live session file. Older extensions can lack
 reply records. The view describes evidence at read time, not current liveness.
 
-Not here yet: stop and steer buttons and the parent-plus-child cost report.
-Inspection is on demand, never a polling transcript service.
-Stop, steer, inspect and cost exist in pi-subagents without a model turn (an
-extension command and an in-process RPC), which is the path for them.
+**Stop run** is available on a root inspection when the session advertises the
+extension's Stop command. It asks for confirmation, rechecks that the exact
+root is still active in this session, and calls `/subagents-stop <full-id>`.
+Pi checks ownership again. The UI reports only that Stop was requested; native
+`subagent-slash-result` receipts, including hidden final receipts, remain in
+the conversation and recorded coordination. No optimistic stopped state or
+process-exit proof is invented. Stop does not remove partial file changes.
+
+Not here yet: steer/reply buttons, profile discovery/editing, the
+parent-plus-child cost report and descendant-aware lane deletion. Those need
+additional capability/ownership integration. Inspection remains on demand,
+never a polling transcript service.
 
 ## Rich content (first-class citizens)
 

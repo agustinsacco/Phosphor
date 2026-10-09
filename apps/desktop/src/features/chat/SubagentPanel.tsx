@@ -7,6 +7,7 @@ import { errorText } from '@shared/errors'
 import { parseFleetWidget, SUBAGENT_ASYNC_WIDGET_KEY, type FleetNode } from './subagentRuns'
 import { inspectSubagent, type SubagentInspection } from './subagentInspect'
 import { SubagentJournal } from './SubagentJournal'
+import { SubagentStop } from './SubagentStopControl'
 
 export function SubagentPanel({
   sessionId,
@@ -40,11 +41,13 @@ export function SubagentPanel({
   const node = (entry: FleetNode, root: string, depth = 0): React.JSX.Element => (
     <li key={entry.id}>
       <button
-        className="hover:bg-bg-secondary text-text flex w-full flex-wrap items-center gap-x-2 rounded-md px-2 py-2 text-left text-base"
+        className="hover:bg-bg-secondary aria-pressed:bg-bg-secondary text-text flex w-full flex-wrap items-center gap-x-2 rounded-md px-2 py-2 text-left text-base"
         aria-pressed={target?.runId === root && target.childId === (depth ? entry.id : undefined)}
         onClick={() => setTarget({ runId: root, ...(depth ? { childId: entry.id } : {}) })}
       >
-        <span className="font-medium">{entry.label}</span>
+        <span className="min-w-0 truncate font-medium" title={entry.label}>
+          {entry.label}
+        </span>
         <span className="text-text-secondary font-mono text-sm">{entry.state}</span>
         {entry.attention && (
           <span className="text-text-secondary text-sm">needs parent attention</span>
@@ -156,6 +159,13 @@ export function SubagentPanel({
                         <p className="text-text-secondary mt-3">
                           Bounded preview: some content was omitted.
                         </p>
+                      )}
+                      {!target.childId && (
+                        <SubagentStop
+                          key={target.runId}
+                          sessionId={sessionId}
+                          runId={target.runId}
+                        />
                       )}
                       {!inspection.messages.length && !inspection.finalOutput && (
                         <p className="text-text-secondary">No output in this preview.</p>

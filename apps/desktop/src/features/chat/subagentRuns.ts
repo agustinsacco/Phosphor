@@ -35,6 +35,7 @@ export const SUBAGENT_CONTROL_NOTICE_TYPE = 'subagent_control_notice'
 export const SUBAGENT_STEERING_NOTICE_TYPE = 'subagent_steering_notice'
 export const SUBAGENT_SUPERVISOR_REQUEST_TYPE = 'subagent_supervisor_request'
 export const SUBAGENT_SUPERVISOR_REPLY_TYPE = 'subagent_supervisor_reply'
+export const SUBAGENT_SLASH_RESULT_TYPE = 'subagent-slash-result'
 
 const ASYNC_WIDGET_PREFIX = 'PI_SUBAGENT_ASYNC_JSON:'
 const ASYNC_SNAPSHOT_KIND = 'pi-subagents.async-status-snapshot'
@@ -54,7 +55,8 @@ export function isSubagentNotice(customType: string | undefined): boolean {
     customType === SUBAGENT_CONTROL_NOTICE_TYPE ||
     customType === SUBAGENT_STEERING_NOTICE_TYPE ||
     customType === SUBAGENT_SUPERVISOR_REQUEST_TYPE ||
-    customType === SUBAGENT_SUPERVISOR_REPLY_TYPE
+    customType === SUBAGENT_SUPERVISOR_REPLY_TYPE ||
+    customType === SUBAGENT_SLASH_RESULT_TYPE
   )
 }
 

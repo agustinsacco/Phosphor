@@ -23,7 +23,10 @@ beforeEach(() => {
   window.phosphor = { piCommand }
   piCommand.mockImplementation(async (_id, command) => {
     if (command.type === 'get_commands')
-      return { success: true, data: { commands: [{ name: 'subagents-inspect-rpc' }] } }
+      return {
+        success: true,
+        data: { commands: [{ name: 'subagents-inspect-rpc', source: 'extension' }] },
+      }
     const requestId = command.message.split(' ')[1]
     publish('lane-a', {
       kind: 'pi-subagents.inspect-reply',
@@ -72,7 +75,10 @@ describe('read-only subagent inspection', () => {
     vi.useFakeTimers()
     piCommand.mockImplementation(async (_id, command) => {
       if (command.type === 'get_commands')
-        return { success: true, data: { commands: [{ name: 'subagents-inspect-rpc' }] } }
+        return {
+          success: true,
+          data: { commands: [{ name: 'subagents-inspect-rpc', source: 'extension' }] },
+        }
       const reply = {
         kind: 'pi-subagents.inspect-reply',
         version: 1,
@@ -94,7 +100,7 @@ describe('read-only subagent inspection', () => {
     vi.useFakeTimers()
     piCommand.mockResolvedValue({
       success: true,
-      data: { commands: [{ name: 'subagents-inspect-rpc' }] },
+      data: { commands: [{ name: 'subagents-inspect-rpc', source: 'extension' }] },
     })
     const abort = controller()
     const result = expect(request(abort.signal)).rejects.toThrow('cancelled')

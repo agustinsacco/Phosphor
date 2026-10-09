@@ -1,3 +1,4 @@
+import { requireSubagentCommand } from './subagentCommands'
 import { useExtensionUiStore } from '@/stores/extensionUi'
 import { SUBAGENT_INSPECT_WIDGET_KEY } from './subagentRuns'
 
@@ -23,14 +24,8 @@ export async function inspectSubagent(
 ): Promise<SubagentInspection> {
   if (!token(runId) || (childId !== undefined && !token(childId)))
     throw new Error('Unsupported run identity.')
-  const commands = await window.phosphor.piCommand(sessionId, { type: 'get_commands' })
+  await requireSubagentCommand(sessionId, 'subagents-inspect-rpc')
   if (signal.aborted) throw new Error('Inspection cancelled.')
-  if (
-    !commands.success ||
-    !commands.data?.commands.some((c) => c.name === 'subagents-inspect-rpc')
-  ) {
-    throw new Error('This session does not support read-only subagent inspection.')
-  }
   const requestId = crypto.randomUUID()
   return new Promise((resolve, reject) => {
     const finish = (error?: Error, result?: SubagentInspection): void => {

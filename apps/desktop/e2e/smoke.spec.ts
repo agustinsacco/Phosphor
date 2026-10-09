@@ -3650,6 +3650,57 @@ test('a Claude fan-out is one row per sub-agent, with the ones that died named',
   }
 })
 
+test('Subagents settings follow package availability and fit both themes', async () => {
+  const soloAgentDir = privateAgentDir()
+  const harness = await launch({ agentDir: soloAgentDir })
+  const { page } = harness
+  try {
+    await openWorkspace(page)
+    await page.keyboard.press('ControlOrMeta+Comma')
+    await expect(page.getByRole('button', { name: 'Subagents', exact: true })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Close settings' }).click()
+    const dir = join(soloAgentDir, 'npm', 'node_modules', 'pi-subagents')
+    await mkdir(dir, { recursive: true })
+    await writeFile(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: 'pi-subagents', version: '0.76.1' }),
+    )
+    await writeFile(
+      join(soloAgentDir, 'settings.json'),
+      JSON.stringify({ packages: ['npm:pi-subagents'] }),
+    )
+    await page.keyboard.press('ControlOrMeta+Comma')
+    await page.getByRole('button', { name: 'Subagents', exact: true }).click()
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
+    await expect(settings).toContainText('Pi owns execution')
+    await expect(settings.getByRole('button', { name: 'Edit global settings…' })).toBeVisible()
+    await harness.app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(760, 850),
+    )
+    for (const theme of ['dark', 'light']) {
+      await page.evaluate(
+        (value) => document.documentElement.classList.toggle('dark', value === 'dark'),
+        theme,
+      )
+      await expect(settings.getByRole('button', { name: 'Subagents', exact: true })).toHaveCSS(
+        'color',
+        theme === 'dark' ? 'rgb(236, 231, 219)' : 'rgb(38, 38, 42)',
+      )
+      expect(await settings.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+        true,
+      )
+      await page.screenshot({ path: test.info().outputPath(`subagents-settings-${theme}.png`) })
+    }
+    await page.getByRole('button', { name: 'Close settings' }).click()
+    await writeFile(join(soloAgentDir, 'settings.json'), JSON.stringify({ packages: [] }))
+    await page.keyboard.press('ControlOrMeta+Comma')
+    await expect(page.getByRole('button', { name: 'Subagents', exact: true })).toHaveCount(0)
+    await expect(settings.getByRole('heading', { name: 'Extensions', exact: true })).toBeVisible()
+  } finally {
+    await shutdown(harness)
+  }
+})
+
 test('a native delegation is an agent row with live progress, a fleet chip and a completion card', async () => {
   const harness = await launch()
   const { page } = harness
@@ -3680,10 +3731,15 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
     await chip.click()
     const inspector = page.getByRole('dialog', { name: 'Subagents', exact: true })
     await expect(inspector).toBeVisible()
+    await inspector.getByRole('button', { name: 'scout running', exact: true }).click()
+    await inspector.getByRole('button', { name: 'Stop run…' }).click()
+    await expect(inspector).toContainText('stopped runs cannot resume')
+    await inspector.getByRole('button', { name: 'Cancel', exact: true }).click()
     await inspector.getByRole('button', { name: 'scout running grep' }).click()
     await expect(inspector).toContainText('Inspection: following login.ts to verify.ts.')
     await expect(inspector).toContainText('Bounded preview')
     expect(await inspector.innerText()).not.toContain('PI_SUBAGENT_INSPECT_JSON')
+    await page.screenshot({ path: test.info().outputPath('subagents-inspector.png') })
     await inspector.getByRole('button', { name: 'Close', exact: true }).click()
 
     // Settled: one row per call, in pi's vocabulary, with what it cost.
@@ -3715,6 +3771,7 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
     await expect(inspector).toContainText('worker asked the parent for guidance')
     await expect(inspector).toContainText('Parent replied to worker')
     await expect(inspector).toContainText('Use the shared parser.')
+    await page.screenshot({ path: test.info().outputPath('subagents-coordination.png') })
     await inspector.getByRole('button', { name: 'Close', exact: true }).click()
   } finally {
     await shutdown(harness)

@@ -26,31 +26,37 @@ export function usesClaudeCliProvider(
 }
 
 /**
- * Refuse visibly rather than start Claude on an older provider. Before 0.9.0
- * the CLI loads its own context beside pi's, and on pi 0.86+ it misses pi's
- * prompt entirely, so the session would run without pi's instructions or skills.
- * Before 0.10.0 the thinking level the picker shows is not what the model gets.
+ * What keeps Claude sessions off these packages, or null when nothing does.
+ * Before 0.9.0 the CLI loads its own context beside pi's, and on pi 0.86+ it
+ * misses pi's prompt entirely, so the session would run without pi's
+ * instructions or skills. Before 0.10.0 the thinking level the picker shows
+ * is not what the model gets.
  */
-export function assertClaudeContextProvider(
+export function claudeContextProviderShortfall(
   packages: Pick<PiPackageEntry, 'name' | 'version' | 'installed'>[],
-): void {
+): string | null {
   const providers = packages.filter((pkg) => pkg.name === '@saccolabs/pi-claude-cli')
   const unusable = providers.filter(
     (pkg) => !pkg.installed || !meetsMinimum(pkg.version, MIN_CLAUDE_CONTEXT_VERSION),
   )
-  if (providers.length > 0 && unusable.length === 0) return
+  if (providers.length > 0 && unusable.length === 0) return null
   // Name what is there, so "I already updated it" has an answer: a stale
   // project-scope copy fails the check even beside a current global one.
-  const found =
-    providers.length === 0
-      ? 'it is not installed'
-      : unusable
-          .map((pkg) =>
-            pkg.installed
-              ? `found ${pkg.version ?? 'no version'}`
-              : 'it is listed but not installed',
-          )
-          .join('; ')
+  return providers.length === 0
+    ? 'it is not installed'
+    : unusable
+        .map((pkg) =>
+          pkg.installed ? `found ${pkg.version ?? 'no version'}` : 'it is listed but not installed',
+        )
+        .join('; ')
+}
+
+/** Refuse visibly rather than start Claude on an older provider. */
+export function assertClaudeContextProvider(
+  packages: Pick<PiPackageEntry, 'name' | 'version' | 'installed'>[],
+): void {
+  const found = claudeContextProviderShortfall(packages)
+  if (found === null) return
   throw new Error(
     `Claude sessions need @saccolabs/pi-claude-cli ${MIN_CLAUDE_CONTEXT_VERSION} or newer (${found}). ` +
       'Update it in Settings → Extensions, then reopen the session.',

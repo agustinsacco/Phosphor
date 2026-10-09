@@ -157,10 +157,19 @@ whole-text patterns, so a parser gap costs a prompt, never a pass.
 It asks for `sudo`/`su`/`doas`, `shred`, `truncate`, `git push --force`
 (`-f`, `+ref`), `git reset --hard`, `systemctl`/`service` changes, and:
 
-- `rm -r` unless every target is a literal path under `/tmp`, `/private/tmp`,
-  `/var/folders` or `~/.pi/agent/scratch`, or a build-output directory such as
-  `node_modules`, `dist` or `test-results`. `/tmp/*`, `..` and variable targets
-  like `"$t"` still ask.
+- In a linked git worktree (a lane), `rm -r` runs unasked only when **every
+  target resolves to a descendant of that worktree**. Relative and absolute
+  literal paths work, including missing descendants; existing ancestors are
+  resolved to catch symlink escapes. The lane root, home, parents, other
+  checkouts, globs and variable targets like `"$t"` still ask. A shell cwd change
+  makes relative targets unknown, except an absolute `cd` to the original cwd.
+  Scripts containing `ln`/`mv` (including child shells), `eval`/`source`, remote
+  commands, traps and `find -exec` get no lane exemption. Other findings in the
+  same script still ask, even alongside a lane-local delete.
+- Outside a linked worktree, the existing `rm -r` exemptions remain: literal
+  paths under `/tmp`, `/private/tmp`, `/var/folders` or `~/.pi/agent/scratch`,
+  and relative build-output directories such as `node_modules`, `dist` or
+  `test-results`. `/tmp/*`, `..` and variable targets still ask.
 - `kill` only for `-1`, `0` or a negative pid (every process, or a group).
 - `pkill` unless it is `pkill -f` with a specific pattern (a path, file name,
   flag or port). `killall` always asks.
@@ -186,9 +195,9 @@ python3 ~/.pi/agent/bin/pi-scratch.py clean "$t"
 
 The helper validates the resolved argument at execution time, rejects root/job
 symlinks, traversal and shared roots, and does not follow links inside a job.
-It never cleans arbitrary `/tmp` directories. Recursive deletion of anything
-else still prompts; mentioning the helper or `mktemp` does not exempt another
-command.
+It never cleans arbitrary `/tmp` directories. Recursive deletion outside the
+lane and the applicable exemptions still prompts; mentioning the helper or
+`mktemp` does not exempt another command.
 
 **Settings → Agent → Directives → Your own text** can teach new sessions:
 "Create temporary work with `python3 ~/.pi/agent/bin/pi-scratch.py create`;
@@ -198,7 +207,9 @@ Global directives can be overridden by project directives. The gate's rules
 are edited in its installed TypeScript file, not in the Directives field.
 
 These are accident guards, not a sandbox or a policy for SDK calls, other
-tools, aliases, or substituted executables. Phosphor only renders approval
+tools, aliases, or substituted executables. Path checks happen before execution,
+not atomically with deletion; arbitrary programs and concurrent filesystem
+changes can defeat them. Phosphor only renders approval
 requests. The optional gate and helper are not installed by app updates.
 
 ## Foreign config files

@@ -12,7 +12,71 @@
  * Nothing is refused outright: every finding is a question for the user.
  * AWS authorization belongs to this machine's credentials and IAM policy, and
  * no command (scratch cleanup included) exempts the rest of a shell script.
+ * A linked-worktree session may recursively delete literal descendants of its
+ * lane without asking. Root/outside paths and unresolved shell targets ask.
  */
+
+import { execFileSync } from 'node:child_process'
+import { lstatSync, realpathSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
+
+interface LaneScope {
+  root: string
+  /** Unknown after a shell cwd change; absolute targets can still be checked. */
+  cwd?: string
+}
+
+/** Detect a linked worktree, never grant the main checkout or a home/root cwd. */
+function laneScope(cwd?: string): LaneScope | undefined {
+  if (!cwd) return undefined
+  try {
+    const [top, gitDir, common] = execFileSync(
+      'git',
+      ['rev-parse', '--show-toplevel', '--absolute-git-dir', '--git-common-dir'],
+      { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 1000 },
+    )
+      .trim()
+      .split('\n')
+    if (!top || !gitDir || !common || resolve(cwd, common) === resolve(gitDir)) return
+    const root = realpathSync(top)
+    const current = realpathSync(cwd)
+    if (root === dirname(root) || root === realpathSync(homedir())) return
+    if (current !== root && !current.startsWith(root + sep)) return
+    return { root, cwd: current }
+  } catch {
+    return undefined
+  }
+}
+
+/** Resolve the existing ancestor too, so missing files do not hide symlink escapes. */
+function canonicalTarget(path: string): string | undefined {
+  let ancestor = path
+  while (true) {
+    try {
+      lstatSync(ancestor)
+      return resolve(realpathSync(ancestor), relative(ancestor, path))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return
+      // A dangling symlink exists but has no realpath. Do not walk past it.
+      try {
+        lstatSync(ancestor)
+        return undefined
+      } catch {
+        if (ancestor === dirname(ancestor)) return
+        ancestor = dirname(ancestor)
+      }
+    }
+  }
+}
+
+function inLane({ text, dynamic }: Word, scope: LaneScope): boolean {
+  if (dynamic || /[*?[\]{}~]/.test(text) || text.split('/').includes('..')) return false
+  if (!text || (!isAbsolute(text) && !scope.cwd)) return false
+  const target = canonicalTarget(resolve(scope.cwd ?? scope.root, text))
+  // The lane root itself still asks. Only its descendants are unasked.
+  return !!target && target.startsWith(scope.root + sep)
+}
 
 interface Word {
   /** The word after quote removal. Expansions are kept as written. */
@@ -383,7 +447,7 @@ function disposable(word: Word): boolean {
   return BUILD_OUTPUT.has(text.replace(/\/+$/, '').split('/').pop() ?? '')
 }
 
-function recursiveDelete(args: Word[], viaXargs: boolean): boolean {
+function recursiveDelete(args: Word[], viaXargs: boolean, scope?: LaneScope | null): boolean {
   let recursive = false
   let options = true
   const targets: Word[] = []
@@ -393,7 +457,13 @@ function recursiveDelete(args: Word[], viaXargs: boolean): boolean {
       recursive ||= arg.text === '--recursive' || /^-[a-zA-Z]*[rR]/.test(arg.text)
     else targets.push(arg)
   }
-  return recursive && (viaXargs || !targets.every(disposable))
+  return (
+    recursive &&
+    (viaXargs ||
+      !targets.every((word) =>
+        scope === undefined ? disposable(word) : !!scope && inLane(word, scope),
+      ))
+  )
 }
 
 function gitFindings(args: Word[]): string[] {
@@ -432,12 +502,13 @@ function broadKill(name: string, args: Word[]): boolean {
   return !(full && patterns.length > 0 && patterns.every(specific))
 }
 
-function judge(words: Word[], depth: number): string[] {
+function judge(words: Word[], depth: number, scope?: LaneScope | null): string[] {
   const command = unwrap(words)
   if (!command) return []
   const { name, args, viaXargs } = command
   const operands = args.filter((a) => !a.text.startsWith('-'))
-  const nested = (script: string): string[] => analyze(script, depth + 1)
+  const nested = (script: string, inherit = true): string[] =>
+    analyze(script, depth + 1, inherit ? scope : null)
   switch (name) {
     case 'sudo':
     case 'doas':
@@ -446,7 +517,7 @@ function judge(words: Word[], depth: number): string[] {
     case 'truncate':
       return [name]
     case 'rm':
-      return recursiveDelete(args, viaXargs) ? ['rm -r'] : []
+      return recursiveDelete(args, viaXargs, scope) ? ['rm -r'] : []
     case 'git':
       return gitFindings(args)
     case 'kill':
@@ -465,9 +536,9 @@ function judge(words: Word[], depth: number): string[] {
     case 'eval':
       return nested(args.map((a) => a.text).join(' '))
     case 'trap':
-      return operands[0] ? nested(operands[0].text) : []
+      return operands[0] ? nested(operands[0].text, false) : []
     case 'ssh':
-      return nested(sshCommand(args))
+      return nested(sshCommand(args), false)
     case 'find': {
       const out: string[] = []
       for (let k = 0; k < args.length; k++) {
@@ -478,6 +549,7 @@ function judge(words: Word[], depth: number): string[] {
           ...judge(
             inner.map((a) => (a.text === '{}' ? { ...a, dynamic: true } : a)),
             depth,
+            null,
           ),
         )
         k = end < 0 ? args.length : end
@@ -492,12 +564,58 @@ function judge(words: Word[], depth: number): string[] {
   }
 }
 
-function analyze(script: string, depth: number): string[] {
+/** Known path mutations in child shells can invalidate the parent's path check. */
+function mayReshapePaths(parsed: Parsed, depth: number): boolean {
+  const nested = (script: string): boolean => {
+    try {
+      return mayReshapePaths(lex(script, 0, false, depth + 1), depth + 1)
+    } catch {
+      return true
+    }
+  }
+  return (
+    parsed.scripts.some(nested) ||
+    parsed.commands.some((words) => {
+      const command = unwrap(words)
+      if (!command) return false
+      if (['ln', 'mv', 'eval', 'source', '.'].includes(command.name)) return true
+      if (!SHELLS.has(command.name)) return false
+      const flag = command.args.findIndex((a) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a.text))
+      return flag >= 0 && !!command.args[flag + 1] && nested(command.args[flag + 1]!.text)
+    })
+  )
+}
+
+function analyze(script: string, depth: number, scope?: LaneScope | null): string[] {
   try {
     const parsed = lex(script, 0, false, depth)
+    // The lexer flattens subshells/branches. Never guess their resulting cwd.
+    // An absolute `cd` back to the original cwd is harmless and very common.
+    // Do not authorize against pre-command paths if this script rearranges them.
+    if (scope && mayReshapePaths(parsed, depth)) scope = null
+    if (
+      scope &&
+      parsed.commands.some((words) => {
+        const command = unwrap(words)
+        if (command?.name === 'cd') {
+          const args = command.args.filter((a) => a.text !== '--')
+          return (
+            args.length !== 1 ||
+            args[0]!.dynamic ||
+            !isAbsolute(args[0]!.text) ||
+            args[0]!.text !== scope?.cwd
+          )
+        }
+        return (
+          ['pushd', 'popd'].includes(command?.name ?? '') ||
+          words.some((a) => /^(-C|--chdir(?:=|$))/.test(a.text))
+        )
+      })
+    )
+      scope = { ...scope, cwd: undefined }
     return [
-      ...parsed.commands.flatMap((words) => judge(words, depth)),
-      ...parsed.scripts.flatMap((source) => analyze(source, depth + 1)),
+      ...parsed.commands.flatMap((words) => judge(words, depth, scope)),
+      ...parsed.scripts.flatMap((source) => analyze(source, depth + 1, scope)),
     ]
   } catch {
     return RAW_PATTERNS.filter(([, pattern]) => pattern.test(script)).map(([label]) => label)
@@ -505,16 +623,17 @@ function analyze(script: string, depth: number): string[] {
 }
 
 /** Why a command needs approval, as short labels. Empty means it runs unasked. */
-export function permissionFindings(command: string): string[] {
-  return [...new Set(analyze(command, 0))]
+export function permissionFindings(command: string, cwd?: string): string[] {
+  return [...new Set(analyze(command, 0, laneScope(cwd)))]
 }
 
-export function permissionDecision(command: string): 'allow' | 'ask' {
-  return permissionFindings(command).length > 0 ? 'ask' : 'allow'
+export function permissionDecision(command: string, cwd?: string): 'allow' | 'ask' {
+  return permissionFindings(command, cwd).length > 0 ? 'ask' : 'allow'
 }
 
 // Structural types keep this standalone file independent of pi's package name.
 interface GateContext {
+  cwd?: string
   hasUI: boolean
   ui: { select(title: string, options: string[]): Promise<string | undefined> }
 }
@@ -533,7 +652,7 @@ export default function permissionGate(pi: GateApi): void {
     if (event.toolName !== 'bash') return
     const command = event.input.command
     if (typeof command !== 'string') return { block: true, reason: 'Invalid bash command' }
-    const findings = permissionFindings(command)
+    const findings = permissionFindings(command, ctx.cwd)
     if (findings.length === 0) return
     // Short on purpose: Phosphor's approval sheet reads this heading line.
     const label = findings.length > 1 ? `${findings[0]} +${findings.length - 1}` : findings[0]

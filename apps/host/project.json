@@ -1,0 +1,32 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "host",
+  "root": "apps/host",
+  "sourceRoot": "apps/host/src",
+  "projectType": "application",
+  "tags": ["scope:host"],
+  "implicitDependencies": ["runtime", "shared", "pi-extensions"],
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["default", "^default", "rootInstall"],
+      "options": {
+        "command": "tsc --noEmit -p apps/host/tsconfig.json",
+        "cwd": "."
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": ["default", "^default", "rootUnitRunner"],
+      "options": {
+        "command": "vitest run apps/host",
+        "cwd": ".",
+        "env": {
+          "VITEST_MAX_WORKERS": "2"
+        }
+      }
+    }
+  }
+}

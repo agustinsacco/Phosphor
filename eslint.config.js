@@ -46,6 +46,29 @@ export default tseslint.config(
     },
   },
   {
+    // The Host runs under plain Node: no Electron, no native Desktop modules,
+    // and the libraries only through their package subpaths. boundary.test.ts
+    // also checks that each subpath is exported.
+    files: ['apps/host/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: ['electron', 'electron-store', 'electron-updater', 'node-pty'].map((name) => ({
+            name,
+            message: 'The Host runs under plain Node, without Electron or Desktop modules.',
+          })),
+          patterns: [
+            {
+              group: ['@/*', '@shared/*'],
+              message: 'Import libraries as @phosphor/shared/* or @phosphor/session-runtime/*.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Maintainer scripts run under plain Node (no tsconfig project).
     files: [
       'tools/scripts/**/*.mjs',

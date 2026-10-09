@@ -1,7 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseCommandApproval } from '@phosphor/shared/command-approval'
 import permissionGate, { permissionDecision, permissionFindings } from './permission-gate'
@@ -102,6 +110,130 @@ describe('AWS authorization is left to the machine', () => {
     'truncate -s 0 /tmp/test',
   ])('preserves other approvals: %s', (command) => {
     expect(permissionDecision(`${listing}; ${command}`)).toBe('ask')
+  })
+})
+
+describe.skipIf(process.platform === 'win32')('lane-local recursive deletion', () => {
+  let dir: string
+  let main: string
+  let lane: string
+  beforeAll(() => {
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'permission-lane-')))
+    main = join(dir, 'main')
+    lane = join(dir, 'lane')
+    mkdirSync(main)
+    execFileSync('git', ['init', '-q', main])
+    execFileSync('git', [
+      '-C',
+      main,
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@example.com',
+      '-c',
+      'commit.gpgsign=false',
+      'commit',
+      '-qm',
+      'initial',
+      '--allow-empty',
+    ])
+    execFileSync('git', ['-C', main, 'worktree', 'add', '-qb', 'lane', lane])
+    mkdirSync(join(lane, 'src'))
+    symlinkSync(main, join(lane, 'escape'))
+    symlinkSync(join(lane, 'src'), join(lane, 'internal'))
+    symlinkSync(join(dir, 'missing'), join(lane, 'dangling'))
+  })
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('allows literal lane descendants, including missing paths and internal links', () => {
+    for (const command of [
+      'rm -rf src',
+      'rm -r -- ./src',
+      'rm -rf src missing/deep',
+      'rm --recursive src',
+      'rm -rf internal/new',
+      `rm -rf '${lane}/src'`,
+      `cd '${lane}' && rm -rf src`,
+      `cd /; rm -rf '${lane}/src'`,
+      "bash -c 'rm -rf src'",
+      "bash <<'EOF'\nrm -rf src\nEOF",
+      'echo $(rm -rf src)',
+    ])
+      expect(permissionFindings(command, lane), command).toEqual([])
+  })
+
+  it('asks for the root, parents, home, other checkouts, symlinks and unknown targets', () => {
+    for (const command of [
+      'rm -rf .',
+      `rm -rf '${lane}'`,
+      'rm -rf ..',
+      'rm -rf ../lane/src',
+      'rm -rf /',
+      'rm -rf ~',
+      'rm -rf "$HOME"',
+      `rm -rf '${homedir()}'`,
+      `rm -rf '${main}/src'`,
+      `rm -rf '${lane}-other/src'`,
+      'rm -rf src /important',
+      'rm -rf escape',
+      'rm -rf escape/src',
+      'rm -rf dangling/new',
+      'rm -rf src/../../main',
+      'rm -rf "$target"',
+      'rm -rf src/*',
+      'rm -rf {src,/important}',
+      'cd /; rm -rf src',
+      'cd /; rm -rf node_modules',
+      'cd .. && rm -rf src',
+      '(cd /); rm -rf src',
+      'pushd /; rm -rf src',
+      'env -C / rm -rf src',
+      'env --chdir=/ rm -rf src',
+      "eval 'cd /'; rm -rf src",
+      'source setup.sh; rm -rf src',
+      '. setup.sh; rm -rf src',
+      'ln -s ~ link; rm -rf link/Documents',
+      'mv escape new; rm -rf new/src',
+      "bash -c 'ln -s ~ link'; rm -rf link/Documents",
+      "bash <<'EOF'\nln -s ~ link\nEOF\nrm -rf link/Documents",
+      `eval 'ln -s ~ link'; rm -rf '${lane}/link/Documents'`,
+      `ssh host "rm -rf '${lane}/src'"`,
+      "trap 'rm -rf src' EXIT",
+      'find . -exec rm -rf {} +',
+      'echo src | xargs rm -rf',
+      'rm -rf src; echo "unterminated',
+    ])
+      expect(permissionFindings(command, lane), command).toContain('rm -r')
+  })
+
+  it('does not exempt other dangerous commands in the same script', () => {
+    expect(permissionFindings('rm -rf src; sudo true', lane)).toEqual(['sudo'])
+    expect(permissionFindings('rm -rf src; git push -f', lane)).toEqual(['git push --force'])
+  })
+
+  it('does not grant a main checkout, non-repo or missing cwd the lane exemption', () => {
+    for (const cwd of [main, dir, join(dir, 'missing'), undefined])
+      expect(permissionDecision('rm -rf src', cwd)).toBe('ask')
+  })
+
+  it('uses the actual tool context and blocks outside deletes without a UI', async () => {
+    const on = vi.fn<Parameters<typeof permissionGate>[0]['on']>()
+    permissionGate({ on })
+    const select = vi.fn().mockResolvedValue('No')
+    const ctx = { cwd: lane, hasUI: false, ui: { select } }
+    const handler = on.mock.calls[0]![1]
+    expect(
+      await handler({ toolName: 'bash', input: { command: 'rm -rf src' } }, ctx),
+    ).toBeUndefined()
+    expect(await handler({ toolName: 'bash', input: { command: 'rm -rf ~' } }, ctx)).toMatchObject({
+      block: true,
+    })
+    expect(select).not.toHaveBeenCalled()
+    ctx.hasUI = true
+    expect(await handler({ toolName: 'bash', input: { command: 'rm -rf ~' } }, ctx)).toMatchObject({
+      block: true,
+    })
+    expect(select).toHaveBeenCalledOnce()
   })
 })
 

@@ -4,14 +4,22 @@
   "root": "tools/scripts",
   "projectType": "library",
   "tags": ["scope:tooling"],
-  "implicitDependencies": ["desktop", "runtime", "shared", "pi-extensions", "site", "schema"],
+  "implicitDependencies": [
+    "desktop",
+    "host",
+    "runtime",
+    "shared",
+    "pi-extensions",
+    "site",
+    "schema"
+  ],
   "targets": {
     "typecheck": {
       "executor": "nx:run-commands",
       "cache": false,
       "inputs": ["workspace"],
       "options": {
-        "command": "tsc --noEmit -p apps/desktop/tsconfig.node.json && tsc --noEmit -p apps/desktop/tsconfig.web.json",
+        "command": "tsc --noEmit -p apps/desktop/tsconfig.node.json && tsc --noEmit -p apps/desktop/tsconfig.web.json && tsc --noEmit -p apps/host/tsconfig.json",
         "cwd": "."
       },
       "outputs": []

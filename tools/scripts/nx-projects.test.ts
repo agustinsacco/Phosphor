@@ -9,6 +9,7 @@ const root = resolve(import.meta.dirname, '../..')
 const readJson = (path: string) => JSON.parse(readFileSync(join(root, path), 'utf8'))
 const projects = {
   desktop: 'apps/desktop',
+  host: 'apps/host',
   runtime: 'libs/session-runtime',
   shared: 'libs/shared',
   'pi-extensions': 'libs/pi-extensions',
@@ -18,6 +19,7 @@ const projects = {
 }
 const commands = {
   desktop: { build: 'npm run build', 'test:e2e': 'npm run test:e2e' },
+  host: { typecheck: 'tsc --noEmit -p apps/host/tsconfig.json', test: 'vitest run apps/host' },
   runtime: { test: 'vitest run libs/session-runtime' },
   shared: { test: 'vitest run libs/shared' },
   'pi-extensions': { test: 'vitest run libs/pi-extensions' },
@@ -41,7 +43,7 @@ const commands = {
   },
   tooling: {
     typecheck:
-      'tsc --noEmit -p apps/desktop/tsconfig.node.json && tsc --noEmit -p apps/desktop/tsconfig.web.json',
+      'tsc --noEmit -p apps/desktop/tsconfig.node.json && tsc --noEmit -p apps/desktop/tsconfig.web.json && tsc --noEmit -p apps/host/tsconfig.json',
     lint: 'eslint .',
     test: 'vitest run',
     validate: './tools/scripts/validate.sh',
@@ -51,18 +53,21 @@ const commands = {
 }
 // These edges include non-import resources and test-only consumers, not just
 // production imports. No library depends on Desktop, and targets never recurse.
+// The Host depends on the libraries and copies pi-ext/, exactly as Desktop does,
+// and nothing depends on it except the whole-workspace checks.
 // Nothing depends on `tooling` (the whole-workspace checks) and the site depends
 // on nothing: its image is built from apps/site alone, and its screenshots are
 // captured by hand and committed. Otherwise every change affects every app and
 // per-app releases/deploys are impossible.
 const dependencies = {
   desktop: ['runtime', 'shared', 'pi-extensions'],
+  host: ['runtime', 'shared', 'pi-extensions'],
   runtime: ['shared', 'pi-extensions'],
   shared: [],
   'pi-extensions': ['shared'],
   site: [],
   schema: [],
-  tooling: ['desktop', 'runtime', 'shared', 'pi-extensions', 'site', 'schema'],
+  tooling: ['desktop', 'host', 'runtime', 'shared', 'pi-extensions', 'site', 'schema'],
 }
 // Workspace-wide checks read everything. Everything else reads its own root,
 // its dependencies, and the specific root files it actually consumes.
@@ -70,6 +75,10 @@ const inputs: Record<string, Record<string, string[]>> = {
   desktop: {
     build: ['default', '^default', 'rootInstall', 'release'],
     'test:e2e': ['default', '^default', 'rootInstall', 'release', 'e2eHarness'],
+  },
+  host: {
+    typecheck: ['default', '^default', 'rootInstall'],
+    test: ['default', '^default', 'rootUnitRunner'],
   },
   runtime: { '*': ['default', '^default', 'rootUnitRunner'] },
   shared: { '*': ['default', '^default', 'rootUnitRunner'] },
@@ -136,7 +145,7 @@ describe('explicit Nx project contract', () => {
     expect(parsed).toEqual({ project: { name: 'runtime' } })
     expect(toml.parse(toml.stringify(parsed))).toEqual(parsed)
   })
-  it('retains exactly seven current-path projects and all import/resource/test edges', () => {
+  it('retains exactly eight current-path projects and all import/resource/test edges', () => {
     expect(Object.keys(graph.nodes).sort()).toEqual(Object.keys(projects).sort())
     for (const [name, path] of Object.entries(projects)) {
       expect(graph.nodes[name].data.root).toBe(path)
@@ -282,6 +291,7 @@ describe('explicit Nx project contract', () => {
     const vitest = readFileSync(join(root, 'vitest.config.ts'), 'utf8')
     for (const path of [
       'apps/desktop/electron',
+      'apps/host/src',
       'libs/session-runtime/src',
       'libs/shared/src',
       'libs/pi-extensions/pi-ext',

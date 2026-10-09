@@ -32,7 +32,14 @@ it.each([
       },
     })
     expect(result.status).toBe(failBuild ? 1 : 0)
-    const expected = ['run typecheck', 'run lint', 'prettier --check .', 'test', 'run build']
+    const expected = [
+      'run typecheck',
+      'run typecheck:host',
+      'run lint',
+      'prettier --check .',
+      'test',
+      'run build',
+    ]
     if (skip !== '1') expected.push('run test:e2e -- --reporter=dot')
     expect(readFileSync(calls, 'utf8').trim().split('\n')).toEqual(expected)
     expect(result.stderr).toContain(failBuild ? 'FAILED: build' : 'all green')

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 
 export const ALL_PROJECTS = [
   'desktop',
+  'host',
   'pi-extensions',
   'runtime',
   'schema',

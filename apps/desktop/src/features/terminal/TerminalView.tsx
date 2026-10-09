@@ -47,6 +47,7 @@ export const TerminalView = memo(function TerminalView({
   const searchInputRef = useRef<HTMLInputElement>(null)
   const pendingPaste = useTerminalStore((s) => s.pendingPaste)
   const [ready, setReady] = useState(false)
+  const [stagedCommand, setStagedCommand] = useState<string | null>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -207,10 +208,18 @@ export const TerminalView = memo(function TerminalView({
     if (visible && ready && pendingPaste?.ptyId === ptyId && termRef.current) {
       const paste = useTerminalStore.getState().consumePaste(ptyId)
       if (paste) {
-        termRef.current.paste(paste.text)
+        const term = termRef.current
+        // Old Readline (including macOS system Bash) executes pasted newlines.
+        // Keep multiline input in an editor until the user explicitly runs it.
+        if (!paste.execute && /[\r\n]/.test(paste.text) && !term.modes.bracketedPasteMode) {
+          setStagedCommand(paste.text)
+          return
+        }
+        setStagedCommand(null)
+        term.paste(paste.text)
         // Enter is a keypress, not part of the bracketed paste payload.
-        if (paste.execute) termRef.current.input('\r', true)
-        termRef.current.focus()
+        if (paste.execute) term.input('\r', true)
+        term.focus()
       }
     }
   }, [pendingPaste, visible, ready, ptyId])
@@ -253,6 +262,15 @@ export const TerminalView = memo(function TerminalView({
     else searchRef.current?.findPrevious(searchQuery)
   }
 
+  const runStagedCommand = (): void => {
+    const term = termRef.current
+    if (!term || stagedCommand === null) return
+    term.paste(stagedCommand.replace(/[\r\n]+$/, ''))
+    term.input('\r', true)
+    setStagedCommand(null)
+    term.focus()
+  }
+
   return (
     <div className={visible ? 'relative h-full min-h-0 w-full' : 'hidden'}>
       {searchOpen && (
@@ -292,6 +310,35 @@ export const TerminalView = memo(function TerminalView({
           >
             ✕
           </button>
+        </div>
+      )}
+      {stagedCommand !== null && (
+        <div className="border-border bg-surface-raised absolute inset-x-2 bottom-2 z-10 rounded-lg border p-2 shadow-md">
+          <p className="text-text-secondary mb-1 text-sm">
+            This shell cannot safely paste multiple lines. Review, then Enter to run.
+          </p>
+          <textarea
+            aria-label="Staged terminal command"
+            autoFocus
+            rows={3}
+            value={stagedCommand}
+            onChange={(event) => setStagedCommand(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                runStagedCommand()
+              }
+            }}
+            className="border-border bg-code-bg text-text w-full rounded border p-2 font-mono text-sm outline-none"
+          />
+          <div className="mt-1 flex justify-end gap-2">
+            <button onClick={() => setStagedCommand(null)} className="text-text-secondary text-sm">
+              Cancel
+            </button>
+            <button onClick={runStagedCommand} className="text-accent text-sm">
+              Run command
+            </button>
+          </div>
         </div>
       )}
       <div

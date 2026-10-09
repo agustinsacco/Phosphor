@@ -42,7 +42,12 @@ without leaving the session, and so a shell always sits in the right checkout.
   command pasted. First-open and chat actions share the same pending spawn.
   A paste targets that PTY only and waits for xterm to parse the shell output,
   including bracketed-paste mode; it cannot land in another session or login
-  terminal. Trailing fence newlines are removed. Whether Enter goes with it depends on
+  terminal. Trailing fence newlines are removed. If the shell has not enabled
+  bracketed paste (including macOS system Bash), multiline commands stay in a
+  focused editor inside the terminal pane. Enter or Run command executes the
+  reviewed text; Shift+Enter adds a line, and Cancel discards it without sending
+  anything to the shell. Single-line commands still paste at the prompt.
+  Whether Enter goes with it depends on
   who wrote it: a chat code block pastes **without** executing (shell
   languages only; the model wrote it, so you review it), while a remediation
   Phosphor itself proposes runs on click (`RunCommandRow.tsx`; the play button

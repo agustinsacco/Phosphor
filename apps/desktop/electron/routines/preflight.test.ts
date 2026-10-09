@@ -6,7 +6,7 @@ import { folderTaskObstacle } from './preflight'
 
 const h = vi.hoisted(() => ({ list: vi.fn(), gitInfo: vi.fn() }))
 vi.mock('../registry', () => ({ registry: { list: h.list } }))
-vi.mock('../fs/git-info', () => ({ gitInfo: h.gitInfo }))
+vi.mock('@phosphor/session-runtime/git/git-info', () => ({ gitInfo: h.gitInfo }))
 
 let directory: string
 beforeEach(() => {

@@ -354,10 +354,12 @@ commands and require explicit lifecycle cleanup. Neither is invoked by the
 normal root validator unless its existing opt-in applies.
 
 Project edges include source dependencies, extension resources, screenshot
-assets, fixtures and workspace-wide tooling consumers. They are not a
-production-boundary DAG: the optional permission-gate test imports a Desktop
-renderer helper, and tooling checks consume all projects while Desktop uses
-tooling scripts. These real back-edges are retained. Targets have no recursive
+assets, fixtures and workspace-wide tooling consumers, not just production
+imports: the extensions project depends on shared because the optional
+permission-gate test imports the shared command-approval parser, and tooling
+checks consume all projects while Desktop uses tooling scripts. No library
+depends on Desktop, so a Desktop-only change selects only `desktop` and
+`tooling`. Targets have no recursive
 `^test`/`^build` task dependencies, so their executable task graphs remain
 acyclic. `tools/scripts/nx-projects.test.ts` checks the effective graph and targets,
 including missing-edge/target fixtures. App-relative `out/`, packaging metadata and resource destinations are unchanged.
@@ -443,7 +445,8 @@ apps/desktop/electron/            main process — owns every side effect
   headroom/          Headroom proxy supervisor (adopt/spawn/kill) + install job
   optimization/      the Advisor rules engine (pure functions, advice only)
   pty/               node-pty manager + spawn-helper repair
-  fs/                file service, git layer (git-exec/info/sync/worktrees),
+  fs/                file service, git service/sync/worktrees (over the
+                     runtime library's git/),
                      workspace watcher, workspace search (worker thread)
   artifacts/         the `phosphor-artifact://` protocol — model HTML on its
                      own origin, so it runs JS without weakening the app CSP;
@@ -455,8 +458,11 @@ apps/desktop/electron/            main process — owns every side effect
 libs/session-runtime/src/  Electron-free source modules, not a separate service
   pi/                pi RPC transport, strict LF JSONL framing, activity tracking,
                      session ownership, startup/policy preparation, command/resume
-                     admission and deletion coordination with machine-local ports
+                     admission and deletion coordination with machine-local ports;
+                     the reads behind those ports (pi settings, packages, versions,
+                     forwarded env names)
   file-log.ts        injected file logging
+  git/               the one git runner, repository/worktree info and its cache
   bundled-extensions.ts  bundled extension paths
 supabase/            isolated control-directory migrations and local RLS tests
 libs/shared/src/     types and pure logic shared by main + renderer

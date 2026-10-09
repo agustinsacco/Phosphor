@@ -1,5 +1,5 @@
 import { handle } from './handle'
-import { gitDisplayInfo, gitInfoBatch } from '../fs/git-info'
+import { gitDisplayInfo, gitInfoBatch } from '@phosphor/session-runtime/git/git-info'
 import { ghAvailable, ghPrForBranch, ghPrsForRepo } from '../fs/gh-cli'
 import { createSessionBaseline, gitStatusMap, restoreFileTo, showFileAt } from '../fs/git-service'
 import {

@@ -12,7 +12,7 @@ import type {
   McpWriteScope,
 } from '@shared/mcp'
 import { piAgentDir } from './pi-paths'
-import { readJsonFile } from './json-config'
+import { readJsonFile } from '@phosphor/session-runtime/pi/json-config'
 
 /**
  * Configuration management for pi-mcp-adapter 3.x (see shared/mcp.ts

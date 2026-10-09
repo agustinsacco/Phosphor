@@ -1,6 +1,10 @@
 import type { CheckoutResult, FetchResult, PullResult, UpdateFromMainResult } from '@shared/models'
 import { errorText } from '@shared/errors'
-import { abortMergeAndCollectConflicts, dirtyCount, git } from './git-exec'
+import {
+  abortMergeAndCollectConflicts,
+  dirtyCount,
+  git,
+} from '@phosphor/session-runtime/git/git-exec'
 import { parseWorktreeList } from './git-worktrees'
 
 /**

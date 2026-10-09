@@ -11,7 +11,7 @@ import {
   claudeProviderSpawnEnv,
   usesClaudeCliProvider,
 } from '../pi/provider-detect'
-import { readAgentSettings } from '../pi/agent-settings'
+import { readAgentSettings } from '@phosphor/session-runtime/pi/agent-settings'
 import { getLanePrefs } from '../store'
 import { MIN_PI_VERSION, type CreateSessionOptions, type PiHealth } from '@shared/models'
 import type { ExtensionUIResponse, RpcCommand } from '@shared/rpc'

@@ -37,8 +37,8 @@ mutation**; Phosphor reads state and streams the CLI's output.
   free. Project scope adds `-l` and runs with `cwd = workspace`.
 - **Reads are file-based** and spawn nothing, so the tab renders instantly and
   works with no pi binary present.
-- Renderer sends scope enums and spec strings; every path is resolved in
-  `apps/desktop/electron/pi/packages.ts`.
+- Renderer sends scope enums and spec strings; every path is resolved in the
+  main process (`libs/session-runtime/src/pi/packages.ts`).
 - Packages execute arbitrary code in pi's process. The tab says so. The
   catalogue is limited to specs whose source we have read, but every entry is a
   bare spec, so installing one takes whatever `latest` is. The review is of a
@@ -107,8 +107,9 @@ arrives is an ordinary `extension_ui_request` whose title is **prose the
 extension wrote, with the whole command inside it**. Rendered generically, a
 60-line heredoc becomes a dialog _title_.
 
-`apps/desktop/src/features/extension-ui/commandApproval.ts` claims those dialogs and
-`CommandApprovalSheet.tsx` renders them as a review surface. Two pure steps:
+`libs/shared/src/command-approval.ts` claims those dialogs and
+`apps/desktop/src/features/extension-ui/CommandApprovalSheet.tsx` renders them
+as a review surface. Two pure steps:
 
 - **`parseCommandApproval`** recognises the shape (a heading naming a
   command, the command, a trailing `Allow?` / `Proceed?`, and for a `select`
@@ -213,8 +214,9 @@ package's own resolution rather than guessing:
 
 ## Code map
 
-- Main: `apps/desktop/electron/pi/packages.ts` (spec classification, install-dir
-  resolution, resource discovery, job runner, `claudeStatus`).
+- Main: `libs/session-runtime/src/pi/packages.ts` and `package-resources.ts`
+  (spec classification, install-dir resolution, resource discovery);
+  `apps/desktop/electron/pi/packages.ts` (job runner, `claudeStatus`).
 - IPC: `packages:list / run / installPi / checkUpdates / detect /
 claudeStatus / claudeCliLatest / updateClaudeCli / testClaudeProvider`
   (`apps/desktop/electron/ipc/packages-handlers.ts`); `pi:webSearchConfig /

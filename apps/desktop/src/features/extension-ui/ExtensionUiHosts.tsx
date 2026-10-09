@@ -24,7 +24,7 @@ import {
 } from '@/features/chat/subagentRuns'
 import { useSettingsUiStore } from '@/features/settings/settingsUiStore'
 import { CommandApprovalSheet } from './CommandApprovalSheet'
-import { parseCommandApproval } from './commandApproval'
+import { parseCommandApproval } from '@shared/command-approval'
 
 /**
  * Extension-authored text styled with ANSI SGR codes, rendered as colored

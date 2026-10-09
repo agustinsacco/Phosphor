@@ -28,6 +28,10 @@
       "types": "./src/claude-paths.ts",
       "default": "./src/claude-paths.ts"
     },
+    "./command-approval": {
+      "types": "./src/command-approval.ts",
+      "default": "./src/command-approval.ts"
+    },
     "./connectors": {
       "types": "./src/connectors.ts",
       "default": "./src/connectors.ts"

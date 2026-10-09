@@ -144,4 +144,4 @@ checkoutBranch` (`libs/shared/src/ipc.ts`, `apps/desktop/electron/ipc/git-handle
   group; the sidebar's first paint waits for the listing to settle.
 - Worktree detection for any cwd: `GitInfo.isWorktree/mainRepoPath` from
   `git rev-parse --absolute-git-dir --git-common-dir`
-  (`apps/desktop/electron/fs/git-info.ts`).
+  (`libs/session-runtime/src/git/git-info.ts`).

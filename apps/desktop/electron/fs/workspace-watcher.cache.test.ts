@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import chokidar from 'chokidar'
-import { gitInfoCache } from './git-info-cache'
+import { gitInfoCache } from '@phosphor/session-runtime/git/git-info-cache'
 import { unwatchAllWorkspaces, watchWorkspace } from './workspace-watcher'
 
 const send = vi.hoisted(() => vi.fn())

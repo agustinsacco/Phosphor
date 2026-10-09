@@ -6,12 +6,12 @@ import {
   checkPackageUpdates,
   claudeStatus,
   detectBinaries,
-  listPackages,
   runClaudeProviderTest,
   runClaudeUpdate,
   runPackageAction,
   runPiInstall,
 } from '../pi/packages'
+import { listPackages } from '@phosphor/session-runtime/pi/packages'
 
 /**
  * Same e2e hook and gating as pi-session-handlers: an env-var-provided

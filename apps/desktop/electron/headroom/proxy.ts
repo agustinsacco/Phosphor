@@ -4,7 +4,7 @@ import { app } from 'electron'
 import type { HeadroomStatus } from '@shared/models'
 import { getPrefs, setHeadroomPrefs } from '../store'
 import { resolveBinary } from '../pi/packages'
-import { extractVersion } from '../pi/health'
+import { extractVersion } from '@phosphor/session-runtime/pi/versions'
 import { piProcessEnv } from '../pi/shell-env'
 import { log } from '../debug-log'
 

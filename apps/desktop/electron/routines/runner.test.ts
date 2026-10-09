@@ -20,15 +20,15 @@ const h = vi.hoisted(() => ({
 vi.mock('../pi/session-runtime', () => ({ spawnSession: h.spawn }))
 vi.mock('../registry', () => ({ registry: { get: h.get, list: h.list, dispose: h.dispose } }))
 vi.mock('../fs/lane-workspace', () => ({ createLaneWorkspace: h.lane }))
-vi.mock('../fs/git-exec', () => ({ git: vi.fn(async () => 'abc123') }))
-vi.mock('../fs/git-info', () => ({ gitInfo: h.gitInfo }))
+vi.mock('@phosphor/session-runtime/git/git-exec', () => ({ git: vi.fn(async () => 'abc123') }))
+vi.mock('@phosphor/session-runtime/git/git-info', () => ({ gitInfo: h.gitInfo }))
 vi.mock('../claude/accounts', () => ({ bindSession: h.bind }))
 vi.mock('../pi/session-accounts', () => ({
   spawnAccountFor: () => 'account',
   forgetSpawnAccount: vi.fn(),
 }))
 vi.mock('../pi/provider-detect', () => ({ assertClaudeContextProvider: vi.fn() }))
-vi.mock('../pi/packages', () => ({ listPackages: vi.fn() }))
+vi.mock('@phosphor/session-runtime/pi/packages', () => ({ listPackages: vi.fn() }))
 vi.mock('../pi/stub', () => ({ piStubPath: () => '/stub' }))
 vi.mock('../broadcast', () => ({ broadcast: h.broadcast }))
 

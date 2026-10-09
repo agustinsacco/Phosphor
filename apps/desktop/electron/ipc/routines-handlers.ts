@@ -11,7 +11,7 @@ import { log } from '../debug-log'
 import { deleteLane } from '../pi/delete-lane'
 import { checkPiHealth } from '../pi/health'
 import { piStubPath } from '../pi/stub'
-import { gitInfo } from '../fs/git-info'
+import { gitInfo } from '@phosphor/session-runtime/git/git-info'
 
 function id(value: unknown): string {
   if (typeof value !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(value))

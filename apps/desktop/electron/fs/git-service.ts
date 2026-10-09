@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
-import { git } from './git-exec'
+import { git } from '@phosphor/session-runtime/git/git-exec'
 
 /** Per-file porcelain status for explorer dots: relativePath → XY code. */
 export async function gitStatusMap(workspacePath: string): Promise<Record<string, string>> {

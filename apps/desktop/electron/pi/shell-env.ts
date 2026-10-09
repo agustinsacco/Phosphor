@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { isForwardedEnvName } from '@phosphor/session-runtime/pi/forwarded-env'
 
 const execFileAsync = promisify(execFile)
 
@@ -21,50 +22,6 @@ let cachedPath: string | null = null
 let inFlight: Promise<string | null> | null = null
 let cachedShellEnv: Record<string, string> | null = null
 let envInFlight: Promise<Record<string, string>> | null = null
-
-/**
- * Env vars worth importing from the login shell, by prefix.
- *
- * A GUI launch inherits a minimal environment, so provider credentials the
- * user exported from their shell profile (`AWS_PROFILE`, `ANTHROPIC_API_KEY`,
- * ...) are simply absent. pi then fails to authenticate in a packaged build
- * while working fine under `npm run dev`, which inherits the terminal. This is
- * the same class of bug as the PATH problem above, and needs the same fix.
- *
- * An allowlist rather than a wholesale env import on purpose: copying every
- * shell variable would clobber Electron's own runtime vars and leak unrelated
- * shell state into the subprocess.
- */
-const FORWARDED_ENV_PREFIXES = [
-  'AWS_', // Bedrock: profile, region, keys, endpoint + cache overrides
-  'ANTHROPIC_',
-  'OPENAI_',
-  'AZURE_',
-  'GEMINI_',
-  'GOOGLE_',
-  'VERTEX_',
-  'CLOUDFLARE_',
-  'GROQ_',
-  'MISTRAL_',
-  'CEREBRAS_',
-  'XAI_',
-  'OPENROUTER_',
-  'BASETEN_',
-  'FIREWORKS_',
-  'QWEN_',
-  'PI_', // pi's own knobs, e.g. PI_CACHE_RETENTION
-]
-
-/** Exact names with no useful shared prefix. */
-const FORWARDED_ENV_NAMES = ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY']
-
-function isForwardedEnvName(name: string): boolean {
-  const upper = name.toUpperCase()
-  return (
-    FORWARDED_ENV_NAMES.includes(upper) ||
-    FORWARDED_ENV_PREFIXES.some((prefix) => upper.startsWith(prefix))
-  )
-}
 
 /** The user's login-shell PATH, or null when it can't be determined. */
 export async function getLoginShellPath(): Promise<string | null> {
@@ -105,6 +62,12 @@ async function resolveLoginShellPath(): Promise<string | null> {
 
 /**
  * Allowlisted provider/proxy vars exported by the user's login shell.
+ *
+ * Credentials need the same fix as PATH: a GUI launch inherits a minimal
+ * environment, so what the user exported from their shell profile
+ * (`AWS_PROFILE`, `ANTHROPIC_API_KEY`, ...) is simply absent, and pi fails to
+ * authenticate in a packaged build while working fine under `npm run dev`,
+ * which inherits the terminal. Only names `isForwardedEnvName` accepts come in.
  *
  * Returns an empty object on Windows (GUI processes inherit the user
  * environment there) and whenever the shell can't be probed.

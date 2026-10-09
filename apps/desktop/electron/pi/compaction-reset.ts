@@ -3,7 +3,7 @@ import { errorText } from '@shared/errors'
 import { log } from '../debug-log'
 import { isCompactionResetChecked, markCompactionResetChecked } from '../store'
 import { patchAgentSettings } from './agent-settings'
-import { readJsonFile } from './json-config'
+import { readJsonFile } from '@phosphor/session-runtime/pi/json-config'
 import { piAgentDir } from './pi-paths'
 
 /**

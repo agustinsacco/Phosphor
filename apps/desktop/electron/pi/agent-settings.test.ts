@@ -7,7 +7,6 @@ import {
   listCatalogueModels,
   patchAgentSettings,
   patchWebSearchConfig,
-  readAgentSettings,
   readAgentSettingsScoped,
   readWebSearchConfig,
 } from './agent-settings'
@@ -107,37 +106,6 @@ describe('pi agent settings', () => {
     expect(health.global.malformed).toBe(false)
     await patchAgentSettings('global', undefined, { theme: 'dark' })
     expect(JSON.parse(await readFile(settingsPath(), 'utf8'))).toEqual({ theme: 'dark' })
-  })
-
-  it('still degrades to empty settings for display when malformed', async () => {
-    await writeFile(settingsPath(), '{ broken')
-    await expect(readAgentSettings()).resolves.toEqual({})
-  })
-
-  it('merges project overrides one level deep, matching pi semantics', async () => {
-    const workspace = await mkdtemp(join(tmpdir(), 'phosphor-ws-'))
-    try {
-      await writeFile(
-        settingsPath(),
-        JSON.stringify({
-          theme: 'dark',
-          compaction: { enabled: true, reserveTokens: 16384 },
-        }),
-      )
-      const { mkdir } = await import('node:fs/promises')
-      await mkdir(join(workspace, '.pi'), { recursive: true })
-      await writeFile(
-        join(workspace, '.pi', 'settings.json'),
-        JSON.stringify({ compaction: { reserveTokens: 8192 } }),
-      )
-      // pi's documented example: the project override keeps compaction.enabled.
-      await expect(readAgentSettings(workspace)).resolves.toEqual({
-        theme: 'dark',
-        compaction: { enabled: true, reserveTokens: 8192 },
-      })
-    } finally {
-      await rm(workspace, { recursive: true, force: true })
-    }
   })
 
   it('web-search config lives under PI_CODING_AGENT_DIR when set, and patches merge', async () => {

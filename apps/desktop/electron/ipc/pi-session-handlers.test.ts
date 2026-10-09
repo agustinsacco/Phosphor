@@ -49,10 +49,10 @@ vi.mock('../pi/health', async (original) => ({
 }))
 vi.mock('../pi/stub', () => ({ piStubPath: () => undefined }))
 vi.mock('../pi/shell-env', () => ({ piProcessEnv: vi.fn().mockResolvedValue({ PATH: '/bin' }) }))
-vi.mock('../pi/packages', () => ({ listPackages: state.listPackages }))
+vi.mock('@phosphor/session-runtime/pi/packages', () => ({ listPackages: state.listPackages }))
 vi.mock('../pi/compaction-reset', () => ({ ensureCompactionReset: state.ensureCompactionReset }))
 vi.mock('../pi/print-mode', () => ({ runPrintMode: state.runPrintMode }))
-vi.mock('../pi/agent-settings', () => ({
+vi.mock('@phosphor/session-runtime/pi/agent-settings', () => ({
   readAgentSettings: vi.fn().mockResolvedValue({ defaultProvider: 'openai-codex' }),
 }))
 vi.mock('../claude/accounts', () => ({
@@ -62,7 +62,7 @@ vi.mock('../claude/accounts', () => ({
   primaryAccount: vi.fn(),
 }))
 vi.mock('../headroom/proxy', () => ({ headroomSupervisor: () => ({ sessionEnv: () => ({}) }) }))
-vi.mock('../fs/git-info', () => ({
+vi.mock('@phosphor/session-runtime/git/git-info', () => ({
   gitInfoBatch: vi.fn().mockResolvedValue({ '/repo': { isRepo: false } }),
 }))
 vi.mock('../store', () => ({

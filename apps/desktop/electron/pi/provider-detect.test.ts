@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   assertClaudeContextProvider,
+  claudeContextProviderShortfall,
   claudeOneShotEnv,
   claudeProviderSpawnEnv,
   usesClaudeCliProvider,
@@ -76,6 +77,14 @@ describe('Claude context provider version gate', () => {
   it('does not mistake another package for the provider', () => {
     expect(() => assertClaudeContextProvider([{ ...pkg('99.0.0'), name: 'other' }])).toThrow(
       '0.10.0 or newer (it is not installed)',
+    )
+  })
+  it('reports the shortfall without throwing, for callers that word their own refusal', () => {
+    expect(claudeContextProviderShortfall([pkg('0.10.0')])).toBeNull()
+    expect(claudeContextProviderShortfall([])).toBe('it is not installed')
+    expect(claudeContextProviderShortfall([pkg('0.10.0'), pkg('0.9.1')])).toBe('found 0.9.1')
+    expect(claudeContextProviderShortfall([pkg('0.7.1', false), pkg('0.8.0')])).toBe(
+      'it is listed but not installed; found 0.8.0',
     )
   })
   it('names the copy that failed, not the one that passed', () => {

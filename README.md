@@ -309,8 +309,8 @@ npm run dev
 | `npm run shots`      | Deterministic screenshots against the e2e pi stub (see below)  |
 | `npm run shots:live` | Re-shoot this README against a real pi instance (see below)    |
 
-Tests live beside their subject as `*.test.ts`, in `apps/desktop/electron/`, `libs/shared/src/` and
-`libs/pi-extensions/pi-ext/` included.
+Tests live beside their subject as `*.test.ts`, in `apps/desktop/electron/`, `apps/host/src/`,
+`libs/shared/src/` and `libs/pi-extensions/pi-ext/` included.
 
 ### Nx task orchestration
 
@@ -334,6 +334,7 @@ the same full unit suites without running them.
 | Project         | Current paths / ownership                                           |
 | --------------- | ------------------------------------------------------------------- |
 | `desktop`       | `apps/desktop/`, plus screenshot assets at `docs/img/`              |
+| `host`          | `apps/host/`, the plain-Node Host CLI ([host.md](docs/host.md))     |
 | `runtime`       | `libs/session-runtime/src/`, including plain-Node and fake-pi tests |
 | `shared`        | `libs/shared/`                                                      |
 | `pi-extensions` | `libs/pi-extensions/pi-ext/`, including optional extension tests    |
@@ -358,8 +359,8 @@ assets, fixtures and workspace-wide tooling consumers, not just production
 imports: the extensions project depends on shared because the optional
 permission-gate test imports the shared command-approval parser, and tooling
 checks consume all projects while Desktop uses tooling scripts. No library
-depends on Desktop, so a Desktop-only change selects only `desktop` and
-`tooling`. Targets have no recursive
+depends on an app, so a Desktop-only change selects only `desktop` and
+`tooling`, and a Host-only change only `host` and `tooling`. Targets have no recursive
 `^test`/`^build` task dependencies, so their executable task graphs remain
 acyclic. `tools/scripts/nx-projects.test.ts` checks the effective graph and targets,
 including missing-edge/target fixtures. App-relative `out/`, packaging metadata and resource destinations are unchanged.
@@ -381,7 +382,7 @@ require a semantic split or a repository-wide import rewrite.
 `@phosphor/session-runtime` exports the Electron-free modules from
 `libs/session-runtime/src`, with a standalone Node TypeScript configuration.
 Desktop main/preload and the plain-Node acceptance fixtures bundle these source
-exports. Tests and fake-pi fixtures remain adjacent but are not package exports.
+exports, and the Host imports them. Tests and fake-pi fixtures remain adjacent but are not package exports.
 Core Nx derives a static runtime-to-shared edge from the private package manifest;
 the explicit implicit edge remains too. Graph checks require both edge types,
 while comparing unique targets for reachability. No import-inference plugin is enabled.
@@ -487,6 +488,8 @@ libs/pi-extensions/pi-ext/  the six pi extensions that run inside pi's process,
                      bundled into every session: artifacts, context-breakdown,
                      headroom, mcp-status, tool-name-guard, worktree-paths
 apps/desktop/e2e/                 Playwright-Electron smoke tests + deterministic pi stub
+apps/host/src/       phosphor-host, the plain-Node Host: its config, pi's
+                     environment and the machine checks (docs/host.md)
 tools/scripts/             install.sh, icon + screenshot generation, release and
                      validate helpers
 docs/                living technical docs — one file per surface, each

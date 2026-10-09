@@ -18,11 +18,14 @@ and routine guards, interrupt bypass, crash resume, deletion and shutdown
 admission. `boundary.test.ts` rejects Electron/Desktop imports from every runtime
 entry. Neither test is real-provider or remote-host acceptance.
 
-The locks are process-local. There is no daemon entry point, durable Host ownership,
-authenticated network API, snapshot/replay protocol, command receipt store or
-controller lease implementation. A future Host must supply its own machine
-adapters and authorization; it must not expose arbitrary spawn environment or
-executable inputs over the network. No local daemon or login is required.
+The locks are process-local. The Host's entry point is `phosphor-host`
+([host.md](host.md)), a foreground CLI that checks a machine and starts no
+session. There is no durable Host ownership, authenticated network API,
+snapshot/replay protocol, command receipt store or controller lease
+implementation. A Host supplies its own machine adapters and authorization: it
+builds pi's environment from its own config and never accepts spawn
+environment or executable inputs from a caller. No local daemon or login is
+required.
 
 ## Control-directory schema
 

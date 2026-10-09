@@ -38,10 +38,15 @@ without leaving the session, and so a shell always sits in the right checkout.
   spawn error with a retry (`apps/desktop/electron/pty/spawn-helper.ts` handles node-pty's
   `spawn-helper` trap).
 - **"Run in terminal"** opens the pane, spawns a tab for the active session if
-  it has none, and pastes the command. Whether Enter goes with it depends on
+  it has none (or the active shell exited or is busy), and focuses it with the
+  command pasted. First-open and chat actions share the same pending spawn.
+  A paste targets that PTY only and waits for xterm to parse the shell output,
+  including bracketed-paste mode; it cannot land in another session or login
+  terminal. Trailing fence newlines are removed. Whether Enter goes with it depends on
   who wrote it: a chat code block pastes **without** executing (shell
   languages only; the model wrote it, so you review it), while a remediation
   Phosphor itself proposes runs on click (`RunCommandRow.tsx`; the play button
-  is the confirmation). If no shell exists and none can start, the paste is
+  is the confirmation). Enter is sent separately from bracketed paste. If no
+  shell exists and none can start, the paste is
   dropped, since the pane is already showing the spawn error.
 - Used by onboarding: "open a terminal running `pi` to log in".

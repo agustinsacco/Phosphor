@@ -609,6 +609,8 @@ function handle(cmd) {
             Array.from({ length: 12 }, (_, i) => `N${i}[Stage ${i}] --> N${i + 1}`).join('\n') +
             '\n```',
         )
+      } else if (message === 'terminal-command') {
+        runTextTurn('```bash\nprintf one >> command-ran.txt\nprintf two >> command-ran.txt\n```')
       } else if (message.includes('speclink')) runTextTurn()
       else if (message.includes('artifactlink')) runArtifactLinkTurn()
       else if (message.includes('longartifact')) runLongArtifactTurn()

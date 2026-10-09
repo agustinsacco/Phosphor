@@ -2039,6 +2039,37 @@ test('command palette opens with the keyboard shortcut', async () => {
   }
 })
 
+test('chat commands paste into a focused terminal and run only after Enter', async () => {
+  const h = await launch()
+  const { page } = h
+  try {
+    await openWorkspace(page)
+    await page.getByPlaceholder('Describe a task or ask a question').fill('terminal-command')
+    await page.getByRole('button', { name: /Start session/i }).click()
+    const paste = page.getByRole('button', { name: "Run in terminal (pastes, doesn't execute)" })
+    const result = join(h.workspace, 'command-ran.txt')
+    const toggle = process.platform === 'darwin' ? 'Meta+`' : 'Control+`'
+
+    // Cold spawn, already-open pane, and a reattached shell. Each click must
+    // focus xterm, paste exactly once, and leave even multiline input unrun.
+    for (let i = 0; i < 3; i++) {
+      if (i === 2) {
+        await page.keyboard.press(toggle)
+        await expect(page.locator('.xterm')).toHaveCount(0)
+      }
+      await paste.click()
+      await expect(page.locator('.xterm')).toHaveCount(1)
+      await expect(page.locator('.xterm-rows')).toContainText('printf two')
+      await expect(page.locator('.xterm-helper-textarea')).toBeFocused()
+      expect(await readFile(result, 'utf8').catch(() => '')).toBe('onetwo'.repeat(i))
+      await page.keyboard.press('Enter')
+      await expect.poll(() => readFile(result, 'utf8').catch(() => '')).toBe('onetwo'.repeat(i + 1))
+    }
+  } finally {
+    await shutdown(h)
+  }
+})
+
 test('terminal pane spawns a real shell, and reopening replays its scrollback', async () => {
   const harness = await launch()
   const { page } = harness

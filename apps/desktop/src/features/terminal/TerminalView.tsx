@@ -46,6 +46,7 @@ export const TerminalView = memo(function TerminalView({
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
   const pendingPaste = useTerminalStore((s) => s.pendingPaste)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     const container = containerRef.current
@@ -91,25 +92,30 @@ export const TerminalView = memo(function TerminalView({
      * reads as "the terminal is broken": no prompt, no history, and the shell
      * has no reason to redraw until you press a key.
      *
-     * So: buffer live chunks, ask main for its scrollback, then write the
-     * scrollback and DISCARD the buffer. Main appends to its scrollback before
-     * broadcasting, so anything buffered here during the round trip is already
-     * contained in the snapshot; dropping it is what makes this exact rather
+     * So: ignore live chunks until main replies with its scrollback, then
+     * write that snapshot. Main appends to its scrollback before broadcasting,
+     * so anything received during the round trip is already contained in the
+     * snapshot; ignoring it is what makes this exact rather
      * than "replay and hope". Chunks that arrive after the snapshot are sent
      * after main replied, and IPC delivery is ordered, so they land in
      * `live` mode and stream straight through.
      */
+    setReady(false)
     let replayed = false
-    let buffered: string[] = []
+    const writeOutput = (data: string): void => {
+      // xterm parses writes asynchronously. Paste only after the shell's output
+      // has been parsed, including its bracketed-paste mode, not just attached.
+      term.write(data, () => {
+        if (termRef.current === term) setReady(true)
+      })
+    }
     const unsubscribeData = window.phosphor.onPtyData(ptyId, (data) => {
-      if (replayed) term.write(data)
-      else buffered.push(data)
+      if (replayed) writeOutput(data)
     })
     void window.phosphor.invoke('pty:attach', ptyId).then(({ scrollback }) => {
       if (termRef.current !== term) return // disposed mid-flight
-      if (scrollback) term.write(scrollback)
+      if (scrollback) writeOutput(scrollback)
       replayed = true
-      buffered = []
     })
 
     const unsubscribeExit = window.phosphor.onPtyExit(ptyId, (exitCode) => {
@@ -198,14 +204,16 @@ export const TerminalView = memo(function TerminalView({
 
   // "Run in terminal" paste queue.
   useEffect(() => {
-    if (visible && pendingPaste !== null && termRef.current) {
-      const text = useTerminalStore.getState().consumePaste()
-      if (text) {
-        termRef.current.paste(text)
+    if (visible && ready && pendingPaste?.ptyId === ptyId && termRef.current) {
+      const paste = useTerminalStore.getState().consumePaste(ptyId)
+      if (paste) {
+        termRef.current.paste(paste.text)
+        // Enter is a keypress, not part of the bracketed paste payload.
+        if (paste.execute) termRef.current.input('\r', true)
         termRef.current.focus()
       }
     }
-  }, [pendingPaste, visible])
+  }, [pendingPaste, visible, ready, ptyId])
 
   /*
    * Right-click used to paste blind. It now opens the app's context menu, so

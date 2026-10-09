@@ -44,7 +44,7 @@ interface TerminalState {
   /** Phosphor session id → that session's terminal tabs. */
   bySession: Record<string, SessionTerminals>
   /** Text waiting to be pasted into the active terminal once it exists. */
-  pendingPaste: string | null
+  pendingPaste: { ptyId: string; text: string; execute: boolean } | null
 
   createTab: (sessionId: string, cwd: string) => Promise<string | null>
   closeTab: (sessionId: string, ptyId: string) => Promise<void>
@@ -57,8 +57,8 @@ interface TerminalState {
   clearError: (sessionId: string) => void
   /** Kill every PTY belonging to a disposed session and drop its state. */
   removeSession: (sessionId: string) => Promise<void>
-  queuePaste: (text: string) => void
-  consumePaste: () => string | null
+  queuePaste: (ptyId: string, text: string, execute: boolean) => void
+  consumePaste: (ptyId: string) => TerminalState['pendingPaste']
 }
 
 /** Terminals for a session; stable empty value avoids per-render allocation. */
@@ -176,13 +176,29 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set((s) => ({ bySession: drop(s.bySession, sessionId) }))
   },
 
-  queuePaste: (text) => set({ pendingPaste: text }),
-  consumePaste: () => {
-    const text = get().pendingPaste
-    if (text !== null) set({ pendingPaste: null })
-    return text
+  queuePaste: (ptyId, text, execute) => set({ pendingPaste: { ptyId, text, execute } }),
+  consumePaste: (ptyId) => {
+    const paste = get().pendingPaste
+    if (paste?.ptyId !== ptyId) return null
+    set({ pendingPaste: null })
+    return paste
   },
 }))
+
+// First-open and chat actions share one in-flight spawn per session.
+const openingTabs = new Map<string, Promise<string | null>>()
+
+export function ensureTerminalTab(sessionId: string, cwd: string): Promise<string | null> {
+  const pending = openingTabs.get(sessionId)
+  if (pending) return pending
+  const store = useTerminalStore.getState()
+  const current = sessionTerminals(store, sessionId)
+  const active = current.tabs.find((tab) => tab.ptyId === current.activeId)
+  if (active && !active.exited && !active.running) return Promise.resolve(active.ptyId)
+  const opening = store.createTab(sessionId, cwd).finally(() => openingTabs.delete(sessionId))
+  openingTabs.set(sessionId, opening)
+  return opening
+}
 
 /** Count of terminals with a running foreground process, for badges. */
 export function runningCount(state: TerminalState, sessionId: string): number {
@@ -209,12 +225,9 @@ export async function runInTerminal(
   const sessionId = sessions.activeSessionId
   if (!sessionId) return
   const cwd = sessions.live[sessionId]?.workspacePath || workspacePath
-  useLayoutStore.getState().setRightPane('terminal')
-  const store = useTerminalStore.getState()
-  if (!sessionTerminals(store, sessionId).activeId) {
-    // No shell and none could be started: the pane is now showing the spawn
-    // error, so queueing a paste would strand the command in the store.
-    if ((await store.createTab(sessionId, cwd)) === null) return
-  }
-  useTerminalStore.getState().queuePaste(options.execute ? `${command}\n` : command)
+  useLayoutStore.getState().setRightPane('terminal', sessionId)
+  const ptyId = await ensureTerminalTab(sessionId, cwd)
+  if (ptyId === null) return // The pane displays the spawn error.
+  // A fence's closing newline is formatting, not permission to run it.
+  useTerminalStore.getState().queuePaste(ptyId, command.replace(/[\r\n]+$/, ''), !!options.execute)
 }

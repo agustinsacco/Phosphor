@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { useTerminalStore, sessionTerminals } from '@/stores/terminal'
+import { useTerminalStore, sessionTerminals, ensureTerminalTab } from '@/stores/terminal'
 import { PaneIconButton, PaneShell, PaneTitle } from '@/components/PaneShell'
 import { TerminalView } from './TerminalView'
 import { CloseIcon } from '@/components/icons'
@@ -43,12 +43,9 @@ export const TerminalPane = memo(function TerminalPane({
     const current = sessionTerminals(useTerminalStore.getState(), sessionId)
     if (current.tabs.length > 0 || current.error !== null) return
     spawnRequested.current.add(sessionId)
-    void useTerminalStore
-      .getState()
-      .createTab(sessionId, workspacePath)
-      .then((ptyId) => {
-        if (ptyId === null) spawnRequested.current.delete(sessionId)
-      })
+    void ensureTerminalTab(sessionId, workspacePath).then((ptyId) => {
+      if (ptyId === null) spawnRequested.current.delete(sessionId)
+    })
   }, [sessionId, workspacePath, error])
 
   // Clearing the error re-arms the first-open effect above (it lists `error`

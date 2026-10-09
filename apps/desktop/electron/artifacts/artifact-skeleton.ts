@@ -1,67 +1,33 @@
 /**
- * The house style every artifact is served with.
- *
- * ## Why this is injected rather than prompted
- *
- * The look of an artifact used to be entirely the model's own default, because
- * nothing here styled one: `phosphor-artifact://` served the model's markup
- * byte for byte. The tool description asked for "theme-aware palettes" and
- * named no colors, so every artifact invented its own — and every artifact
- * paid output tokens to invent it again.
- *
- * Injecting the sheet at publish time costs zero model tokens, cannot drift
- * between two artifacts in the same session, and applies retroactively: an
- * artifact written last week re-renders in the current style, because the
- * document is rebuilt on every stage.
- *
- * The model's own `<style>` lands after this one in document order, so it
- * still wins — this is a floor, not a cage.
- *
- * ## Why the tokens are NOT the app's `--px-*` neutrals
- *
- * An artifact is a document, not app chrome: darker ground, denser type, and a
- * validated categorical palette that app chrome has no use for. Mirroring
- * `--px-*` here would make this a sixth satellite copy of the neutrals (see
- * docs/style-guide.md) and bind two surfaces that want different things. It is
- * deliberately off-palette in the same way Shiki's syntax colors are, and
- * carries its own `--art-*` namespace so the two can never be confused.
- *
- * ## The palette is computed, not chosen
- *
- * Series colors are checked with the dataviz six-checks validator on each
- * surface — lightness band, chroma floor, CVD separation, normal-vision floor,
- * contrast. The dark five pass adjacent-pair separation on `#14120f`; the
- * first three also pass all-pairs (scatter, small multiples), which is why the
- * prompt caps those forms at three series. The light five pass adjacent with a
- * documented contrast relief, which the direct labels and evidence tables the
- * prompt requires are what satisfy. Do not "improve" a hex here without
- * re-running the validator for both modes.
+ * Document-first defaults, injected without spending model tokens on CSS.
+ * Semantic HTML needs no classes. Markdown previews use the app's typography.
+ * Neutrals and accent mirror the app, guarded by a drift test. The --art-*
+ * namespace, series palette and opt-in layout classes remain for old artifacts.
+ * Documents are rebuilt on every stage; model-authored styles still come last.
  */
 
-/** Serialised into every artifact document. Keep in sync with the prompt in `pi-ext/artifacts.ts`. */
+/** Serialised into every staged document, including PDF exports. */
 const ARTIFACT_STYLE = `
 :root{
   color-scheme:dark;
-  --art-bg:#0e0d0b; --art-panel:#14120f; --art-panel-2:#191713;
-  --art-line:#2b2621; --art-line-soft:#201d18;
-  --art-ink:#f1ede5; --art-ink-2:#a7a096; --art-ink-3:#6e6961;
-  --art-accent:#f2ab4e; --art-accent-dim:#2a1f10;
+  --art-bg:#1e1c18; --art-panel:#26231e; --art-panel-2:#24211c;
+  --art-line:#3a352c; --art-line-soft:#3a352c;
+  --art-ink:#ece7db; --art-ink-2:#aca496; --art-ink-3:#7c766a;
+  --art-accent:#eca03d; --art-accent-dim:#3d3220;
   --art-s1:#c98500; --art-s2:#3987e5; --art-s3:#199e70; --art-s4:#9085e9; --art-s5:#d55181;
   --art-r1:#61461b; --art-r2:#89651b; --art-r3:#ac7a16; --art-r4:#cd8a04; --art-r5:#efb44e;
   --art-good:#199e70; --art-warn:#c98500; --art-crit:#e66767;
   --art-mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;
   --art-sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
-/* Light is the override: this surface is dark by design, not by default. The
-   media query covers the OS; the attribute stamp is Phosphor's own theme and
-   must win in both directions. */
+/* The app's explicit theme wins over the OS in both directions. */
 @media (prefers-color-scheme:light){
   :root:not([data-theme="dark"]){
     color-scheme:light;
-    --art-bg:#f6f5f2; --art-panel:#fff; --art-panel-2:#faf9f6;
-    --art-line:#dedad2; --art-line-soft:#ebe8e1;
-    --art-ink:#15130f; --art-ink-2:#55514a; --art-ink-3:#8b867d;
-    --art-accent:#b26a12; --art-accent-dim:#f7eddc;
+    --art-bg:#f7f7f8; --art-panel:#efeff1; --art-panel-2:#f2f2f4;
+    --art-line:#e4e4e7; --art-line-soft:#e4e4e7;
+    --art-ink:#26262a; --art-ink-2:#66666e; --art-ink-3:#96969e;
+    --art-accent:#b35c0f; --art-accent-dim:#f6e9d4;
     --art-s1:#eda100; --art-s2:#2a78d6; --art-s3:#1baf7a; --art-s4:#4a3aa7; --art-s5:#e87ba4;
     --art-r1:#f6e2b4; --art-r2:#eec97c; --art-r3:#e0a93c; --art-r4:#c58a10; --art-r5:#8f6209;
     --art-good:#1baf7a; --art-warn:#eda100; --art-crit:#e34948;
@@ -69,46 +35,57 @@ const ARTIFACT_STYLE = `
 }
 :root[data-theme="light"]{
   color-scheme:light;
-  --art-bg:#f6f5f2; --art-panel:#fff; --art-panel-2:#faf9f6;
-  --art-line:#dedad2; --art-line-soft:#ebe8e1;
-  --art-ink:#15130f; --art-ink-2:#55514a; --art-ink-3:#8b867d;
-  --art-accent:#b26a12; --art-accent-dim:#f7eddc;
+  --art-bg:#f7f7f8; --art-panel:#efeff1; --art-panel-2:#f2f2f4;
+  --art-line:#e4e4e7; --art-line-soft:#e4e4e7;
+  --art-ink:#26262a; --art-ink-2:#66666e; --art-ink-3:#96969e;
+  --art-accent:#b35c0f; --art-accent-dim:#f6e9d4;
   --art-s1:#eda100; --art-s2:#2a78d6; --art-s3:#1baf7a; --art-s4:#4a3aa7; --art-s5:#e87ba4;
   --art-r1:#f6e2b4; --art-r2:#eec97c; --art-r3:#e0a93c; --art-r4:#c58a10; --art-r5:#8f6209;
   --art-good:#1baf7a; --art-warn:#eda100; --art-crit:#e34948;
 }
 
 *{box-sizing:border-box}
+html{background:var(--art-bg);color:var(--art-ink)}
 body{
-  margin:0; padding:clamp(1rem,3vw,2.25rem);
-  background:var(--art-bg); color:var(--art-ink);
-  font-family:var(--art-sans); font-size:15px; line-height:1.5;
-  -webkit-font-smoothing:antialiased;
+  margin:0 auto; padding:clamp(1rem,3vw,1.5rem); max-width:76ch;
+  font-family:var(--art-sans); font-size:15px; line-height:1.6;
+  overflow-wrap:anywhere; -webkit-font-smoothing:antialiased;
 }
-/* No padding here: body owns it, so nesting .wrap cannot double it. */
-.wrap{max-width:62rem;margin:0 auto}
-h1,h2,h3,h4{margin:0;font-weight:650;letter-spacing:-0.015em}
-h1{font-size:clamp(1.7rem,4.5vw,2.4rem);line-height:1.1}
-h2{font-size:1.15rem;margin-top:1.6rem}
-h3{font-size:1.05rem;margin-top:1.2rem}
-h4{font-size:.92rem;font-weight:620}
-p{margin:0 0 .65em}
-a{color:var(--art-accent)}
-ul,ol{margin:.4rem 0 .8rem;padding-left:1.15rem;color:var(--art-ink-2)}
-li{margin-bottom:.25rem}
-li>b,li>strong{color:var(--art-ink)}
-hr{border:0;border-top:1px solid var(--art-line);margin:1.75rem 0}
+h1,h2,h3,h4{font-weight:600;line-height:1.3;margin:1.4em 0 .5em}
+h1{font-size:1.5rem}
+h2{font-size:1.2rem}
+h3{font-size:1.05rem}
+h4{font-size:1rem}
+body>:first-child{margin-top:0}
+p{margin:.65em 0}
+a{color:var(--art-accent);text-underline-offset:.15em}
+ul,ol{margin:.5em 0;padding-left:1.5em}
+li{margin:.3em 0}
+hr{border:0;border-top:1px solid var(--art-line);margin:1.5em 0}
 img,svg,video{max-width:100%}
-code{font-family:var(--art-mono);font-size:.86em}
+code,kbd,samp{font-family:var(--art-mono);font-size:.9em}
 pre.code,pre{
-  font-family:var(--art-mono);font-size:11.5px;color:var(--art-ink-2);
-  background:var(--art-panel-2);border:1px solid var(--art-line);border-radius:3px;
-  padding:.55rem .7rem;margin:.5rem 0 0;overflow-x:auto;
+  font-family:var(--art-mono);font-size:13px;
+  background:var(--art-panel-2);border-radius:3px;
+  padding:.75rem;margin:.8em 0;max-width:100%;overflow-x:auto;
 }
-pre b{color:var(--art-accent);font-weight:500}
+pre code{font-size:inherit}
+blockquote{margin:.8em 0;padding-left:1em;border-left:2px solid var(--art-line);color:var(--art-ink-2)}
+dt,summary{font-weight:600}
+dd{margin:0 0 .6em 1em}
+details{margin:.8em 0}
+summary{cursor:pointer}
+figure{margin:1em 0}
+figcaption{font-size:.9em;color:var(--art-ink-2)}
+table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:1em 0;font-size:.9em}
+th,td{text-align:left;vertical-align:top;padding:.4em .6em;border-bottom:1px solid var(--art-line)}
+th{font-weight:600}
+
+/* Compatibility classes are opt-in, not an authoring vocabulary. */
+.wrap{max-width:76ch;margin:0 auto}
 .mono{font-family:var(--art-mono)}
 .scroll{overflow-x:auto;max-width:100%}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:.75rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr));gap:.75rem}
 
 .eyebrow{font-family:var(--art-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--art-accent);margin-bottom:.5rem}
 .kicker{font-family:var(--art-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--art-ink-3)}
@@ -248,8 +225,8 @@ const ARTIFACT_PRINT_STYLE = `
      margin cannot be won, so it is spent on something worth having: real
      gutters, which physical printers require — they cannot print to the sheet
      edge, and a full-bleed page loses its outermost content on paper. */
-  html,body{margin:0;padding:0}
-  /* 62rem is a reading measure for a wide window; the page is already 7.5in. */
+  html,body{margin:0;padding:0;max-width:none}
+  /* The paper already provides a reading measure and gutters. */
   .wrap{max-width:none;margin:0}
 
   /* A heading must not be the last thing on a page. */
@@ -260,11 +237,12 @@ const ARTIFACT_PRINT_STYLE = `
      taller than a page still splits — the rule is a preference, and Chromium
      ignores it rather than leaving a page blank. */
   .kpis,.panelbox,.callout,.verdict,.chips,.legend,.rail .node,.ledger .row,
-  .steps .s,figure,pre,pre.code,svg,table.data tr{break-inside:avoid}
+  .steps .s,figure,pre,pre.code,svg,table tr{break-inside:avoid}
 
   /* A table long enough to cross a break repeats its header on the next page,
      or every column past the first is unlabelled numbers. */
-  table.data thead{display:table-header-group}
+  table{display:table;width:100%;overflow:visible}
+  thead{display:table-header-group}
 
   /* Paper does not scroll. Anything that clipped or scrolled on screen has to
      wrap instead, or the overflow is simply gone from the PDF. */

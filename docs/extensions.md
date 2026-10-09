@@ -266,7 +266,7 @@ Optional Python helpers remain in the source tree, not the shipped resource filt
 
 ### The artifact tools, and what each one costs
 
-`artifacts.ts` registers five tools. The split exists because an artifact's
+`artifacts.ts` registers six tools. The split exists because an artifact's
 token cost is **entirely the arguments the model writes**: the payload riding
 in `details` never reaches the model and is free. What is not free is
 resending a document to change part of it.
@@ -280,10 +280,13 @@ resending a document to change part of it.
 | `artifact_read`   | the document, or a line range | recovering text after compaction, to edit |
 | `artifact_list`   | ids and sizes only            | recovering ids after compaction           |
 
-The style guide lives in `artifact_help` results, not in the always-loaded tool
-schema or system guidelines. Coding turns carry only a short instruction to
-load it before authoring. The guide preserves the stylesheet tokens, layout
-rules and network restrictions.
+The short authoring guide lives in `artifact_help` results, not in the
+always-loaded schema or system guidelines. Documents default to Markdown;
+HTML is for layout or interaction that needs it. Use paragraphs, lists and
+code blocks, tables only for repeated-field comparisons, and diagrams only
+when clearer than text. No mandatory chart/table pairs or decorative cards.
+Markdown supports Mermaid and chart fences without hand-positioned SVG.
+The tool description keeps the HTML-fragment and no-network constraints.
 
 One artifact plus two full rewrites costs ~55k output tokens; the same
 nine-line change through `artifact_edit` is ~116.
@@ -372,19 +375,19 @@ remote images and form POSTs are all refused. Never add `allow-same-origin`,
 and never add a `connect-src`. Either one hands model-authored HTML a channel
 out.
 
-**The look of an artifact is injected, not prompted.**
-`apps/desktop/electron/artifacts/artifact-skeleton.ts` wraps the model's markup in a real
-document with the house stylesheet in its `<head>`, so the model writes a
-fragment and no palette. It is retroactive (rebuilt on every stage, so old
-artifacts render in the current style); the model's own `<style>` still wins
-(the sheet is a floor, not a cage); and the theme is Phosphor's, not the OS's
-(`data-theme` is stamped from the renderer's resolved theme). Two rules the
-sheet cannot enforce ride in the tool description: charts are hand-authored
-inline SVG (the CSP grants no network, so a CDN chart library renders nothing),
-and a chart carrying a claim gets a `table.data` under it. Row primitives
-(`.ledger`, `.steps`, `.rail`) are column grids guarded by `:has()` on their
-cell classes, so a row of prose degrades to a paragraph instead of word-wide
-columns.
+**Documents use a single readable column, not a dashboard template.**
+Markdown previews use the app's typography within a bounded reading width.
+`apps/desktop/electron/artifacts/artifact-skeleton.ts` styles semantic HTML
+(headings, lists, code, quotations, definition lists, details and tables)
+without custom classes. It wraps fragments and injects CSS before any
+model-authored styles. The theme follows Phosphor, with app-matched neutrals
+and accent. Code and genuinely wide tables scroll locally.
+
+Existing `--art-*` tokens, series colors and opt-in layout classes remain
+supported, but are no longer part of the authoring guide. Existing artifacts
+are restyled when staged, not rewritten. The model's own styles can override
+the defaults. Network access remains blocked; Markdown's built-in diagram
+renderers do not imply that libraries are available inside HTML artifacts.
 
 **The PDF export prints the staged document, not a second one.**
 `apps/desktop/electron/artifacts/artifact-pdf.ts` calls the same `stageArtifactHtml`, loads

@@ -30,11 +30,14 @@ export function AccountsTab(): React.JSX.Element {
   useEffect(
     () =>
       window.phosphor.onPiLoginState((state) => {
-        setFlow(state.phase === 'signed-in' || state.phase === 'cancelled' ? null : state)
+        const ended = isFlowEnded(state)
+        // An ended flow clears the row. Keeping a failed one left the row
+        // "busy" (Cancel, no Sign in) and every other provider disabled.
+        setFlow(ended ? null : state)
         if (state.phase === 'error') setError(state.message)
         // Re-check on every terminal phase, not just success: a cancelled or
         // failed attempt can still have written credentials before it stopped.
-        if (state.phase === 'signed-in' || state.phase === 'cancelled') void refresh()
+        if (ended) void refresh()
       }),
     [refresh],
   )
@@ -145,6 +148,11 @@ export function AccountsTab(): React.JSX.Element {
       )}
     </div>
   )
+}
+
+/** Has this sign-in stopped, for better or worse? */
+function isFlowEnded(state: LoginFlowState): boolean {
+  return state.phase === 'signed-in' || state.phase === 'cancelled' || state.phase === 'error'
 }
 
 function ProviderGroup({

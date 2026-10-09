@@ -123,6 +123,14 @@ balance, not an included allowance.
 
 - One row per provider pi can sign into, showing ready / not ready from
   `pi auth check --json`, and a Sign in button that drives pi's TUI off-screen.
+- That off-screen pi runs in an empty folder under userData (`pi-sign-in`)
+  with `--no-approve --no-extensions`, because any startup dialog swallows the
+  typed `/login`. Home is not neutral: a `~/.mcp.json` there is a project MCP
+  config, and its trust question used to stall every sign-in. The login
+  terminal uses the same folder and `--no-approve` but keeps extensions.
+- A sign-in that stops at a screen it does not recognise logs that screen to
+  the debug log (`[login]`), and an ended flow (signed in, cancelled or
+  failed) frees the row and re-reads auth.
 - A signed-in row also shows **which account** when the credential is a JWT
   that names one (ChatGPT/Codex today). The email claim is read inside the
   main process; the credential itself is never stored, logged or sent to the

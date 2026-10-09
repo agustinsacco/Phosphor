@@ -1,10 +1,13 @@
-import { homedir } from 'node:os'
+import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { app } from 'electron'
 import { stripAnsi } from '@shared/ansi'
 import type { LoginFlowState, LoginProviderId } from '@shared/models'
 import { checkPiHealth, piArgs } from './health'
 import { piProcessEnv } from './shell-env'
 import { ptyManager } from '../pty/pty-manager'
 import { type AuthCheck, checkProviderAuth } from './auth-status'
+import { log } from '../debug-log'
 
 /**
  * Signing into a pi provider without making the user drive a terminal.
@@ -53,6 +56,53 @@ import { type AuthCheck, checkProviderAuth } from './auth-status'
  *   That is a feature: the login lands in the user's real browser, where they
  *   are already signed in, instead of an embedded view.
  */
+
+/**
+ * Where a sign-in pi runs: an empty folder of Phosphor's own.
+ *
+ * Not the home folder, which is what this used to be. pi treats its cwd as a
+ * project, and a `.mcp.json` in home is a *project* MCP config to
+ * pi-mcp-adapter, which then opens "Allow project MCP server …?" at startup.
+ * The driver typed `/login⏎` into that dialog (Enter picks "Don't allow"), so
+ * `/login` never ran and the flow sat on "Starting pi’s sign-in…" until the
+ * step timeout. The dialog comes back whenever that file changes, so it is
+ * not a one-off. Signing in has nothing to do with any project.
+ */
+export function signInCwd(): string {
+  const dir = join(app.getPath('userData'), 'pi-sign-in')
+  mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+/**
+ * pi flags for the off-screen sign-in.
+ *
+ * `--no-approve` ignores project-local files, so no project trust dialog can
+ * appear. `--no-extensions` keeps every user extension out: none of them is
+ * needed to sign in (all of `TUI_LABELS` are pi built-ins), any of them can
+ * open a startup dialog this driver cannot answer, and without it a sign-in
+ * also started every configured MCP server. The login terminal keeps
+ * extensions, because a human is there to answer them.
+ */
+export const SIGN_IN_ARGS = ['--no-session', '--no-approve', '--no-extensions']
+
+/** pi flags for the hand-driven login terminal. See `SIGN_IN_ARGS`. */
+export const LOGIN_TERMINAL_ARGS = ['--no-session', '--no-approve']
+
+/**
+ * The bottom of a screen, for the debug log when a step never arrives.
+ *
+ * Only logged before pi has produced an authorization URL, so it cannot carry
+ * a code or a credential.
+ */
+export function screenTail(screen: string, lines = 12): string {
+  return screen
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() !== '')
+    .slice(-lines)
+    .join('\n')
+}
 
 /** How long to wait for each expected screen before giving up. */
 const STEP_TIMEOUT_MS = 20_000
@@ -283,9 +333,9 @@ export async function startLogin(
   // mid-token with no marker. Anthropic's authorize URL is ~330 characters
   // (it carries a redirect_uri, scopes and a PKCE challenge), and 160 columns
   // split it across three lines. Wider than any URL is the fix.
-  const { ptyId } = ptyManager.create(homedir(), TERMINAL_COLS, 40, undefined, {
+  const { ptyId } = ptyManager.create(signInCwd(), TERMINAL_COLS, 40, undefined, {
     file: health.binaryPath,
-    args: piArgs(health, ['--no-session']),
+    args: piArgs(health, SIGN_IN_ARGS),
     env: await piProcessEnv(),
   })
 
@@ -414,6 +464,14 @@ export async function startLogin(
     // A step that never arrives is a real failure, not a hang. Skipped once
     // the browser has the URL, because that step waits on a human.
     if (!lastAuth && Date.now() - stepStartedAt > STEP_TIMEOUT_MS) {
+      // The screen it stopped on is the whole diagnosis; without it this
+      // failure is a guess. See the debug log section of CLAUDE.md.
+      log('login', 'sign-in stopped at an unknown screen', {
+        providerId,
+        step,
+        sent: { sentLogin, sentMethod, sentProvider, sentLoginMethod, answeredHost },
+        screen: screenTail(screen),
+      })
       finish({
         providerId,
         phase: 'error',

@@ -5,11 +5,12 @@ A **modal**, not a second window (`ModalOverlay` in
 scale and the app's lifecycle. Cmd/Ctrl+, opens it; Cmd/Ctrl+/ opens it on
 Keybindings.
 
-Nine top-level tabs and four indented under Extensions. MCP Connectors is always
-present; the other three belong to a package and render **only while that
-package is installed**. The package list is re-read on every open, so a fresh
-install gets its tab without a restart, and a tab whose package vanished falls
-back to Extensions.
+Nine top-level tabs and five indented under Extensions. MCP Connectors is always
+present; the other four belong to packages. Subagents requires an installed
+package. The existing provider tabs also show for declared packages so their
+health/configuration screens remain reachable during setup. The package list
+is re-read on every open, so a fresh install gets its tab without a restart,
+and a tab whose package vanished falls back to Extensions.
 
 | Tab              | What it is                                                           | Writes                                                  |
 | ---------------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
@@ -19,6 +20,7 @@ back to Extensions.
 | Extensions       | pi package management                                                | shells out to `pi install` / `remove` / `update`        |
 | ↳ Claude Code    | The `pi-claude-cli` provider: health, accounts, pi context ownership | Phosphor prefs + the package's own config               |
 | ↳ Web access     | The `pi-web-access` provider: search, fetch, PDF                     | `web-search.json`                                       |
+| ↳ Subagents      | Delegation guide, profile precedence, configuration ownership        | global Pi settings through the shared raw editor        |
 | ↳ Computer use   | Info page for `@injaneity/pi-computer-use`                           | nothing (read-only)                                     |
 | ↳ MCP Connectors | Curated OAuth catalog + custom servers                               | `mcp-adapter.json`, or the project's `.mcp.json`        |
 | Workspaces       | Lane naming/markers, new-session branching, recents, sandboxes       | Phosphor prefs; layout reset clears localStorage        |
@@ -168,7 +170,9 @@ streamed into the tab, so a failure is legible rather than a silent no-op.
 - A declared-but-not-installed package is labelled "installs on next session
   start". pi installs at session start, never on its own.
 
-Three packages contribute a nested tab, shown only while installed:
+Four packages contribute a nested tab. Package discovery uses the active
+workspace, including project packages. The Subagents guide requires an installed
+package; the other tabs preserve their declared-package setup behavior:
 
 ### Claude Code (`pi-claude-cli`)
 
@@ -198,6 +202,16 @@ print-mode prompt through the CLI, the login and the extension at once, because
 Search, fetching and PDF extraction for sessions, written to the package's
 `web-search.json`. Common search providers get first-class fields; the rest
 stay reachable through the raw file.
+
+### Subagents (`pi-subagents`)
+
+A searchable guide to parent/child responsibilities, foreground and background
+work, source precedence, context, permissions and results. Configuration stays
+with its owner: Pi settings for defaults and profile overrides, Markdown for
+agents, extension `config.json` for runtime limits, and Phosphor's Agent tab
+for delegation directives. The global settings button reuses the raw editor;
+it does not rewrite profiles or extension runtime configuration. The tab does
+not launch work and is not proof that a particular session loaded the package.
 
 ### Computer use (`@injaneity/pi-computer-use`)
 

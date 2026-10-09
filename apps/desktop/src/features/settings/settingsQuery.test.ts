@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { EXTENSION_TABS, SETTINGS_INDEX, TABS } from './settingsIndex'
+import { EXTENSION_TABS, SETTINGS_INDEX, TABS, installedExtensionTabs } from './settingsIndex'
 import { highlightPattern, searchSettings } from './settingsQuery'
 import type { SettingsTab } from './settingsUiStore'
 
@@ -42,6 +42,24 @@ describe('searchSettings', () => {
     expect(group?.tab).toBe('keybindings')
     expect(group?.entries[0]).toMatchObject({ title: 'Command palette', section: 'App' })
     expect(group?.entries[0]?.detail).toBeTruthy()
+  })
+
+  it('only finds subagent settings while the package is installed', () => {
+    const absent = new Set([...TABS, ...installedExtensionTabs([])].map((tab) => tab.id))
+    expect(searchSettings('forked context', absent)).toEqual([])
+    expect(titles('subagents permissions')).toEqual(['Context and permissions'])
+    const pkg = { spec: 'npm:pi-subagents', installed: false } as Parameters<
+      typeof installedExtensionTabs
+    >[0][number]
+    expect(installedExtensionTabs([pkg])).toEqual([])
+    expect(
+      installedExtensionTabs([{ ...pkg, spec: 'npm:@saccolabs/pi-claude-cli' }]).map(
+        (tab) => tab.id,
+      ),
+    ).toEqual(['claude-provider'])
+    expect(installedExtensionTabs([{ ...pkg, installed: true }]).map((tab) => tab.id)).toEqual([
+      'subagents',
+    ])
   })
 
   it('finds nothing for an empty or all-negated query', () => {
@@ -86,6 +104,7 @@ describe('SETTINGS_INDEX against the tab sources', () => {
     KeybindingsTab: 'keybindings',
     MaintenanceSection: 'advanced',
     OptimizationTab: 'optimization',
+    SubagentsTab: 'subagents',
     WebAccessTab: 'web-access',
     WorkspacesTab: 'workspaces',
   }

@@ -3237,11 +3237,13 @@ test('model picker: lexical search across providers, family grouping, stars', as
 test('semantic HTML artifacts stay readable in a narrow panel in both themes', async () => {
   const h = await launch()
   try {
+    // Test rendered styles, not Chromium's native disclosure interaction.
+    // Start expanded so layout assertions include the disclosure's content.
     const html = `<h1>Host entry point</h1><p>Run the shared runtime without Electron.</p>
       <p><code>${'libs/session-runtime/'.repeat(12)}</code></p>
       <pre><code>${'long_command_argument '.repeat(30)}</code></pre>
       <dl><dt>Scope</dt><dd>CLI and lifecycle</dd></dl>
-      <details><summary>Acceptance</summary><p>Run the headless probe.</p></details>
+      <details open><summary>Acceptance</summary><p>Run the headless probe.</p></details>
       <table><thead><tr><th>Field</th><th>Value</th></tr></thead>
         <tbody><tr><td>Key</td><td style="white-space:nowrap">${'value '.repeat(60)}</td></tr></tbody></table>
       <div class="kpis"><div class="kpi">Legacy metric</div></div>
@@ -3280,7 +3282,6 @@ test('semantic HTML artifacts stay readable in a narrow panel in both themes', a
       expect(layout.codeScrolls).toBe(true)
       expect(layout.tableScrolls).toBe(true)
       expect(layout.paragraphFont).not.toContain('monospace')
-      await frame.locator('summary').click()
       await expect(frame.getByText('Run the headless probe.')).toBeVisible()
       await expect(frame.locator('.kpis')).toHaveCSS('display', 'grid')
       await expect(frame.locator('.rail .node')).toHaveCSS('display', 'grid')

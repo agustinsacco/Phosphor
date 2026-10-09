@@ -325,6 +325,7 @@ function sessionEntries() {
     .filter((entry) => entry.type !== 'session')
 }
 let queueHold = false
+let finishNativeSubagent
 function handle(cmd) {
   if (process.env.PHOSPHOR_E2E_COMMAND_LOG) {
     fs.appendFileSync(process.env.PHOSPHOR_E2E_COMMAND_LOG, JSON.stringify(cmd) + '\n')
@@ -614,6 +615,12 @@ function handle(cmd) {
           method: 'setWidget',
           widgetKey: 'subagent-inspect',
         })
+        break
+      }
+      // Release only the stub's scripted child, after the test inspects it.
+      if (message === '/stub-finish-delegation') {
+        finishNativeSubagent?.()
+        finishNativeSubagent = undefined
         break
       }
       if (message === 'queue-hold' || message.endsWith('\nroutine-e2e-hold')) {
@@ -1527,6 +1534,10 @@ function runSubagentTurn() {
  *    `display: false`, and the model is woken for a new turn to read it.
  */
 function runNativeSubagentTurn() {
+  // CI rendering speed must not decide whether the child can be inspected.
+  const completion = new Promise((resolve) => {
+    finishNativeSubagent = resolve
+  })
   const details = {
     requestId: 'question-a',
     runId: 'run-a',
@@ -1735,7 +1746,7 @@ function runNativeSubagentTurn() {
     ...say('Reviewer found one nit; scout is mapping the auth flow in the background.'),
     () => out({ type: 'agent_end', messages: [] }),
     () => out({ type: 'agent_settled' }),
-    () => new Promise((resolve) => setTimeout(resolve, 6000)),
+    () => completion,
     // The run reports back: the widget goes, the muted completion lands, and
     // the model is woken to read it.
     () =>

@@ -3757,6 +3757,18 @@ test('a native delegation is an agent row with live progress, a fleet chip and a
     await expect(childCard).toHaveAttribute('data-status', 'completed')
     await expect(childCard).toContainText('No regressions found')
 
+    // Complete the mock child only after live inspection. A wall-clock delay
+    // races the inspector on slower CI runners and drops its selected row.
+    const completion = await page.evaluate(async () => {
+      const live = await window.phosphor.invoke('pi:listLiveSessions')
+      if (live.length !== 1) throw new Error('Expected one isolated stub session')
+      return window.phosphor.piCommand(live[0].sessionId, {
+        type: 'prompt',
+        message: '/stub-finish-delegation',
+      })
+    })
+    expect(completion.success).toBe(true)
+
     // The run reports back: a compact card where the model woke up, folded
     // because it succeeded. The chip remains as an entry to recorded history.
     const notice = page.getByTestId('subagent-notice')

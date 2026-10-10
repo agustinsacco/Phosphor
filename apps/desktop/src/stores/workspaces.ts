@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { SandboxInfo, WorkspaceInfo } from '@shared/models'
+import { isWithinFolder } from '@shared/paths'
 import { basename, isWorktreeFolder } from '@/lib/path'
+import { useChatStore } from './chat'
 import { useExtensionUiStore } from './extensionUi'
 import { useSessionsStore } from './sessions'
 
@@ -40,6 +42,13 @@ interface WorkspacesState {
    * Resolves the new path, or null when main refused.
    */
   renameSandbox: (path: string, name: string) => Promise<string | null>
+  /**
+   * Forget a project: drop it from the sidebar and recents without touching
+   * anything on disk. `paths[0]` is the project; the rest are other folders
+   * the sidebar folds into its group (worktrees living outside the repo).
+   * Resolves false when a chat in it is mid-turn (the store toasts why).
+   */
+  removeWorkspace: (paths: string[]) => Promise<boolean>
   /** Move a workspace in the user-defined sidebar/switcher order. */
   moveWorkspace: (path: string, direction: 'up' | 'down') => void
   hydrate: () => Promise<void>
@@ -169,6 +178,46 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     await Promise.all([sessions.refreshDisk(to), sessions.refreshDisk(path)])
     useExtensionUiStore.getState().pushToast(`Renamed to ${renamed}`, 'info')
     return to
+  },
+
+  removeWorkspace: async (paths) => {
+    const project = paths[0]
+    if (!project) return false
+    // The project, the folders folded into its group, and its lanes, which
+    // live under `<project>/.phosphor/worktrees/` and are never in recents.
+    const belongs = (path: string): boolean =>
+      paths.includes(path) || (isWorktreeFolder(path) && isWithinFolder(path, project))
+
+    // A live chat keeps its folder's group in the sidebar (a session can
+    // outlive its recents entry), so forgetting the project has to close them.
+    // Idle ones are just a process: the transcript stays and reopens from
+    // disk. A chat mid-turn is work in progress, so that refuses instead.
+    const live = Object.values(useSessionsStore.getState().live).filter((entry) =>
+      belongs(entry.workspacePath),
+    )
+    const chats = useChatStore.getState().sessions
+    if (live.some((entry) => chats[entry.phosphorId]?.isStreaming)) {
+      useExtensionUiStore
+        .getState()
+        .pushToast(`${basename(project)} has a chat running. Stop it first.`, 'error')
+      return false
+    }
+    for (const entry of live) {
+      await useSessionsStore.getState().disposeSession(entry.phosphorId)
+    }
+
+    const next = get().recents.filter((workspace) => !belongs(workspace.path))
+    const homePath = get().homePath
+    set({ recents: next })
+    // Main also forgets the launch-resume target when it was in here.
+    await window.phosphor.invoke('app:setRecentWorkspaces', next)
+    if (homePath && belongs(homePath)) {
+      // Step off it, through `openWorkspace` so `lastWorkspacePath` follows.
+      const fallback = next.at(-1)?.path
+      if (fallback) get().openWorkspace(fallback)
+      else set({ homePath: null })
+    }
+    return true
   },
 
   moveWorkspace: (path, direction) => {

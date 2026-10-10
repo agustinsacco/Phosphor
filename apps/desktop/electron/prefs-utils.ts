@@ -1,5 +1,6 @@
 /** Pure pref helpers, separate from electron-store so tests can import them. */
 import { MAX_DRAFTS, type ComposerDraftRecord, type WorkspaceInfo } from '@shared/models'
+import { isWithinFolder } from '@shared/paths'
 
 /**
  * The recents worth answering with: real folders that still exist, one entry
@@ -154,6 +155,35 @@ export function orphanBlobIds(
 ): string[] {
   const referenced = new Set(blobIdsOf(Object.values(drafts)))
   return onDisk.filter((id) => !referenced.has(id))
+}
+
+/**
+ * Whether a rewrite of recents from `previous` to `next` removed the folder
+ * the launch-resume target (`last`) lives in.
+ *
+ * Removing a project from the sidebar is meant to make it go away. Left alone,
+ * `lastWorkspacePath` kept naming it, so the next launch resumed into it and
+ * `recordWorkspace` put it straight back. The folder that owns `last` is its
+ * MOST SPECIFIC enclosing entry, so removing `/a` does not forget a target in a
+ * kept `/a/sub`, and removing `/a/sub` does forget one even though `/a` stays.
+ * Lanes count: a worktree under `<repo>/.phosphor/worktrees/` is inside its
+ * repo. Only removal forgets, so a reorder never does.
+ */
+export function resumeTargetRemoved(
+  previous: readonly string[],
+  next: readonly string[],
+  last: string | undefined,
+  resolve: (path: string) => string | null,
+): boolean {
+  if (!last) return false
+  const real = (path: string): string => resolve(path) ?? path
+  const kept = new Set(next.map(real))
+  const target = real(last)
+  let owner: string | undefined
+  for (const folder of [...previous.map(real), ...kept]) {
+    if (isWithinFolder(target, folder) && (!owner || folder.length > owner.length)) owner = folder
+  }
+  return owner !== undefined && !kept.has(owner)
 }
 
 /**

@@ -6,7 +6,7 @@ import {
   type ElectronApplication,
   type Page,
 } from '@playwright/test'
-import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { scratchDir, scratchDirSync } from './fixtures/scratch'
 import { configureTestTeardown } from './fixtures/shutdown'
@@ -4254,6 +4254,40 @@ test('a sandbox with a chat open in it can still be renamed, and keeps its chats
       const header = JSON.parse(text.split('\n')[0]!)
       expect(header.cwd.endsWith(`${sep}renamed-scratch`)).toBe(true)
     }
+  } finally {
+    await shutdown(harness)
+  }
+})
+
+test('a project can be removed from the sidebar, closing its chats and keeping its files', async () => {
+  const harness = await launch({
+    userDataDir: await scratchDir('phosphor-e2e-remove-project-'),
+  })
+  const { page, workspace } = harness
+  try {
+    await openWorkspace(page)
+    await page.getByPlaceholder('Describe a task or ask a question').fill('hello')
+    await page.getByRole('button', { name: /Start session/i }).click()
+    await expect(page.getByTestId('session-row').first()).toContainText('Stub Session Title', {
+      timeout: 30_000,
+    })
+    // The title can land before the turn ends, and a chat mid-turn refuses
+    // the removal. The idle composer is what says the chat is live but idle.
+    await expect(page.getByPlaceholder(/^Describe a task…/)).toBeVisible({ timeout: 30_000 })
+
+    const group = page.getByTestId('workspace-group').filter({ hasText: basename(workspace) })
+    await group.locator('..').getByTestId('workspace-group-menu').click()
+    // Feedback #326: this used to exist only in Settings, and nobody found it.
+    const remove = page.getByTestId('workspace-group-remove')
+    await expect(remove).toHaveText('Remove from sidebar')
+    await remove.click()
+    await expect(remove).toHaveText('Remove? Files stay on disk')
+    await remove.click()
+
+    // The live chat would otherwise hold the group in the sidebar.
+    await expect(group).toHaveCount(0, { timeout: 20_000 })
+    await expect(page.getByTestId('session-row')).toHaveCount(0)
+    expect((await stat(workspace)).isDirectory()).toBe(true)
   } finally {
     await shutdown(harness)
   }

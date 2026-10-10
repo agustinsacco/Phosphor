@@ -155,11 +155,14 @@ export function Sidebar({
   const workspaceMenuTriggerRef = useRef<HTMLButtonElement>(null)
   /** Which group's "Delete sandbox…" row is waiting for its second click. */
   const [confirmSandboxDelete, setConfirmSandboxDelete] = useState<string | null>(null)
+  /** Which group's "Remove from sidebar" row is waiting for its second click. */
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
   const sandboxes = useWorkspacesStore((s) => s.sandboxes)
   const sandboxPaths = useMemo(() => new Set(sandboxes.map((sandbox) => sandbox.path)), [sandboxes])
   const closeWorkspaceMenu = (): void => {
     setWorkspaceMenuFor(null)
     setConfirmSandboxDelete(null)
+    setConfirmRemove(null)
   }
   const [worktreeDiscoveryEpoch, setWorktreeDiscoveryEpoch] = useState(0)
 
@@ -981,7 +984,38 @@ export function Sidebar({
                       {/* Only a sandbox is renamed or deleted from here: it is
                           Phosphor's own scratch folder, so its name and its
                           removal are ours to offer. A project folder is the
-                          user's and is only ever forgotten, in Settings. */}
+                          user's, so it is only ever forgotten: it leaves the
+                          sidebar and nothing on disk changes. This used to be
+                          Settings-only, and people could not find it. */}
+                      {!sandboxPaths.has(group.workspacePath) && (
+                        <MenuRow
+                          active={false}
+                          testId="workspace-group-remove"
+                          onClick={() => {
+                            // Second click confirms, in place, like a sandbox
+                            // delete: it is undone by opening the folder again.
+                            if (confirmRemove !== group.workspacePath) {
+                              setConfirmRemove(group.workspacePath)
+                              return
+                            }
+                            closeWorkspaceMenu()
+                            void useWorkspacesStore
+                              .getState()
+                              .removeWorkspace([
+                                group.workspacePath,
+                                ...group.paths.filter((path) => path !== group.workspacePath),
+                              ])
+                          }}
+                        >
+                          <span
+                            className={confirmRemove === group.workspacePath ? 'text-danger' : ''}
+                          >
+                            {confirmRemove === group.workspacePath
+                              ? 'Remove? Files stay on disk'
+                              : 'Remove from sidebar'}
+                          </span>
+                        </MenuRow>
+                      )}
                       {sandboxPaths.has(group.workspacePath) && (
                         <>
                           <MenuRow

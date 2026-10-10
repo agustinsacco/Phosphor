@@ -244,8 +244,14 @@ rather than a top-level app concern.
 - **Workspaces**: the recent list, one row per folder, offering exactly two
   things: **Reset layout** (drops every localStorage key for that path, so a
   wedged split is recoverable) and **Remove**, which forgets the folder and
-  touches nothing on disk. Reordering lives in the sidebar, on each workspace
-  group's kebab, where you can see the order you are changing.
+  touches nothing on disk. Remove is the same action as the sidebar kebab's
+  **Remove from sidebar**: it closes the project's idle chats and lanes (a
+  live chat would otherwise hold its group in the sidebar; transcripts stay
+  and reopen from disk), refuses while one of them is mid-turn, steps the home
+  screen off the folder, and forgets the launch-resume target if it was inside
+  it, so the next launch does not reopen and re-add it. Reordering lives in
+  the sidebar, on each workspace group's kebab, where you can see the order
+  you are changing.
 - **Sandboxes**: the scratch folders behind "No folder", listed apart from
   recents. Each is minted under a random `adjective-noun` name and shows its
   item count and last use. **Rename** changes the folder on disk and moves its

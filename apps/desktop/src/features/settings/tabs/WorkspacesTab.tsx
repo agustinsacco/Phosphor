@@ -35,12 +35,11 @@ export function WorkspacesTab(): React.JSX.Element {
   const lanes = useLanePrefsStore((s) => s.lanes)
   const setLanePrefs = useLanePrefsStore((s) => s.setLanePrefs)
 
+  // The store filters the full list, so removing one project never forgets
+  // the sandboxes this tab lists separately. Same action as the sidebar's
+  // "Remove from sidebar", so both close its idle chats and step off it.
   const remove = async (workspace: WorkspaceInfo): Promise<void> => {
-    // `allRecents`, not the filtered list: writing the filtered one back would
-    // forget every sandbox as a side effect of removing one project.
-    const next = allRecents.filter((w) => w.path !== workspace.path)
-    await window.phosphor.invoke('app:setRecentWorkspaces', next)
-    useWorkspacesStore.setState({ recents: next })
+    await useWorkspacesStore.getState().removeWorkspace([workspace.path])
   }
 
   const resetLayout = (workspace: WorkspaceInfo): void => {

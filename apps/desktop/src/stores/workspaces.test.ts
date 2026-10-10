@@ -144,3 +144,65 @@ describe('deleting a sandbox', () => {
     expect(state.homePath).toBe('/s/sandbox-1')
   })
 })
+
+describe('removing a project', () => {
+  const setUp = async (live: Record<string, string>, streaming: string[] = []) => {
+    const { useWorkspacesStore } = await import('./workspaces')
+    const { useSessionsStore } = await import('./sessions')
+    const { useChatStore } = await import('./chat')
+    const disposeSession = vi.fn().mockResolvedValue(undefined)
+    useSessionsStore.setState({
+      live: Object.fromEntries(
+        Object.entries(live).map(([phosphorId, workspacePath]) => [
+          phosphorId,
+          { phosphorId, workspacePath },
+        ]),
+      ),
+      disposeSession,
+    })
+    useChatStore.setState({
+      sessions: Object.fromEntries(
+        streaming.map((id) => [id, { isStreaming: true }]),
+      ) as unknown as ReturnType<typeof useChatStore.getState>['sessions'],
+    })
+    useWorkspacesStore.setState({ homePath: '/b' })
+    return { useWorkspacesStore, disposeSession }
+  }
+
+  it('forgets it, closes its idle chats and lanes, and steps the home screen off it', async () => {
+    const lane = '/b/.phosphor/worktrees/fix-it'
+    const { useWorkspacesStore, disposeSession } = await setUp({
+      one: '/b',
+      two: lane,
+      three: '/elsewhere-wt',
+      other: '/a',
+    })
+
+    const removed = await useWorkspacesStore.getState().removeWorkspace(['/b', '/elsewhere-wt'])
+
+    expect(removed).toBe(true)
+    const state = useWorkspacesStore.getState()
+    expect(state.recents.map((workspace) => workspace.path)).toEqual(['/a', '/c'])
+    expect(invoke).toHaveBeenCalledWith(
+      'app:setRecentWorkspaces',
+      workspaces(['/a', '/c']).map((workspace, index) => ({
+        ...workspace,
+        lastOpenedAt: index === 0 ? 0 : 2,
+      })),
+    )
+    // Every chat folded into the group closes; another project's does not.
+    expect(disposeSession.mock.calls.map(([id]) => id)).toEqual(['one', 'two', 'three'])
+    expect(state.homePath).toBe('/c')
+  })
+
+  it('refuses while one of its chats is mid-turn', async () => {
+    const { useWorkspacesStore, disposeSession } = await setUp({ one: '/b' }, ['one'])
+
+    const removed = await useWorkspacesStore.getState().removeWorkspace(['/b'])
+
+    expect(removed).toBe(false)
+    expect(disposeSession).not.toHaveBeenCalled()
+    expect(useWorkspacesStore.getState().recents).toHaveLength(3)
+    expect(useWorkspacesStore.getState().homePath).toBe('/b')
+  })
+})

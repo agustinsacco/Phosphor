@@ -9,6 +9,7 @@ import {
   pruneLaneMarkers,
   pruneSeenSessions,
   repointPath,
+  resumeTargetRemoved,
   visibleWorkspaces,
 } from './prefs-utils'
 import {
@@ -292,7 +293,15 @@ export function setAgentDirectives(
 }
 
 export function setRecentWorkspaces(workspaces: AppPrefs['recentWorkspaces']): void {
-  prefs().set('recentWorkspaces', workspaces)
+  const s = prefs()
+  const previous = (s.get('recentWorkspaces') ?? []).map((workspace) => workspace.path)
+  s.set('recentWorkspaces', workspaces)
+  // A removed project must not come back on the next launch through resume.
+  const next = workspaces.map((workspace) => workspace.path)
+  if (resumeTargetRemoved(previous, next, s.get('lastWorkspacePath'), realPathOrNull)) {
+    s.delete('lastWorkspacePath')
+    s.delete('lastSessionPath')
+  }
 }
 
 export function setSessionOrder(paths: string[]): void {

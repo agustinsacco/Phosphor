@@ -9,6 +9,7 @@ import {
   sweepDrafts,
   pruneLaneMarkers,
   repointPath,
+  resumeTargetRemoved,
   visibleWorkspaces,
 } from './prefs-utils'
 
@@ -275,5 +276,30 @@ describe('repointPath', () => {
     expect(repointPath('C:\\boxes\\otter\\chat.jsonl', windows, '\\')).toBe(
       'C:\\boxes\\scratch\\chat.jsonl',
     )
+  })
+})
+
+describe('resumeTargetRemoved', () => {
+  const same = (path: string): string => path
+
+  it('forgets a target in a removed project, lanes included', () => {
+    expect(resumeTargetRemoved(['/a', '/b'], ['/a'], '/b', same)).toBe(true)
+    expect(resumeTargetRemoved(['/a', '/b'], ['/a'], '/b/.phosphor/worktrees/x', same)).toBe(true)
+  })
+
+  it('keeps it when its project stays, including on a reorder', () => {
+    expect(resumeTargetRemoved(['/a', '/b'], ['/b', '/a'], '/b', same)).toBe(false)
+    expect(resumeTargetRemoved(['/a', '/b'], ['/a'], '/a', same)).toBe(false)
+    expect(resumeTargetRemoved(['/a'], ['/a'], undefined, same)).toBe(false)
+  })
+
+  it('judges by the most specific enclosing project', () => {
+    expect(resumeTargetRemoved(['/a', '/a/sub'], ['/a/sub'], '/a/sub/x', same)).toBe(false)
+    expect(resumeTargetRemoved(['/a', '/a/sub'], ['/a'], '/a/sub', same)).toBe(true)
+  })
+
+  it('compares resolved spellings', () => {
+    const resolve = (path: string): string => path.replace('/link', '/real')
+    expect(resumeTargetRemoved(['/link/b'], [], '/real/b', resolve)).toBe(true)
   })
 })

@@ -7,12 +7,20 @@ vi.stubGlobal('window', {
 
 // sessions/layout stores pull in window.phosphor at import in some paths; the
 // stub above must exist before the store module loads.
-const { useTerminalStore, sessionTerminals, runningCount } = await import('./terminal')
+const { useTerminalStore, sessionTerminals, runningCount, runInTerminal, ensureTerminalTab } =
+  await import('./terminal')
+const { useSessionsStore } = await import('./sessions')
+const { useLayoutStore } = await import('./layout')
 
 let nextPty = 1
 
 beforeEach(() => {
   useTerminalStore.setState({ bySession: {}, pendingPaste: null })
+  useSessionsStore.setState({
+    activeSessionId: 'session-a',
+    live: { 'session-a': { phosphorId: 'session-a', workspacePath: '/repo/lane' } },
+  })
+  useLayoutStore.setState({ bySession: {} })
   nextPty = 1
   invoke.mockReset()
   invoke.mockImplementation((channel: string) => {
@@ -67,6 +75,59 @@ describe('terminal store (per-session)', () => {
     const [first, second] = sessionTerminals(useTerminalStore.getState(), 'session-a').tabs
     await useTerminalStore.getState().closeTab('session-a', second!.ptyId)
     expect(sessionTerminals(useTerminalStore.getState(), 'session-a').activeId).toBe(first!.ptyId)
+  })
+})
+
+describe('run in terminal', () => {
+  it('spawns once in the lane cwd and targets that PTY without executing', async () => {
+    await Promise.all([
+      runInTerminal('/repo', 'echo hello\n'),
+      ensureTerminalTab('session-a', '/repo/lane'),
+    ])
+    expect(invoke.mock.calls.filter(([c]) => c === 'pty:create')).toHaveLength(1)
+    expect(invoke).toHaveBeenCalledWith('pty:create', '/repo/lane', 80, 24, 'session-a')
+    expect(useTerminalStore.getState().pendingPaste).toEqual({
+      ptyId: 'pty-1',
+      text: 'echo hello',
+      execute: false,
+    })
+    expect(invoke.mock.calls.filter(([c]) => c === 'pty:write')).toHaveLength(0)
+  })
+
+  it('only the target PTY can consume the paste, including identical repeats', async () => {
+    await runInTerminal('/repo', 'echo hello')
+    const store = useTerminalStore.getState()
+    expect(store.consumePaste('login-pty')).toBeNull()
+    const first = store.consumePaste('pty-1')
+    expect(first?.text).toBe('echo hello')
+    expect(store.consumePaste('pty-1')).toBeNull()
+    await runInTerminal('/repo', 'echo hello')
+    expect(store.consumePaste('pty-1')).toEqual(first)
+    expect(invoke.mock.calls.filter(([c]) => c === 'pty:create')).toHaveLength(1)
+  })
+
+  it('keeps multiline paste separate from the explicit Enter request', async () => {
+    await runInTerminal('/repo', 'echo one\necho two\r\n', { execute: true })
+    expect(useTerminalStore.getState().pendingPaste).toEqual({
+      ptyId: 'pty-1',
+      text: 'echo one\necho two',
+      execute: true,
+    })
+  })
+
+  it.each(['exited', 'running'] as const)('does not paste into a %s tab', async (state) => {
+    await useTerminalStore.getState().createTab('session-a', '/repo/lane')
+    if (state === 'exited') useTerminalStore.getState().markExited('pty-1')
+    else useTerminalStore.getState().applyStatus({ 'pty-1': true })
+    await runInTerminal('/repo', 'echo hello')
+    expect(useTerminalStore.getState().pendingPaste?.ptyId).toBe('pty-2')
+  })
+
+  it('does not queue a command when spawning fails', async () => {
+    invoke.mockRejectedValueOnce(new Error('cannot start'))
+    await runInTerminal('/repo', 'echo hello')
+    expect(useTerminalStore.getState().pendingPaste).toBeNull()
+    expect(sessionTerminals(useTerminalStore.getState(), 'session-a').error).toBe('cannot start')
   })
 })
 

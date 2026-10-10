@@ -225,6 +225,8 @@ describe('exitWhenFlushed', () => {
     vi.advanceTimersByTime(999)
     expect(exit).not.toHaveBeenCalled()
     vi.advanceTimersByTime(1)
+    expect(exit.mock.calls).toEqual([[70]])
+    // A flush that arrives late does not exit again.
     err.pending[0]!()
     expect(exit.mock.calls).toEqual([[70]])
   })

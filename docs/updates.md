@@ -90,6 +90,19 @@ flight, and removes entries matching exactly
 bundle's own parent directory. A bare prefix test is not enough: this is
 `rm -rf` next to a user's `/Applications`.
 
+Staged bundles are not left for the sweep when the app knows they are dead.
+A newer release found while one is staged replaces it, and a failed swap
+discards it. The superseded bundle is deleted only after the phase has left
+`downloaded`, and an install takes its bundle out of reach before swapping, so
+a background check can never delete the bundle being installed.
+
+Every bundle deletion runs `/bin/rm -rf`, never Node's `fs.rm`. Inside
+Electron, `fs` reads each `*.asar` file as a directory, so a recursive `fs.rm`
+of a bundle removes everything except `Contents/Resources/app.asar` and fails
+with ENOTEMPTY. Plain-Node unit tests cannot see that, so
+`mac-installer.test.ts` also runs the real sweep in the Desktop install's
+Electron, against a copy of Electron's own `default_app.asar`.
+
 ## What an update does NOT touch
 
 Nothing persistent lives inside the bundle, so a swap resets no state:

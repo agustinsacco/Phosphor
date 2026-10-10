@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { promisify } from 'node:util'
+import { build } from 'esbuild'
 import {
   bundlePathFromExe,
   isOrphanedUpdateEntry,
@@ -234,6 +238,62 @@ describe('sweepOrphans', () => {
     await expect(sweepOrphans('/nope/does-not-exist/Phosphor.app')).resolves.toEqual([])
   })
 })
+
+describe('sweepOrphans inside Electron', () => {
+  // Electron's fs reads every *.asar file as a directory, so a recursive
+  // fs.rm of a bundle stops at Contents/Resources/app.asar. A plain-Node test
+  // cannot see that, so this runs the real sweep in the Electron the app ships.
+  it('removes an orphaned bundle whole, app.asar included', async () => {
+    const root = resolve(import.meta.dirname, '../../../..')
+    const electron = createRequire(join(root, 'apps/desktop/package.json'))('electron') as string
+    const parent = await sandbox()
+    const resources = join(
+      parent,
+      '.phosphor-update-11-22',
+      'Phosphor.app',
+      'Contents',
+      'Resources',
+    )
+    await mkdir(resources, { recursive: true })
+    await copyFile(electronAsar(electron), join(resources, 'app.asar'))
+    await mkdir(join(parent, 'Phosphor.app'))
+
+    const probe = join(parent, 'sweep.cjs')
+    const bundled = await build({
+      stdin: {
+        contents: [
+          "import { sweepOrphans } from './mac-installer'",
+          'sweepOrphans(process.argv[2]).then((removed) => console.log(JSON.stringify(removed)))',
+        ].join('\n'),
+        resolveDir: import.meta.dirname,
+        loader: 'ts',
+      },
+      bundle: true,
+      platform: 'node',
+      format: 'cjs',
+      write: false,
+      logLevel: 'silent',
+    })
+    await writeFile(probe, bundled.outputFiles[0]!.text)
+
+    const { stdout } = await promisify(execFile)(electron, [probe, join(parent, 'Phosphor.app')], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    })
+
+    expect(JSON.parse(stdout)).toEqual([join(parent, '.phosphor-update-11-22')])
+    expect((await readdir(parent)).sort()).toEqual(['Phosphor.app', 'sweep.cjs'])
+  })
+})
+
+/** The small asar every Electron install ships beside its binary. */
+function electronAsar(binary: string): string {
+  const found = [
+    join(dirname(binary), '..', 'Resources', 'default_app.asar'), // macOS: Contents/MacOS
+    join(dirname(binary), 'resources', 'default_app.asar'), // Linux and Windows
+  ].find((path) => existsSync(path))
+  if (!found) throw new Error(`no default_app.asar beside ${binary}`)
+  return found
+}
 
 async function readFileText(path: string): Promise<string> {
   const { readFile } = await import('node:fs/promises')

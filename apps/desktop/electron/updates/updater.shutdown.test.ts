@@ -2,6 +2,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 const f = vi.hoisted(() => ({
   signed: false,
+  latest: '2.0.0',
+  discard: vi.fn(),
   approve: vi.fn(),
   release: vi.fn(),
   ready: vi.fn(),
@@ -34,9 +36,13 @@ vi.mock('../shutdown-approval', () => ({
 vi.mock('./mac-installer', () => ({
   bundlePathFromExe: () => '/app',
   canSwapBundle: async () => true,
-  parseMacManifest: () => ({ version: '2.0.0', files: [] }),
+  discardStagedUpdate: f.discard,
+  parseMacManifest: () => ({ version: f.latest, files: [] }),
   pickMacZip: () => ({ url: 'update.zip', sha512: 'hash' }),
-  stageMacUpdate: async () => ({ version: '2.0.0' }),
+  stageMacUpdate: async ({ version }: { version: string }) => ({
+    version,
+    stagingDir: `/stage-${version}`,
+  }),
   swapBundle: f.swap,
   spawnRelauncher: f.relaunch,
   sweepOrphans: async () => [],
@@ -63,7 +69,9 @@ beforeEach(() => {
     vi.fn(async () => ({ ok: true, text: async () => 'manifest' })),
   )
   f.signed = false
+  f.latest = '2.0.0'
   f.handlers.clear()
+  f.discard.mockResolvedValue(undefined)
   f.approve.mockResolvedValue(true)
   f.swap.mockResolvedValue('/backup')
   f.relaunch.mockResolvedValue(undefined)
@@ -102,6 +110,48 @@ it('restores admission when macOS installation fails, without quitting', async (
   await updater.restartAndInstall()
   expect(f.release).toHaveBeenCalledTimes(1)
   expect(f.quit).not.toHaveBeenCalled()
+  expect(f.discard).toHaveBeenCalledExactlyOnceWith({
+    version: '2.0.0',
+    stagingDir: '/stage-2.0.0',
+  })
+})
+
+it('discards a staged update once a newer release replaces it', async () => {
+  const updater = await import('./updater')
+  await updater.checkForUpdates()
+  expect(updater.currentUpdateState()).toMatchObject({ phase: 'downloaded', version: '2.0.0' })
+  const phases: string[] = []
+  f.discard.mockImplementation(async () => {
+    phases.push(updater.currentUpdateState().phase)
+  })
+
+  f.latest = '2.1.0'
+  await updater.checkForUpdates()
+  await updater.checkForUpdates()
+
+  expect(f.discard).toHaveBeenCalledExactlyOnceWith({
+    version: '2.0.0',
+    stagingDir: '/stage-2.0.0',
+  })
+  // Never while `downloaded`: restartAndInstall must not pick it up mid-delete.
+  expect(phases).toEqual(['downloading'])
+  expect(updater.currentUpdateState()).toMatchObject({ phase: 'downloaded', version: '2.1.0' })
+})
+
+it('never discards the bundle an install is swapping in', async () => {
+  const updater = await import('./updater')
+  await updater.checkForUpdates()
+  f.swap.mockImplementation(async () => {
+    // The periodic check lands mid-swap and finds a newer release.
+    f.latest = '2.1.0'
+    await updater.checkForUpdates()
+    return '/backup'
+  })
+
+  await updater.restartAndInstall()
+
+  expect(f.discard).not.toHaveBeenCalled()
+  expect(f.quit).toHaveBeenCalledTimes(1)
 })
 
 it('also gates electron-updater before quitAndInstall', async () => {

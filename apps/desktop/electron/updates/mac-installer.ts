@@ -216,13 +216,36 @@ export async function sweepOrphans(bundlePath: string): Promise<string[]> {
     const target = join(parent, name)
     if (target === bundlePath) continue
     try {
-      await rm(target, { recursive: true, force: true })
+      await removeTree(target)
       removed.push(target)
     } catch {
       // A leftover we cannot remove is not worth failing a launch over.
     }
   }
   return removed
+}
+
+/**
+ * Delete a staged update that will never be installed: a newer release
+ * replaced it, or the swap failed. Best effort; the next launch's sweep
+ * catches anything left behind.
+ */
+export async function discardStagedUpdate(staged: StagedMacUpdate): Promise<void> {
+  await removeTree(staged.stagingDir).catch(() => {})
+}
+
+/**
+ * Delete a directory that may hold an app bundle.
+ *
+ * Not `fs.rm`: inside Electron, `fs` reads every `*.asar` file as a
+ * directory, so a recursive `rm` of a bundle descends into
+ * `Contents/Resources/app.asar`, cannot delete what it finds there, and fails
+ * with ENOTEMPTY after removing everything else. That left each orphan as a
+ * ~210MB `app.asar`. `/bin/rm` never goes through Electron's `fs`, which is
+ * also why the relauncher's `rm -rf` has always worked.
+ */
+async function removeTree(path: string): Promise<void> {
+  await run('/bin/rm', ['-rf', '--', path])
 }
 
 export interface StagedMacUpdate {
@@ -296,7 +319,8 @@ export async function stageMacUpdate(options: StageOptions): Promise<StagedMacUp
 
     return { version, stagedBundle, stagingDir }
   } catch (error) {
-    await rm(stagingDir, { recursive: true, force: true })
+    // Keep the original failure: a cleanup error must not replace it.
+    await removeTree(stagingDir).catch(() => {})
     throw error
   } finally {
     await rm(downloadDir, { recursive: true, force: true })
@@ -324,7 +348,8 @@ export async function swapBundle(bundlePath: string, staged: StagedMacUpdate): P
     await rename(backup, bundlePath).catch(() => {})
     throw error
   }
-  await rm(staged.stagingDir, { recursive: true, force: true })
+  // The swap has happened; a staging leftover must not report it as failed.
+  await removeTree(staged.stagingDir).catch(() => {})
   return backup
 }
 

@@ -15,6 +15,7 @@ import {
 import {
   bundlePathFromExe,
   canSwapBundle,
+  discardStagedUpdate,
   parseMacManifest,
   pickMacZip,
   spawnRelauncher,
@@ -234,6 +235,13 @@ async function checkMacSelf(): Promise<void> {
   }
 
   apply({ type: 'update-available', version: manifest.version })
+  // A newer release replaces the one waiting. Drop its bundle now instead of
+  // leaving it for the next launch: one long run used to stack up several.
+  // The phase has already left `downloaded`, so restartAndInstall cannot pick
+  // this one up while it is being deleted.
+  const superseded = stagedMac
+  stagedMac = null
+  if (superseded) await discardStagedUpdate(superseded)
   try {
     stagedMac = await stageMacUpdate({
       bundlePath: bundle,
@@ -404,16 +412,18 @@ export async function restartAndInstall(): Promise<void> {
 async function installStagedMac(staged: StagedMacUpdate): Promise<boolean> {
   const bundle = macBundlePath()
   if (!bundle) return false
+  // Out of reach before the first await: a background check that finds a
+  // newer release discards whatever is staged, never the bundle mid-swap.
+  if (stagedMac === staged) stagedMac = null
   try {
     const backup = await swapBundle(bundle, staged)
     await spawnRelauncher(bundle, backup)
-    stagedMac = null
     log('updates', 'installing macOS update', { version: staged.version })
     shutdownApproval.allowUpdateQuit()
     app.quit()
     return true
   } catch (error) {
-    stagedMac = null
+    await discardStagedUpdate(staged)
     log('updates', 'macOS swap failed', { message: String(error) })
     apply({ type: 'install-failed', version: staged.version, releaseUrl: RELEASES_LATEST })
     return false

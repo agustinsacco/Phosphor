@@ -295,3 +295,68 @@ describe('refreshMissing', () => {
     expect(invoke.mock.calls.filter((c) => c[0] === 'sessions:list')).toHaveLength(1)
   })
 })
+
+describe('hydratePinned', () => {
+  const invoke = vi.fn()
+
+  beforeEach(() => {
+    invoke.mockReset().mockResolvedValue(undefined)
+    vi.stubGlobal('window', {
+      phosphor: { invoke, piCommand: vi.fn(), onSessionPush: vi.fn() },
+    })
+    useSessionsStore.setState({ pinned: [], sessionOrder: ['/a', '/b'], laneMarkers: {} })
+  })
+
+  /** A prefs read the test answers by hand, so edits can land while it is in flight. */
+  const pendingPrefs = () => {
+    let answer!: (prefs: unknown) => void
+    invoke.mockImplementation((channel: string) =>
+      channel === 'app:getPrefs'
+        ? new Promise((resolve) => (answer = resolve))
+        : Promise.resolve(undefined),
+    )
+    return (prefs: unknown) => answer(prefs)
+  }
+
+  // #350: a re-hydrate fires whenever the sidebar's workspace set changes,
+  // e.g. a live session learning its file path. Its older answer reverted a
+  // pin or a drag made while it was in flight, and the row snapped back.
+  it('keeps pins and order the user changed while the read was in flight', async () => {
+    const answer = pendingPrefs()
+    const hydrating = useSessionsStore.getState().hydratePinned()
+
+    useSessionsStore.getState().togglePin('/b')
+    useSessionsStore.getState().setSessionOrder(['/b', '/a'])
+    answer({
+      pinnedSessions: [],
+      sessionOrder: ['/a', '/b'],
+      seenSessions: { '/a': 1 },
+      laneMarkers: { '/a': '🛰️' },
+    })
+    await hydrating
+
+    const state = useSessionsStore.getState()
+    expect(state.pinned).toEqual(['/b'])
+    expect(state.sessionOrder).toEqual(['/b', '/a'])
+    // Fields nobody touched still take main's answer.
+    expect(state.seenSessions).toEqual({ '/a': 1 })
+    expect(state.laneMarkers).toEqual({ '/a': '🛰️' })
+  })
+
+  it('applies everything when nothing changed meanwhile', async () => {
+    const answer = pendingPrefs()
+    const hydrating = useSessionsStore.getState().hydratePinned()
+    answer({
+      pinnedSessions: ['/a'],
+      sessionOrder: ['/b', '/a'],
+      seenSessions: {},
+      laneMarkers: {},
+    })
+    await hydrating
+
+    expect(useSessionsStore.getState()).toMatchObject({
+      pinned: ['/a'],
+      sessionOrder: ['/b', '/a'],
+    })
+  })
+})

@@ -3067,6 +3067,8 @@ test('sidebar session drag, menu and keyboard order survives suspend and restart
     const pinnedPath = await pinned.getAttribute('data-session-path')
     await pinned.getByTestId('session-row').click({ button: 'right' })
     await page.getByRole('button', { name: /^Pin$/ }).click()
+    // Snapshot only once the pin has rendered: Pinned is the first section.
+    await expect(rows.first()).toHaveAttribute('data-session-path', pinnedPath!)
     const before = await order()
     await page.locator(`[data-session-path="${pinnedPath}"]`).dragTo(last)
     await expect.poll(order).toEqual(before)

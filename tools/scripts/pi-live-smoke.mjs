@@ -13,7 +13,7 @@
  * It sends one real prompt, so it needs a working provider login and costs
  * a few cents. Not part of `validate`, not part of CI; run it by hand when the
  * installed pi changes minor, then update `VERIFIED_PI_LINE` in
- * `src/lib/piDrift.ts`.
+ * `apps/desktop/src/lib/piDrift.ts`.
  *
  *   node tools/scripts/pi-live-smoke.mjs
  *   PI_SMOKE_MODEL=claude-haiku-4-5 node tools/scripts/pi-live-smoke.mjs
@@ -28,7 +28,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '../..')
 const MODEL = process.env.PI_SMOKE_MODEL ?? 'claude-haiku-4-5'
 const TURN_TIMEOUT_MS = 240_000
 
-// Kept in sync with bundledExtensions() in electron/pi/session-runtime.ts.
+// Kept in sync with bundledExtensions() in libs/session-runtime/src/bundled-extensions.ts.
 const EXTENSIONS = [
   'artifacts.ts',
   'context-breakdown.ts',

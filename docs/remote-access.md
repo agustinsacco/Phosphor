@@ -19,8 +19,9 @@ admission. `boundary.test.ts` rejects Electron/Desktop imports from every runtim
 entry. Neither test is real-provider or remote-host acceptance.
 
 The locks are process-local. The Host's entry point is `phosphor-host`
-([host.md](host.md)), a foreground CLI that checks a machine and starts no
-session. There is no durable Host ownership, authenticated network API,
+([host.md](host.md)), a foreground CLI that checks a machine. It composes the
+session runtime with its own adapters, and no command starts a session yet.
+There is no durable Host ownership, authenticated network API,
 snapshot/replay protocol, command receipt store or controller lease
 implementation. A Host supplies its own machine adapters and authorization: it
 builds pi's environment from its own config and never accepts spawn

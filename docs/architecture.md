@@ -77,6 +77,8 @@ missing files; routine ownership is checked again after a queued command waits.
 with its deletion path. Desktop binds one instance in `session-path-lock.ts`.
 `libs/session-runtime/src/pi/session-deletion.ts` cancels active/queued resumes, stops every writer
 and handles identities learned during shutdown before invoking storage hooks.
+An owner can refuse inside the lock, before anything stops (`assertDeletable`):
+the Host refuses a running session, and Desktop sets no hook.
 Desktop keeps its existing Trash, legacy-ledger and draft cleanup adapters.
 These are in-process locks, not cross-process Host ownership or network authority.
 

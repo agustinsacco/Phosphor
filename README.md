@@ -489,7 +489,8 @@ libs/pi-extensions/pi-ext/  the six pi extensions that run inside pi's process,
                      headroom, mcp-status, tool-name-guard, worktree-paths
 apps/desktop/e2e/                 Playwright-Electron smoke tests + deterministic pi stub
 apps/host/src/       phosphor-host, the plain-Node Host: its config, pi's
-                     environment and the machine checks (docs/host.md)
+                     environment, the machine checks and the session runtime
+                     (docs/host.md)
 tools/scripts/             install.sh, icon + screenshot generation, release and
                      validate helpers
 docs/                living technical docs — one file per surface, each

@@ -3,18 +3,18 @@ import { VERIFIED_PI_LINE, isPiNewerThanVerified } from './piDrift'
 
 describe('isPiNewerThanVerified', () => {
   it('stays quiet on the verified line, including its patches', () => {
-    expect(isPiNewerThanVerified('0.85.0')).toBe(false)
-    expect(isPiNewerThanVerified('0.85.1')).toBe(false)
-    expect(isPiNewerThanVerified('0.85.12')).toBe(false)
+    expect(isPiNewerThanVerified('0.87.0')).toBe(false)
+    expect(isPiNewerThanVerified('0.87.1')).toBe(false)
+    expect(isPiNewerThanVerified('0.87.12')).toBe(false)
   })
 
   it('stays quiet on older pi', () => {
-    expect(isPiNewerThanVerified('0.84.4')).toBe(false)
+    expect(isPiNewerThanVerified('0.86.4')).toBe(false)
     expect(isPiNewerThanVerified('0.9.0')).toBe(false)
   })
 
   it('warns on a newer minor', () => {
-    expect(isPiNewerThanVerified('0.86.0')).toBe(true)
+    expect(isPiNewerThanVerified('0.88.0')).toBe(true)
     expect(isPiNewerThanVerified('0.100.0')).toBe(true)
   })
 
@@ -34,6 +34,6 @@ describe('isPiNewerThanVerified', () => {
   })
 
   it('exports the line the banner prints', () => {
-    expect(VERIFIED_PI_LINE).toBe('0.85')
+    expect(VERIFIED_PI_LINE).toBe('0.87')
   })
 })

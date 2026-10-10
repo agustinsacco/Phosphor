@@ -1,12 +1,14 @@
 # 02 — pi Integration Reference
 
 `MIN_PI_VERSION` is **0.87.1**: the context budget relies on pi's native
-between-tool-cycle compaction, verified with a real RPC process and a local
-fake provider. The protocol mirror in `libs/shared/src/rpc.ts` was last fully
-re-verified against **0.85.1**; usage and tool-call identity fields remain
+between-tool-cycle compaction, verified with a real RPC process and a local fake
+provider. The protocol mirror in `libs/shared/src/rpc.ts` was last re-verified
+against **0.87.1**, with pi-claude-cli 0.10.0: every command and its fields
+match `rpc-types.d.ts`, every event and content type it names is one pi emits,
+and the live smoke below passed. Usage and tool-call identity fields remain
 optional for historical records. The 0.84.0 streaming-shape change is in that
-file's header. See [One context budget](cli-providers.md#one-context-budget)
-for the session-local window cap.
+file's header. See [One context budget](cli-providers.md#one-context-budget) for
+the session-local window cap.
 
 When re-verifying against a new pi, diff `libs/shared/src/rpc.ts` against pi's command switch and `dist/modes/json-event.d.ts` (the stdout shape), not just against `rpc-types.d.ts` (the internal shape):
 

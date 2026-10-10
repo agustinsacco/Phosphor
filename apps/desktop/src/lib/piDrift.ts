@@ -9,7 +9,7 @@
  */
 
 /** Newest pi minor line Phosphor has been verified against, as `major.minor`. */
-export const VERIFIED_PI_LINE = '0.85'
+export const VERIFIED_PI_LINE = '0.87'
 
 function parseLine(version: string): [number, number] | null {
   const parts = version.trim().split('.')
@@ -21,7 +21,7 @@ function parseLine(version: string): [number, number] | null {
 
 /**
  * True when `installed` is on a newer minor line than `verified`.
- * A patch release of the verified line (0.85.7 vs `0.85`) is not drift.
+ * A patch release of the verified line (0.87.7 vs `0.87`) is not drift.
  */
 export function isPiNewerThanVerified(
   installed: string | undefined | null,

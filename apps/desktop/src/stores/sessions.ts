@@ -707,6 +707,30 @@ function attachSessionPushHandler(phosphorId: string): void {
   unsubscribers.set(phosphorId, unsubscribe)
 }
 
+/** The prefs-backed sidebar fields `hydratePinned` reads back from main. */
+type HydratedField = 'pinned' | 'sessionOrder' | 'seenSessions' | 'laneMarkers'
+
+/**
+ * How many times each of those fields has been changed HERE, by the user.
+ *
+ * `hydratePinned` re-runs whenever the sidebar's workspace set changes, and
+ * that includes a live session learning its file path or resuming, so it runs
+ * at arbitrary moments mid-use. Its prefs read is a round trip: a pin or a drag
+ * made while it was in flight was then overwritten by the older answer, and
+ * the row snapped back. That was the intermittent sidebar-order e2e failure
+ * (#350). A field edited since the read began keeps the local value, which is
+ * already on its way to main.
+ */
+const localEdits: Record<HydratedField, number> = {
+  pinned: 0,
+  sessionOrder: 0,
+  seenSessions: 0,
+  laneMarkers: 0,
+}
+const edited = (...fields: HydratedField[]): void => {
+  for (const field of fields) localEdits[field]++
+}
+
 export const useSessionsStore = create<SessionsState>((set, get) => ({
   activeSessionId: null,
   navSeq: 0,
@@ -732,6 +756,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     // Keep unscanned/collapsed groups, including their relative order.
     const moved = new Set(paths)
     const sessionOrder = [...paths, ...get().sessionOrder.filter((path) => !moved.has(path))]
+    edited('sessionOrder')
     set({ sessionOrder })
     void window.phosphor.invoke('app:setSessionOrder', sessionOrder).catch(() => {
       void import('./extensionUi').then(({ useExtensionUiStore }) =>
@@ -748,17 +773,21 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   creating: false,
 
   hydratePinned: async () => {
+    const before = { ...localEdits }
     const prefs = await window.phosphor.invoke('app:getPrefs')
+    // Only what nobody changed here meanwhile. See `localEdits`.
+    const fresh = (field: HydratedField): boolean => localEdits[field] === before[field]
     set({
-      pinned: prefs.pinnedSessions,
-      sessionOrder: prefs.sessionOrder ?? [],
-      seenSessions: prefs.seenSessions ?? {},
-      laneMarkers: prefs.laneMarkers ?? {},
+      ...(fresh('pinned') ? { pinned: prefs.pinnedSessions } : {}),
+      ...(fresh('sessionOrder') ? { sessionOrder: prefs.sessionOrder ?? [] } : {}),
+      ...(fresh('seenSessions') ? { seenSessions: prefs.seenSessions ?? {} } : {}),
+      ...(fresh('laneMarkers') ? { laneMarkers: prefs.laneMarkers ?? {} } : {}),
     })
   },
 
   markSeen: (sessionPath) => {
     if (!sessionPath) return
+    edited('seenSessions')
     set((s) => ({ seenSessions: { ...s.seenSessions, [sessionPath]: Date.now() } }))
     void window.phosphor.invoke('app:markSessionSeen', sessionPath)
   },
@@ -1200,6 +1229,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
         const ids = new Set([...matches.map((l) => l.phosphorId), ...(disposed ?? [])])
         for (const id of ids) await cleanupLocalSessionState(id)
         if (path) {
+          edited('pinned', 'laneMarkers')
           set((s) => {
             const disk = Object.fromEntries(
               Object.entries(s.disk).map(([cwd, metas]) => [
@@ -1340,6 +1370,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     // not accumulate entries for paths that no longer exist.
     const gone = new Set(results.filter((r) => r.ok).map((r) => r.path))
     if (gone.size > 0) {
+      edited('laneMarkers')
       set((s) => {
         const laneMarkers = { ...s.laneMarkers }
         for (const path of gone) delete laneMarkers[path]
@@ -1367,6 +1398,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   },
 
   setLaneMarker: (path, marker) => {
+    edited('laneMarkers')
     set((s) => {
       const laneMarkers = { ...s.laneMarkers }
       if (marker === null) delete laneMarkers[path]
@@ -1377,6 +1409,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   },
 
   togglePin: (path) => {
+    edited('pinned')
     set((s) => {
       const pinned = s.pinned.includes(path)
         ? s.pinned.filter((p) => p !== path)

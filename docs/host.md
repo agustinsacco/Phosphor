@@ -2,7 +2,8 @@
 
 The Host is Phosphor's plain-Node application for machines Desktop does not run
 on. Today it is a foreground CLI that checks whether a machine can run sessions.
-It starts no session and listens on nothing. Nothing builds, installs or
+Its session runtime is built and tested ([Sessions](#sessions)), but no command
+starts a session yet, and it listens on nothing. Nothing builds, installs or
 publishes it yet: it runs from its tests, and from a scratch bundle during
 development. Desktop never runs a Host, and offline Desktop never needs one
 ([remote-access.md](remote-access.md)).
@@ -157,6 +158,126 @@ Every program a check runs goes through `machine/probe.ts`:
 
 SIGHUP, SIGINT and SIGTERM kill every running probe before the Host exits,
 because a terminal's Ctrl-C does not reach another process group.
+
+## Sessions
+
+`session/runtime.ts` composes the session runtime for this machine:
+`createHostRuntime` takes what doctor validated and binds every port the
+library asks for. No command calls it yet; `accept` will be the first.
+
+- **One service, one lock domain.** Starts, resumes and deletions go through
+  the library's service and deletion, which share one registry and one
+  path-lock domain, as on Desktop.
+- **pi as pinned.** pi starts from `pi.node` and `pi.executable`, never a stub,
+  with exactly the environment built above plus `PI_CLAUDE_CLI_CONTEXT=pi`:
+  nothing the Host inherited reaches it. It loads the six extensions from
+  `<resourceRoot>/pi-ext/` and leads its own process group.
+- **Fixed policy.** The default agent directives, with no per-project
+  overrides; pi's own settings for the default provider, and pi's packages for
+  the Claude gate; the config's context budget, never paused. There are no
+  accounts, no Headroom, no routines and no recents.
+- **The same git.** Creating the runtime sets the Host's own PATH to pi's, so
+  the git the Host asks about a repository is the git pi runs.
+
+### Requests
+
+A session starts or resumes only from a request, which `session/request.ts`
+checks. Its keys are closed: `env`, `binaryPath`, `prefixArgs`, `extensions`,
+`appendSystemPrompt`, `cwd`, `forkFrom` and `sessionId` are refused by name, as
+is any other unknown key, and every problem comes back at its JSON pointer. No
+message repeats a value from the request.
+
+| Field           | Rule                                                                                                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `repository`    | Required. An absolute path whose real path is a folder inside a configured repository, so `..`, a symlink that escapes and `/repo2` beside `/repo` all fail. A missing folder gets the answer one outside gets.    |
+| `sessionPath`   | To resume. A regular `.jsonl` file, not a symlink, directly in pi's session folder for `repository`: otherwise `--session` would let pi append to any file. A file anywhere else gets one answer, existing or not. |
+| `provider`      | A letter or digit, then up to 63 letters, digits, `.`, `_` or `-`.                                                                                                                                                 |
+| `model`         | A letter or digit, then up to 127 letters, digits or `._:/@+-`.                                                                                                                                                    |
+| `thinkingLevel` | `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`.                                                                                                                                                       |
+| `name`          | 1 to 120 characters, with no control, line-break or text-direction characters and no leading `-`.                                                                                                                  |
+
+No value can start with `-`, so none can become one of pi's flags. A file that
+one of this Host's sessions is running on is not started twice: a second start
+is refused, even one racing the first, and a file a session may be moving to
+counts too (see [Session commands](#session-commands)). A deletion names only
+`repository` and `sessionPath`. It refuses a running session, cancels a start of
+the same file still under way, and unlinks only one of pi's session files: a
+regular `.jsonl`, not a link, directly in a folder of pi's session root. All of
+this holds within one Host process: a pi that Desktop or another process runs on
+the same file is not seen. Ownership across processes is component 06's.
+
+### Session commands
+
+A running session takes pi's RPC commands, except these, so that the Host
+always knows which file each pi writes:
+
+- `new_session`, `switch_session`, `fork` and `clone`. Each moves pi to another
+  session file, and only a request starts or resumes one.
+- `export_html` with an `outputPath`. An export goes where pi puts it.
+- Any type that is not one of pi's.
+
+A prompt that starts with `/` can run an extension command, and that can move pi
+to another file. pi answers such a prompt only once the command has finished,
+failed or not, and the Host then asks pi which file it writes. From the prompt
+until that answer, it admits no resume and no deletion, of any file: each is
+refused, to be tried again. A new session is never held up, since its file is
+new. An extension that moves pi after its command has ended is followed only
+from that session's next prompt.
+
+If pi then cannot say which file it writes, because `get_state` fails, names no
+file or gets no answer since pi has exited, the session counts as lost. Every
+resume and deletion is then refused until that session is stopped, or until a
+later answer names its file. pi 0.87.1's `get_state` fails, for one, once the
+last `session_info` entry in its file has a name that is not a string. Only a
+file that pi did not write can hold one. Such a session refuses prompts as well.
+Stopping it always clears it, and so does a later answer that names its file
+once the file is fixed, for instance by `set_session_name`, which appends a name
+that is a string.
+
+These rules keep the Host's own records and admissions consistent. They do not
+confine extensions: an extension runs inside pi as the user, so it can move pi
+to any file, even one another session writes, and the Host learns of the move
+only afterwards. Nor are they an authorization boundary: `bash` runs as the user
+anyway, and which commands a remote controller may send is component 21's.
+
+### Lifecycle
+
+`booting → validating → ready → draining → stopped | failed`. Only `ready` takes
+new work. From `draining` on, a running pi takes reads and interrupts only. A
+drain:
+
+1. Asks each pi whether a turn is in flight. If one is, it aborts the turn and
+   waits up to 5 s for it to end: pi saves a turn when it ends, so the abort
+   keeps it.
+2. Stops each pi: SIGTERM to its process group, SIGKILL 3 s later.
+3. Gives every process group this Host started 1 s to be gone: `kill(-pgid, 0)`
+   fails with ESRCH. Past pi's own exit, a group is checked every 20 ms until
+   its last member goes. The system hands the number out again only after
+   that, so a reused number would have to come round within one check to be
+   mistaken for it.
+
+The drain has 15 s in all, this last check included. Once they pass, or once a
+second drain request arrives, every group left is SIGKILLed at once, whatever
+step the drain is at, and both requests get the same result. Any stop still
+under way and the last check then share one more second, so a drain returns
+within 16 s. It counts the sessions, the turns saved and the turns that did not
+end in time, and it ends `failed` on a cleanup error, at the deadline, or with a
+group left; otherwise `stopped`.
+
+### Log
+
+`${XDG_STATE_HOME:-~/.local/state}/phosphor-host/logs/phosphor.log`, rotating at
+5 MB like Desktop's. The folder is 0700 and every file 0600, an older folder,
+log or rotated log included. It records the runtime's inputs (pi's command, the
+names in pi's environment, PATH, the repositories), each spawn's argv, pi's
+stderr, unexpected exits, state changes and drain results. Every string is
+redacted before it is written, and so is every line of a secret that spans
+lines, however short, since pi's stderr arrives one line at a time. A line that
+is all whitespace is the one left alone: it holds none of the secret, and hiding
+it would hide the spaces in every line. Any other line is hidden wherever it
+appears, so a secret with a line like `}` hides every `}` in pi's stderr. A
+secret gets through neither raw nor as its JSON escape. pi's stderr reaches a
+session's delivery redacted the same way.
 
 ## Nx and CI
 

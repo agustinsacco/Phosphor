@@ -83,8 +83,10 @@ you want to watch.
    path-lock domain with deletion, not call low-level spawn to bypass admission.
    These locks are process-local, not remote authorization or cross-process locks.
    `apps/host` ([host.md](docs/host.md)) is the plain-Node Host CLI. It checks a
-   machine and starts no session; it builds pi's environment from its own config
-   and never takes environment, executable or extension paths from a caller.
+   machine, and `apps/host/src/session/runtime.ts` composes the same service and
+   deletion over one lock domain; no command starts a session yet. It builds
+   pi's environment from its own config and never takes environment, executable
+   or extension paths from a caller.
 6. **Stores (`apps/desktop/src/stores/`, zustand) are projections of main-process state.**
    `files.ts` and `terminal.ts` are keyed `byWorkspace[path]`; their
    `workspaceFiles()` / `workspaceTerminals()` selectors return a shared

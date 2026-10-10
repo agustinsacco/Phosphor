@@ -9,6 +9,12 @@ export interface SessionDeletionRuntime {
   forgetAccount: (id: string) => void
   deleteTranscript: (path: string) => Promise<void>
   deleteDraft: (path: string) => Promise<void>
+  /**
+   * Throw to refuse, before any session stops or any file goes. It runs
+   * inside the path lock, after any resume already under way, so nothing can
+   * start between this check and the deletion. Desktop sets none.
+   */
+  assertDeletable?: (sessionId: string) => void
 }
 
 /** Share the creator's lock domain. Storage/trash policy belongs to the machine adapter. */
@@ -30,6 +36,7 @@ export function createSessionDeletion(runtime: SessionDeletionRuntime) {
       const clients = matches
         .map((s) => registry.get(s.sessionId)?.client)
         .filter((c) => c !== undefined)
+      for (const session of matches) runtime.assertDeletable?.(session.sessionId)
       for (const session of matches) {
         if (runtime.ownsRoutine(session.sessionId)) await runtime.cancelRoutine(session.sessionId)
       }

@@ -237,7 +237,7 @@ const MARK = { pass: 'ok  ', warn: 'warn', fail: 'FAIL', info: 'info' } as const
 
 export function renderDoctor(report: DoctorReport): string {
   const { host } = report
-  const lines = [`phosphor-host ${host.version} · node ${host.node} · ${host.platform}`]
+  const lines = [`phosphor ${host.version} · node ${host.node} · ${host.platform}`]
   for (const check of report.checks) {
     lines.push(`  ${MARK[check.status]}  ${check.id.padEnd(15)} ${check.summary}`)
   }

@@ -6,7 +6,7 @@ import { renderDoctor, runDoctor, type DoctorContext } from './commands/doctor'
 import { defaultConfigPath } from './config/load'
 import { HOST_SOURCE_SHA, HOST_VERSION } from './version'
 
-export const USAGE = `usage: phosphor-host <command>
+export const USAGE = `usage: phosphor <command>
 
   doctor [--config FILE] [--json]   check that this machine can run a Host
   version [--json]                  print the Host's version
@@ -33,7 +33,7 @@ export async function runCli(
   context: CliContext,
 ): Promise<number> {
   const usage = (problem: string) => {
-    io.stderr(`phosphor-host: ${problem}\n\n${USAGE}`)
+    io.stderr(`phosphor: ${problem}\n\n${USAGE}`)
     return EXIT.usage
   }
   let parsed: ReturnType<typeof parse>
@@ -64,7 +64,7 @@ export async function runCli(
         sourceSha: HOST_SOURCE_SHA,
         node: context.nodeVersion,
       }
-      io.stdout(values.json ? `${JSON.stringify(version)}\n` : `phosphor-host ${HOST_VERSION}\n`)
+      io.stdout(values.json ? `${JSON.stringify(version)}\n` : `phosphor ${HOST_VERSION}\n`)
       return EXIT.ok
     }
     const configPath = values.config ?? defaultConfigPath(context.env, context.home)
@@ -72,7 +72,7 @@ export async function runCli(
     io.stdout(values.json ? `${JSON.stringify(report, null, 2)}\n` : renderDoctor(report))
     return report.exitCode
   } catch (error) {
-    io.stderr(`phosphor-host: internal error: ${errorText(error)}\n`)
+    io.stderr(`phosphor: internal error: ${errorText(error)}\n`)
     return EXIT.internal
   }
 }

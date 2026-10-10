@@ -28,11 +28,11 @@ async function run(argv: string[], context: Partial<CliContext> = {}) {
   return { code, ...out }
 }
 
-describe('phosphor-host', () => {
+describe('phosphor', () => {
   it('prints its version, plain or as JSON', async () => {
     expect(await run(['version'])).toEqual({
       code: 0,
-      stdout: 'phosphor-host 0.0.0-dev.source\n',
+      stdout: 'phosphor 0.0.0-dev.source\n',
       stderr: '',
     })
     expect(JSON.parse((await run(['version', '--json'])).stdout)).toEqual({

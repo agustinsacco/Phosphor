@@ -1,12 +1,13 @@
-# phosphor-host
+# The Host
 
 The Host is Phosphor's plain-Node application for machines Desktop does not run
-on. Today it is a foreground CLI that checks whether a machine can run sessions.
-Its session runtime is built and tested ([Sessions](#sessions)), but no command
-starts a session yet, and it listens on nothing. Nothing builds, installs or
-publishes it yet: it runs from its tests, and from a scratch bundle during
-development. Desktop never runs a Host, and offline Desktop never needs one
-([remote-access.md](remote-access.md)).
+on. Its command is `phosphor`; its config and logs live in `phosphor-host`
+folders, apart from Desktop's own. Today it is a foreground CLI that checks
+whether a machine can run sessions. Its session runtime is built and tested
+([Sessions](#sessions)), but no command starts a session yet, and it listens on
+nothing. Nothing builds, installs or publishes it yet: it runs from its tests,
+and from a scratch bundle during development. Desktop never runs a Host, and
+offline Desktop never needs one ([remote-access.md](remote-access.md)).
 
 The source is `apps/host/src/`. It imports Node builtins and the exported
 subpaths of `@phosphor/session-runtime` and `@phosphor/shared`, nothing else:
@@ -16,8 +17,8 @@ every library import against the package's exports.
 ## Commands
 
 ```
-phosphor-host doctor [--config FILE] [--json]
-phosphor-host version [--json]
+phosphor doctor [--config FILE] [--json]
+phosphor version [--json]
 ```
 
 stdout carries only the report or the JSON. Usage errors go to stderr.

@@ -212,7 +212,7 @@ describe('doctor', () => {
 
   it('renders a readable report', async () => {
     const text = renderDoctor(await runDoctor(context()))
-    expect(text).toMatch(/^phosphor-host 0\.0\.0-dev\.source · node 22\.22\.3 · linux\n/)
+    expect(text).toMatch(/^phosphor 0\.0\.0-dev\.source · node 22\.22\.3 · linux\n/)
     expect(text).toContain(`  ok    pi              ${machine.cli} 0.87.1, started with node\n`)
     expect(text).toContain('\nlanes\n  native  available\n  claude  unavailable: ')
     expect(text.endsWith('\nready\n')).toBe(true)

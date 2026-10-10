@@ -40,8 +40,12 @@ beforeEach(() => {
       s1: { phosphorId: 's1', workspacePath: '/repo', diskPath: '/repo/.pi/sessions/old.jsonl' },
     },
     activeSessionId: 's1',
+    rewound: {},
   })
 })
+
+const rewindRecords = (): unknown[][] =>
+  invoke.mock.calls.filter(([channel]) => channel === 'app:setRewoundSessions')
 
 /**
  * `fork` always branches pi's live session onto a brand-new file — verified
@@ -82,6 +86,33 @@ describe('rewindToEntry', () => {
       text: 'edited message',
       images: undefined,
     })
+    // Recorded once, by file name, so the sidebar folds the old file away.
+    const record = { 'old.jsonl': 'new-branch.jsonl' }
+    expect(useSessionsStore.getState().rewound).toEqual(record)
+    expect(rewindRecords()).toEqual([['app:setRewoundSessions', record]])
+  })
+
+  it('records nothing when pi stays on the same file', async () => {
+    piCommand.mockImplementation((_sessionId: string, command: RpcCommand) => {
+      switch (command.type) {
+        case 'fork':
+          return Promise.resolve({ success: true, data: { text: 'x', cancelled: false } })
+        case 'get_messages':
+          return Promise.resolve({ success: true, data: { messages: [] } })
+        case 'get_state':
+          return Promise.resolve({
+            success: true,
+            data: sessionState('/repo/.pi/sessions/old.jsonl'),
+          })
+        default:
+          return Promise.resolve({ success: false })
+      }
+    })
+
+    await rewindToEntry('s1', 'entry-2')
+
+    expect(useSessionsStore.getState().rewound).toEqual({})
+    expect(rewindRecords()).toEqual([])
   })
 
   /**
@@ -124,6 +155,8 @@ describe('rewindToEntry', () => {
     expect(useSessionsStore.getState().live.s1?.diskPath).toBe('/repo/.pi/sessions/old.jsonl')
     expect(useChatStore.getState().sessions.s1?.error).toBe('Rewind was cancelled by an extension.')
     expect(piCommand).toHaveBeenCalledTimes(1)
+    expect(useSessionsStore.getState().rewound).toEqual({})
+    expect(rewindRecords()).toEqual([])
   })
 
   it('does nothing further when the fork RPC call itself fails', async () => {
@@ -133,6 +166,8 @@ describe('rewindToEntry', () => {
 
     expect(useSessionsStore.getState().live.s1?.diskPath).toBe('/repo/.pi/sessions/old.jsonl')
     expect(piCommand).toHaveBeenCalledTimes(1)
+    expect(useSessionsStore.getState().rewound).toEqual({})
+    expect(rewindRecords()).toEqual([])
   })
 })
 

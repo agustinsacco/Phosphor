@@ -48,11 +48,27 @@ are not process-exit proof or authority to remove a child worktree.
 
 ## Forks and saved history
 
-Fork, Clone and Rewind create a new session file. Both the source and the new
-session remain in the sidebar, even after their processes stop or the app
-restarts. Shared entry ids and `parentSession` describe ancestry, not permission
-to hide the source. A rewind can therefore leave two rows with the same title;
-rename or explicitly delete the older session if it is no longer needed.
+Fork, Clone and Rewind each create a new session file; pi never edits one in
+place. The files look alike, so the sidebar decides by the **action** that
+made them, never by their contents (shared entry ids and `parentSession`
+describe ancestry, not permission to hide the source):
+
+- **Fork and Clone** keep both rows, the source and the copy, even after their
+  processes stop or the app restarts.
+- **Rewind** records `old file → new file` (`AppPrefs.rewoundSessions`, keyed
+  by file name so a folder rename cannot break it; written by `rewindToEntry`
+  only). The sidebar folds the old file away while its successor is on disk
+  and the old file is not live, following chains (A → B → C shows only C).
+  The new file is written only when a turn ends if the rewound branch had no
+  reply yet, so until then the old row stays. A pinned old file stays pinned.
+  Deleting the successor brings the old row back. Nothing is deleted or
+  written to pi's files.
+- Opened some other way (palette, pin, restored session), an old version shows
+  a banner, "This is the chat before a rewind. It continues in <name>", linking
+  to the live version, so nobody resumes it by mistake.
+
+Rewinds made before this record existed are not folded: their duplicate rows
+stay until you rename or delete one.
 
 ## Markers
 

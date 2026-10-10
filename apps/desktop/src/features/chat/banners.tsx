@@ -1,7 +1,11 @@
+import { useMemo } from 'react'
+import type { SessionMeta } from '@shared/models'
 import { useChatStore } from '@/stores/chat'
 import { useSessionsStore } from '@/stores/sessions'
+import { sessionTitle } from '@/lib/sessionTitle'
+import { latestRewoundVersion, sessionFileName } from '@/features/sessions/rewound'
 
-/** Inline banners: pi crashed, and no models configured. */
+/** Inline banners: pi crashed, no models configured, and an old version of a rewound chat. */
 
 export function CrashBanner({
   sessionId,
@@ -82,6 +86,55 @@ export function NoModelsBanner({ sessionId }: { sessionId: string }): React.JSX.
           </code>
           .
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * This file is what a chat looked like before a rewind, and the chat carries
+ * on in another file.
+ *
+ * The sidebar folds such a file away, but it can still be opened from the
+ * command palette, a pin or a restored last session. Without this banner it
+ * looked exactly like the live chat: a user typed "continue" into one, and a
+ * second agent started working in the same worktree as the first.
+ */
+export function RewoundBanner({ sessionId }: { sessionId: string }): React.JSX.Element | null {
+  const diskPath = useSessionsStore((s) => s.live[sessionId]?.diskPath)
+  const rewound = useSessionsStore((s) => s.rewound)
+  const disk = useSessionsStore((s) => s.disk)
+  const successor = useMemo(() => {
+    if (!diskPath) return null
+    const byName = new Map<string, { workspacePath: string; meta: SessionMeta }>()
+    for (const [workspacePath, metas] of Object.entries(disk)) {
+      for (const meta of metas) byName.set(sessionFileName(meta.path), { workspacePath, meta })
+    }
+    const latest = latestRewoundVersion(rewound, diskPath, new Set(byName.keys()))
+    return latest ? (byName.get(latest) ?? null) : null
+  }, [diskPath, rewound, disk])
+  if (!successor) return null
+
+  const { workspacePath, meta } = successor
+  const name =
+    sessionTitle({ explicitName: meta.name, firstUserText: meta.firstUserText }) ??
+    'its newer version'
+  return (
+    <div className="mx-auto w-full max-w-3xl px-6 pt-2" data-testid="rewound-banner">
+      <div className="bg-warning/10 border-warning/30 text-text-secondary rounded-lg border px-3.5 py-2.5 text-base">
+        This is the chat before a rewind. It continues in{' '}
+        <button
+          onClick={() =>
+            void useSessionsStore
+              .getState()
+              .openDiskSession(workspacePath, meta)
+              .catch(() => undefined)
+          }
+          className="text-accent hover:text-accent-hover font-medium underline underline-offset-2"
+        >
+          {name}
+        </button>
+        .
       </div>
     </div>
   )

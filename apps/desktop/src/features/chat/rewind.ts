@@ -1,7 +1,7 @@
 import type { ImageContent } from '@shared/rpc'
 import { sessionBranch } from '@shared/session-branch'
 import { useChatStore } from '@/stores/chat'
-import { bootstrapSession } from '@/stores/sessions'
+import { bootstrapSession, useSessionsStore } from '@/stores/sessions'
 import { piCall, rehydrateTranscript } from '@/lib/rpc'
 import type { ChatItem, UserItem } from './chatItems'
 import { userMessageImages, userMessageText } from './messageContent'
@@ -29,12 +29,18 @@ import { useChatUiStore } from './uiState'
  *
  * `entryId` must come from `currentBranchUserMessages`, never from a
  * position in some other list — see that function for what went wrong.
+ *
+ * The abandoned file is then recorded as replaced (`features/sessions/rewound.ts`),
+ * so the sidebar folds it under the new one instead of showing two rows with
+ * one title. This is the ONLY place that records: Fork and Clone produce files
+ * of exactly the same shape, and both of theirs must stay visible.
  */
 export async function rewindToEntry(
   sessionId: string,
   entryId: string,
   images?: ImageContent[],
 ): Promise<void> {
+  const before = useSessionsStore.getState().live[sessionId]?.diskPath
   const fork = await piCall(sessionId, { type: 'fork', entryId })
   if (!fork) return
   if (fork.cancelled) {
@@ -43,6 +49,10 @@ export async function rewindToEntry(
   }
   // Rebuild the transcript from the new branch point and relearn its file.
   await Promise.all([rehydrateTranscript(sessionId), bootstrapSession(sessionId)])
+  const after = useSessionsStore.getState().live[sessionId]?.diskPath
+  if (before && after && before !== after) {
+    useSessionsStore.getState().recordRewind(before, after)
+  }
   if (fork.text || images?.length) {
     useChatUiStore.getState().setPrefill(sessionId, fork.text, images)
   }
